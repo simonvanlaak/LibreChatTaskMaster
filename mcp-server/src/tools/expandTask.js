@@ -19,7 +19,7 @@ export function registerExpandTaskTool(server) {
     name: "expandTask",
     description: "Break down a task into detailed subtasks",
     parameters: z.object({
-      id: z.union([z.string(), z.number()]).describe("Task ID to expand"),
+      id: z.string().describe("Task ID to expand"),
       num: z.number().optional().describe("Number of subtasks to generate"),
       research: z
         .boolean()
@@ -38,6 +38,11 @@ export function registerExpandTaskTool(server) {
           "Force regeneration of subtasks for tasks that already have them"
         ),
       file: z.string().optional().describe("Path to the tasks file"),
+      projectRoot: z
+        .string()
+        .describe(
+          "Root directory of the project (default: current working directory)"
+        ),
     }),
     execute: async (args, { log }) => {
       try {
@@ -50,7 +55,14 @@ export function registerExpandTaskTool(server) {
         if (args.force) cmdArgs.push("--force");
         if (args.file) cmdArgs.push(`--file=${args.file}`);
 
-        const result = executeTaskMasterCommand("expand", log, cmdArgs);
+        const projectRoot = args.projectRoot;
+
+        const result = executeTaskMasterCommand(
+          "expand",
+          log,
+          cmdArgs,
+          projectRoot
+        );
 
         if (!result.success) {
           throw new Error(result.error);

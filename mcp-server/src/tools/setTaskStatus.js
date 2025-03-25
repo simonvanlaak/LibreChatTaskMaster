@@ -20,12 +20,17 @@ export function registerSetTaskStatusTool(server) {
     description: "Set the status of a task",
     parameters: z.object({
       id: z
-        .union([z.string(), z.number()])
+        .string()
         .describe("Task ID (can be comma-separated for multiple tasks)"),
       status: z
         .string()
         .describe("New status (todo, in-progress, review, done)"),
       file: z.string().optional().describe("Path to the tasks file"),
+      projectRoot: z
+        .string()
+        .describe(
+          "Root directory of the project (default: current working directory)"
+        ),
     }),
     execute: async (args, { log }) => {
       try {
@@ -34,7 +39,14 @@ export function registerSetTaskStatusTool(server) {
         const cmdArgs = [`--id=${args.id}`, `--status=${args.status}`];
         if (args.file) cmdArgs.push(`--file=${args.file}`);
 
-        const result = executeTaskMasterCommand("set-status", log, cmdArgs);
+        const projectRoot = args.projectRoot;
+
+        const result = executeTaskMasterCommand(
+          "set-status",
+          log,
+          cmdArgs,
+          projectRoot
+        );
 
         if (!result.success) {
           throw new Error(result.error);

@@ -19,17 +19,29 @@ export function registerShowTaskTool(server) {
     name: "showTask",
     description: "Show detailed information about a specific task",
     parameters: z.object({
-      id: z.union([z.string(), z.number()]).describe("Task ID to show"),
+      id: z.string().describe("Task ID to show"),
       file: z.string().optional().describe("Path to the tasks file"),
+      projectRoot: z
+        .string()
+        .describe(
+          "Root directory of the project (default: current working directory)"
+        ),
     }),
     execute: async (args, { log }) => {
       try {
         log.info(`Showing task details for ID: ${args.id}`);
 
-        const cmdArgs = [args.id];
+        const cmdArgs = [`--id=${args.id}`];
         if (args.file) cmdArgs.push(`--file=${args.file}`);
 
-        const result = executeTaskMasterCommand("show", log, cmdArgs);
+        const projectRoot = args.projectRoot;
+
+        const result = executeTaskMasterCommand(
+          "show",
+          log,
+          cmdArgs,
+          projectRoot
+        );
 
         if (!result.success) {
           throw new Error(result.error);

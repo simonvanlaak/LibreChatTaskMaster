@@ -25,6 +25,11 @@ export function registerListTasksTool(server) {
         .optional()
         .describe("Include subtasks in the response"),
       file: z.string().optional().describe("Path to the tasks file"),
+      projectRoot: z
+        .string()
+        .describe(
+          "Root directory of the project (default: current working directory)"
+        ),
     }),
     execute: async (args, { log }) => {
       try {
@@ -35,11 +40,20 @@ export function registerListTasksTool(server) {
         if (args.withSubtasks) cmdArgs.push("--with-subtasks");
         if (args.file) cmdArgs.push(`--file=${args.file}`);
 
-        const result = executeTaskMasterCommand("list", log, cmdArgs);
+        const projectRoot = args.projectRoot;
+
+        const result = executeTaskMasterCommand(
+          "list",
+          log,
+          cmdArgs,
+          projectRoot
+        );
 
         if (!result.success) {
           throw new Error(result.error);
         }
+
+        log.info(`Listing tasks result: ${result.stdout}`, result.stdout);
 
         return createContentResponse(result.stdout);
       } catch (error) {
