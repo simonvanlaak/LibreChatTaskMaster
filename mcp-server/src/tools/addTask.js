@@ -29,6 +29,11 @@ export function registerAddTaskTool(server) {
         .optional()
         .describe("Task priority (high, medium, low)"),
       file: z.string().optional().describe("Path to the tasks file"),
+      projectRoot: z
+        .string()
+        .describe(
+          "Root directory of the project (default: current working directory)"
+        ),
     }),
     execute: async (args, { log }) => {
       try {
@@ -40,7 +45,12 @@ export function registerAddTaskTool(server) {
         if (args.priority) cmdArgs.push(`--priority=${args.priority}`);
         if (args.file) cmdArgs.push(`--file=${args.file}`);
 
-        const result = executeTaskMasterCommand("add-task", log, cmdArgs);
+        const result = executeTaskMasterCommand(
+          "add-task",
+          log,
+          cmdArgs,
+          projectRoot
+        );
 
         if (!result.success) {
           throw new Error(result.error);
