@@ -760,7 +760,7 @@ async function displayTaskById(tasksPath, taskId) {
     const availableWidth = process.stdout.columns - 10 || 100; // Default to 100 if can't detect
     
     // Define percentage-based column widths
-    const idWidthPct = 8;
+    const idWidthPct = 10;
     const statusWidthPct = 15;
     const depsWidthPct = 25;
     const titleWidthPct = 100 - idWidthPct - statusWidthPct - depsWidthPct;

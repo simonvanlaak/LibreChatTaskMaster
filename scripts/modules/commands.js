@@ -47,6 +47,14 @@ import {
  * @param {Object} program - Commander program instance
  */
 function registerCommands(programInstance) {
+  // Add global error handler for unknown options
+  programInstance.on('option:unknown', function(unknownOption) {
+    const commandName = this._name || 'unknown';
+    console.error(chalk.red(`Error: Unknown option '${unknownOption}'`));
+    console.error(chalk.yellow(`Run 'task-master ${commandName} --help' to see available options`));
+    process.exit(1);
+  });
+  
   // Default help
   programInstance.on('--help', function() {
     displayHelp();
@@ -524,15 +532,16 @@ function registerCommands(programInstance) {
     .option('--details <text>', 'Implementation details for the new subtask')
     .option('--dependencies <ids>', 'Comma-separated list of dependency IDs for the new subtask')
     .option('-s, --status <status>', 'Status for the new subtask', 'pending')
-    .option('--no-generate', 'Skip regenerating task files')
+    .option('--skip-generate', 'Skip regenerating task files')
     .action(async (options) => {
       const tasksPath = options.file;
       const parentId = options.parent;
       const existingTaskId = options.taskId;
-      const generateFiles = options.generate;
+      const generateFiles = !options.skipGenerate;
       
       if (!parentId) {
         console.error(chalk.red('Error: --parent parameter is required. Please provide a parent task ID.'));
+        showAddSubtaskHelp();
         process.exit(1);
       }
       
@@ -594,7 +603,35 @@ function registerCommands(programInstance) {
         console.error(chalk.red(`Error: ${error.message}`));
         process.exit(1);
       }
+    })
+    .on('error', function(err) {
+      console.error(chalk.red(`Error: ${err.message}`));
+      showAddSubtaskHelp();
+      process.exit(1);
     });
+
+  // Helper function to show add-subtask command help
+  function showAddSubtaskHelp() {
+    console.log(boxen(
+      chalk.white.bold('Add Subtask Command Help') + '\n\n' +
+      chalk.cyan('Usage:') + '\n' +
+      `  task-master add-subtask --parent=<id> [options]\n\n` +
+      chalk.cyan('Options:') + '\n' +
+      '  -p, --parent <id>         Parent task ID (required)\n' +
+      '  -i, --task-id <id>        Existing task ID to convert to subtask\n' +
+      '  -t, --title <title>       Title for the new subtask\n' +
+      '  -d, --description <text>  Description for the new subtask\n' +
+      '  --details <text>          Implementation details for the new subtask\n' +
+      '  --dependencies <ids>      Comma-separated list of dependency IDs\n' +
+      '  -s, --status <status>     Status for the new subtask (default: "pending")\n' +
+      '  -f, --file <file>         Path to the tasks file (default: "tasks/tasks.json")\n' +
+      '  --skip-generate           Skip regenerating task files\n\n' +
+      chalk.cyan('Examples:') + '\n' +
+      '  task-master add-subtask --parent=5 --task-id=8\n' +
+      '  task-master add-subtask -p 5 -t "Implement login UI" -d "Create the login form"',
+      { padding: 1, borderColor: 'blue', borderStyle: 'round' }
+    ));
+  }
 
   // remove-subtask command
   programInstance
@@ -603,15 +640,16 @@ function registerCommands(programInstance) {
     .option('-f, --file <file>', 'Path to the tasks file', 'tasks/tasks.json')
     .option('-i, --id <id>', 'Subtask ID to remove in format "parentId.subtaskId" (required)')
     .option('-c, --convert', 'Convert the subtask to a standalone task instead of deleting it')
-    .option('--no-generate', 'Skip regenerating task files')
+    .option('--skip-generate', 'Skip regenerating task files')
     .action(async (options) => {
       const tasksPath = options.file;
       const subtaskId = options.id;
       const convertToTask = options.convert || false;
-      const generateFiles = options.generate;
+      const generateFiles = !options.skipGenerate;
       
       if (!subtaskId) {
         console.error(chalk.red('Error: --id parameter is required. Please provide a subtask ID in format "parentId.subtaskId".'));
+        showRemoveSubtaskHelp();
         process.exit(1);
       }
       
@@ -645,10 +683,34 @@ function registerCommands(programInstance) {
         }
       } catch (error) {
         console.error(chalk.red(`Error: ${error.message}`));
+        showRemoveSubtaskHelp();
         process.exit(1);
       }
+    })
+    .on('error', function(err) {
+      console.error(chalk.red(`Error: ${err.message}`));
+      showRemoveSubtaskHelp();
+      process.exit(1);
     });
     
+  // Helper function to show remove-subtask command help
+  function showRemoveSubtaskHelp() {
+    console.log(boxen(
+      chalk.white.bold('Remove Subtask Command Help') + '\n\n' +
+      chalk.cyan('Usage:') + '\n' +
+      `  task-master remove-subtask --id=<parentId.subtaskId> [options]\n\n` +
+      chalk.cyan('Options:') + '\n' +
+      '  -i, --id <id>       Subtask ID to remove in format "parentId.subtaskId" (required)\n' +
+      '  -c, --convert       Convert the subtask to a standalone task instead of deleting it\n' +
+      '  -f, --file <file>   Path to the tasks file (default: "tasks/tasks.json")\n' +
+      '  --skip-generate     Skip regenerating task files\n\n' +
+      chalk.cyan('Examples:') + '\n' +
+      '  task-master remove-subtask --id=5.2\n' +
+      '  task-master remove-subtask --id=5.2 --convert',
+      { padding: 1, borderColor: 'blue', borderStyle: 'round' }
+    ));
+  }
+
   // init command (documentation only, implementation is in init.js)
   programInstance
     .command('init')
