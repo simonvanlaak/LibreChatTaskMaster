@@ -10,14 +10,17 @@ const mockLog = jest.fn();
 
 // Mock dependencies
 jest.mock('@anthropic-ai/sdk', () => {
+  const mockCreate = jest.fn().mockResolvedValue({
+    content: [{ text: 'AI response' }],
+  });
+  const mockAnthropicInstance = {
+    messages: {
+      create: mockCreate
+    }
+  };
+  const mockAnthropicConstructor = jest.fn().mockImplementation(() => mockAnthropicInstance);
   return {
-    Anthropic: jest.fn().mockImplementation(() => ({
-      messages: {
-        create: jest.fn().mockResolvedValue({
-          content: [{ text: 'AI response' }],
-        }),
-      },
-    })),
+    Anthropic: mockAnthropicConstructor
   };
 });
 
@@ -67,6 +70,9 @@ global.anthropic = {
 
 // Mock process.env
 const originalEnv = process.env;
+
+// Import Anthropic for testing constructor arguments
+import { Anthropic } from '@anthropic-ai/sdk';
 
 describe('AI Services Module', () => {
   beforeEach(() => {
@@ -283,6 +289,104 @@ These subtasks will help you implement the parent task efficiently.`;
         dependencies: [],
         parentTaskId: 5
       });
+    });
+  });
+
+  describe('handleClaudeError function', () => {
+    // Import the function directly for testing
+    let handleClaudeError;
+    
+    beforeAll(async () => {
+      // Dynamic import to get the actual function
+      const module = await import('../../scripts/modules/ai-services.js');
+      handleClaudeError = module.handleClaudeError;
+    });
+
+    test('should handle overloaded_error type', () => {
+      const error = {
+        type: 'error',
+        error: {
+          type: 'overloaded_error',
+          message: 'Claude is experiencing high volume'
+        }
+      };
+      
+      const result = handleClaudeError(error);
+      
+      expect(result).toContain('Claude is currently experiencing high demand');
+      expect(result).toContain('overloaded');
+    });
+
+    test('should handle rate_limit_error type', () => {
+      const error = {
+        type: 'error',
+        error: {
+          type: 'rate_limit_error',
+          message: 'Rate limit exceeded'
+        }
+      };
+      
+      const result = handleClaudeError(error);
+      
+      expect(result).toContain('exceeded the rate limit');
+    });
+
+    test('should handle invalid_request_error type', () => {
+      const error = {
+        type: 'error',
+        error: {
+          type: 'invalid_request_error',
+          message: 'Invalid request parameters'
+        }
+      };
+      
+      const result = handleClaudeError(error);
+      
+      expect(result).toContain('issue with the request format');
+    });
+
+    test('should handle timeout errors', () => {
+      const error = {
+        message: 'Request timed out after 60000ms'
+      };
+      
+      const result = handleClaudeError(error);
+      
+      expect(result).toContain('timed out');
+    });
+
+    test('should handle network errors', () => {
+      const error = {
+        message: 'Network error occurred'
+      };
+      
+      const result = handleClaudeError(error);
+      
+      expect(result).toContain('network error');
+    });
+
+    test('should handle generic errors', () => {
+      const error = {
+        message: 'Something unexpected happened'
+      };
+      
+      const result = handleClaudeError(error);
+      
+      expect(result).toContain('Error communicating with Claude');
+      expect(result).toContain('Something unexpected happened');
+    });
+  });
+
+  describe('Anthropic client configuration', () => {
+    test('should include output-128k beta header in client configuration', async () => {
+      // Read the file content to verify the change is present
+      const fs = await import('fs');
+      const path = await import('path');
+      const filePath = path.resolve('./scripts/modules/ai-services.js');
+      const fileContent = fs.readFileSync(filePath, 'utf8');
+      
+      // Check if the beta header is in the file
+      expect(fileContent).toContain("'anthropic-beta': 'output-128k-2025-02-19'");
     });
   });
 }); 

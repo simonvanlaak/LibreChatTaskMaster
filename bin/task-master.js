@@ -12,6 +12,7 @@ import { spawn } from 'child_process';
 import { Command } from 'commander';
 import { displayHelp, displayBanner } from '../scripts/modules/ui.js';
 import { registerCommands } from '../scripts/modules/commands.js';
+import { detectCamelCaseFlags } from '../scripts/modules/utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -53,6 +54,9 @@ function runDevScript(args) {
   });
 }
 
+// Helper function to detect camelCase and convert to kebab-case
+const toKebabCase = (str) => str.replace(/([A-Z])/g, '-$1').toLowerCase();
+
 /**
  * Create a wrapper action that passes the command to dev.js
  * @param {string} commandName - The name of the command
@@ -60,21 +64,8 @@ function runDevScript(args) {
  */
 function createDevScriptAction(commandName) {
   return (options, cmd) => {
-    // Helper function to detect camelCase and convert to kebab-case
-    const toKebabCase = (str) => str.replace(/([A-Z])/g, '-$1').toLowerCase();
-    
     // Check for camelCase flags and error out with helpful message
-    const camelCaseFlags = [];
-    for (const arg of process.argv) {
-      if (arg.startsWith('--') && /[A-Z]/.test(arg)) {
-        const flagName = arg.split('=')[0].slice(2); // Remove -- and anything after =
-        const kebabVersion = toKebabCase(flagName);
-        camelCaseFlags.push({ 
-          original: flagName, 
-          kebabCase: kebabVersion 
-        });
-      }
-    }
+    const camelCaseFlags = detectCamelCaseFlags(process.argv);
     
     // If camelCase flags were found, show error and exit
     if (camelCaseFlags.length > 0) {
@@ -306,4 +297,11 @@ if (process.argv.length <= 2) {
   displayBanner();
   displayHelp();
   process.exit(0);
+}
+
+// Add exports at the end of the file
+if (typeof module !== 'undefined') {
+  module.exports = {
+    detectCamelCaseFlags
+  };
 } 

@@ -3,11 +3,14 @@
  * AI service interactions for the Task Master CLI
  */
 
+// NOTE/TODO: Include the beta header output-128k-2025-02-19 in your API request to increase the maximum output token length to 128k tokens for Claude 3.7 Sonnet.
+
 import { Anthropic } from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 import { CONFIG, log, sanitizePrompt } from './utils.js';
 import { startLoadingIndicator, stopLoadingIndicator } from './ui.js';
+import chalk from 'chalk';
 
 // Load environment variables
 dotenv.config();
@@ -15,6 +18,10 @@ dotenv.config();
 // Configure Anthropic client
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
+  // Add beta header for 128k token output
+  defaultHeaders: {
+    'anthropic-beta': 'output-128k-2025-02-19'
+  }
 });
 
 // Lazy-loaded Perplexity client
@@ -35,6 +42,38 @@ function getPerplexityClient() {
     });
   }
   return perplexity;
+}
+
+/**
+ * Handle Claude API errors with user-friendly messages
+ * @param {Error} error - The error from Claude API
+ * @returns {string} User-friendly error message
+ */
+function handleClaudeError(error) {
+  // Check if it's a structured error response
+  if (error.type === 'error' && error.error) {
+    switch (error.error.type) {
+      case 'overloaded_error':
+        return 'Claude is currently experiencing high demand and is overloaded. Please wait a few minutes and try again.';
+      case 'rate_limit_error':
+        return 'You have exceeded the rate limit. Please wait a few minutes before making more requests.';
+      case 'invalid_request_error':
+        return 'There was an issue with the request format. If this persists, please report it as a bug.';
+      default:
+        return `Claude API error: ${error.error.message}`;
+    }
+  }
+  
+  // Check for network/timeout errors
+  if (error.message?.toLowerCase().includes('timeout')) {
+    return 'The request to Claude timed out. Please try again.';
+  }
+  if (error.message?.toLowerCase().includes('network')) {
+    return 'There was a network error connecting to Claude. Please check your internet connection and try again.';
+  }
+  
+  // Default error message
+  return `Error communicating with Claude: ${error.message}`;
 }
 
 /**
@@ -99,14 +138,27 @@ Important: Your response must be valid JSON only, with no additional explanation
     // Use streaming request to handle large responses and show progress
     return await handleStreamingRequest(prdContent, prdPath, numTasks, CONFIG.maxTokens, systemPrompt);
   } catch (error) {
-    log('error', 'Error calling Claude:', error.message);
+    // Get user-friendly error message
+    const userMessage = handleClaudeError(error);
+    log('error', userMessage);
 
-    // Retry logic
-    if (retryCount < 2) {
-      log('info', `Retrying (${retryCount + 1}/2)...`);
+    // Retry logic for certain errors
+    if (retryCount < 2 && (
+      error.error?.type === 'overloaded_error' || 
+      error.error?.type === 'rate_limit_error' ||
+      error.message?.toLowerCase().includes('timeout') ||
+      error.message?.toLowerCase().includes('network')
+    )) {
+      const waitTime = (retryCount + 1) * 5000; // 5s, then 10s
+      log('info', `Waiting ${waitTime/1000} seconds before retry ${retryCount + 1}/2...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
       return await callClaude(prdContent, prdPath, numTasks, retryCount + 1);
     } else {
-      throw error;
+      console.error(chalk.red(userMessage));
+      if (CONFIG.debug) {
+        log('debug', 'Full error:', error);
+      }
+      throw new Error(userMessage);
     }
   }
 }
@@ -166,7 +218,17 @@ async function handleStreamingRequest(prdContent, prdPath, numTasks, maxTokens, 
   } catch (error) {
     if (streamingInterval) clearInterval(streamingInterval);
     stopLoadingIndicator(loadingIndicator);
-    throw error;
+    
+    // Get user-friendly error message
+    const userMessage = handleClaudeError(error);
+    log('error', userMessage);
+    console.error(chalk.red(userMessage));
+    
+    if (CONFIG.debug) {
+      log('debug', 'Full error:', error);
+    }
+    
+    throw new Error(userMessage);
   }
 }
 
@@ -613,5 +675,6 @@ export {
   generateSubtasks,
   generateSubtasksWithPerplexity,
   parseSubtasksFromText,
-  generateComplexityAnalysisPrompt
+  generateComplexityAnalysisPrompt,
+  handleClaudeError
 }; 

@@ -835,14 +835,33 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false) {
     }
     
     // COMPLETELY REVISED TABLE APPROACH
-    // Define fixed column widths based on terminal size
-    const idWidth = 10;
-    const statusWidth = 20;
-    const priorityWidth = 10;
-    const depsWidth = 25;
+    // Define percentage-based column widths and calculate actual widths
+    // Adjust percentages based on content type and user requirements
+
+    // Adjust ID width if showing subtasks (subtask IDs are longer: e.g., "1.2")
+    const idWidthPct = withSubtasks ? 10 : 7;
     
-    // Calculate title width from available space
-    const titleWidth = terminalWidth - idWidth - statusWidth - priorityWidth - depsWidth - 10; // 10 for borders and padding
+    // Calculate max status length to accommodate "in-progress"
+    const statusWidthPct = 15;
+    
+    // Increase priority column width as requested
+    const priorityWidthPct = 12;
+    
+    // Make dependencies column smaller as requested (-20%)
+    const depsWidthPct = 20;
+    
+    // Calculate title/description width as remaining space (+20% from dependencies reduction)
+    const titleWidthPct = 100 - idWidthPct - statusWidthPct - priorityWidthPct - depsWidthPct;
+    
+    // Allow 10 characters for borders and padding
+    const availableWidth = terminalWidth - 10;
+    
+    // Calculate actual column widths based on percentages
+    const idWidth = Math.floor(availableWidth * (idWidthPct / 100));
+    const statusWidth = Math.floor(availableWidth * (statusWidthPct / 100));
+    const priorityWidth = Math.floor(availableWidth * (priorityWidthPct / 100));
+    const depsWidth = Math.floor(availableWidth * (depsWidthPct / 100));
+    const titleWidth = Math.floor(availableWidth * (titleWidthPct / 100));
     
     // Create a table with correct borders and spacing
     const table = new Table({

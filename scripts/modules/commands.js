@@ -62,9 +62,21 @@ function registerCommands(programInstance) {
     .action(async (file, options) => {
       // Use input option if file argument not provided
       const inputFile = file || options.input;
+      const defaultPrdPath = 'scripts/prd.txt';
       
+      // If no input file specified, check for default PRD location
       if (!inputFile) {
-        console.log(chalk.yellow('No PRD file specified.'));
+        if (fs.existsSync(defaultPrdPath)) {
+          console.log(chalk.blue(`Using default PRD file: ${defaultPrdPath}`));
+          const numTasks = parseInt(options.numTasks, 10);
+          const outputPath = options.output;
+          
+          console.log(chalk.blue(`Generating ${numTasks} tasks...`));
+          await parsePRD(defaultPrdPath, outputPath, numTasks);
+          return;
+        }
+        
+        console.log(chalk.yellow('No PRD file specified and default PRD file not found at scripts/prd.txt.'));
         console.log(boxen(
           chalk.white.bold('Parse PRD Help') + '\n\n' +
           chalk.cyan('Usage:') + '\n' +
@@ -76,7 +88,10 @@ function registerCommands(programInstance) {
           chalk.cyan('Example:') + '\n' +
           '  task-master parse-prd requirements.txt --num-tasks 15\n' +
           '  task-master parse-prd --input=requirements.txt\n\n' +
-          chalk.yellow('Note: This command will generate tasks from a PRD document and will overwrite any existing tasks.json file.'),
+          chalk.yellow('Note: This command will:') + '\n' +
+          '  1. Look for a PRD file at scripts/prd.txt by default\n' +
+          '  2. Use the file specified by --input or positional argument if provided\n' +
+          '  3. Generate tasks from the PRD and overwrite any existing tasks.json file',
           { padding: 1, borderColor: 'blue', borderStyle: 'round' }
         ));
         return;
@@ -545,6 +560,29 @@ function registerCommands(programInstance) {
         console.error(chalk.red(`Error: ${error.message}`));
         process.exit(1);
       }
+    });
+    
+  // init command (documentation only, implementation is in init.js)
+  programInstance
+    .command('init')
+    .description('Initialize a new project with Task Master structure')
+    .option('-n, --name <name>', 'Project name')
+    .option('-my_name <name>', 'Project name (alias for --name)')
+    .option('--my_name <name>', 'Project name (alias for --name)')
+    .option('-d, --description <description>', 'Project description')
+    .option('-my_description <description>', 'Project description (alias for --description)')
+    .option('-v, --version <version>', 'Project version')
+    .option('-my_version <version>', 'Project version (alias for --version)')
+    .option('-a, --author <author>', 'Author name')
+    .option('-y, --yes', 'Skip prompts and use default values')
+    .option('--skip-install', 'Skip installing dependencies')
+    .action(() => {
+      console.log(chalk.yellow('The init command must be run as a standalone command: task-master init'));
+      console.log(chalk.cyan('Example usage:'));
+      console.log(chalk.white('  task-master init -n "My Project" -d "Project description"'));
+      console.log(chalk.white('  task-master init -my_name "My Project" -my_description "Project description"'));
+      console.log(chalk.white('  task-master init -y'));
+      process.exit(0);
     });
     
   // Add more commands as needed...

@@ -360,6 +360,43 @@ When testing ES modules (`"type": "module"` in package.json), traditional mockin
 - ❌ **DON'T**: Write tests that depend on execution order
 - ❌ **DON'T**: Define mock variables before `jest.mock()` calls (they won't be accessible due to hoisting)
 
+
+- **Task File Operations**
+  - ✅ DO: Use test-specific file paths (e.g., 'test-tasks.json') for all operations
+  - ✅ DO: Mock `readJSON` and `writeJSON` to avoid real file system interactions
+  - ✅ DO: Verify file operations use the correct paths in `expect` statements
+  - ✅ DO: Use different paths for each test to avoid test interdependence
+  - ✅ DO: Verify modifications on the in-memory task objects passed to `writeJSON`
+  - ❌ DON'T: Modify real task files (tasks.json) during tests
+  - ❌ DON'T: Skip testing file operations because they're "just I/O"
+  
+  ```javascript
+  // ✅ DO: Test file operations without real file system changes
+  test('should update task status in tasks.json', async () => {
+    // Setup mock to return sample data
+    readJSON.mockResolvedValue(JSON.parse(JSON.stringify(sampleTasks)));
+    
+    // Use test-specific file path
+    await setTaskStatus('test-tasks.json', '2', 'done');
+    
+    // Verify correct file path was read
+    expect(readJSON).toHaveBeenCalledWith('test-tasks.json');
+    
+    // Verify correct file path was written with updated content
+    expect(writeJSON).toHaveBeenCalledWith(
+      'test-tasks.json',
+      expect.objectContaining({
+        tasks: expect.arrayContaining([
+          expect.objectContaining({
+            id: 2,
+            status: 'done'
+          })
+        ])
+      })
+    );
+  });
+  ```
+
 ## Running Tests
 
 ```bash
@@ -395,6 +432,230 @@ npm test -- -t "pattern to match"
   - Isolate tests by properly mocking shared resources
   - Reset state in `beforeEach` and `afterEach` hooks
   - Avoid global state modifications
+
+## Common Testing Pitfalls and Solutions
+
+- **Complex Library Mocking**
+  - **Problem**: Trying to create full mocks of complex libraries like Commander.js can be error-prone
+  - **Solution**: Instead of mocking the entire library, test the command handlers directly by calling your action handlers with the expected arguments
+  ```javascript
+  // ❌ DON'T: Create complex mocks of Commander.js
+  class MockCommand {
+    constructor() { /* Complex mock implementation */ }
+    option() { /* ... */ }
+    action() { /* ... */ }
+    // Many methods to implement
+  }
+  
+  // ✅ DO: Test the command handlers directly
+  test('should use default PRD path when no arguments provided', async () => {
+    // Call the action handler directly with the right params
+    await parsePrdAction(undefined, { numTasks: '10', output: 'tasks/tasks.json' });
+    
+    // Assert on behavior
+    expect(mockParsePRD).toHaveBeenCalledWith('scripts/prd.txt', 'tasks/tasks.json', 10);
+  });
+  ```
+
+- **ES Module Mocking Challenges**
+  - **Problem**: ES modules don't support `require()` and imports are read-only
+  - **Solution**: Use Jest's module factory pattern and ensure mocks are defined before imports
+  ```javascript
+  // ❌ DON'T: Try to modify imported modules
+  import { detectCamelCaseFlags } from '../../scripts/modules/utils.js';
+  detectCamelCaseFlags = jest.fn(); // Error: Assignment to constant variable
+  
+  // ❌ DON'T: Try to use require with ES modules
+  const utils = require('../../scripts/modules/utils.js'); // Error in ES modules
+  
+  // ✅ DO: Use Jest module factory pattern
+  jest.mock('../../scripts/modules/utils.js', () => ({
+    detectCamelCaseFlags: jest.fn(),
+    toKebabCase: jest.fn()
+  }));
+  
+  // Import after mocks are defined
+  import { detectCamelCaseFlags } from '../../scripts/modules/utils.js';
+  ```
+
+- **Function Redeclaration Errors**
+  - **Problem**: Declaring the same function twice in a test file causes errors
+  - **Solution**: Use different function names or create local test-specific implementations
+  ```javascript
+  // ❌ DON'T: Redefine imported functions with the same name
+  import { detectCamelCaseFlags } from '../../scripts/modules/utils.js';
+  
+  function detectCamelCaseFlags() { /* Test implementation */ }
+  // Error: Identifier has already been declared
+  
+  // ✅ DO: Use a different name for test implementations
+  function testDetectCamelCaseFlags() { /* Test implementation */ }
+  ```
+
+- **Console.log Circular References**
+  - **Problem**: Creating infinite recursion by spying on console.log while also allowing it to log
+  - **Solution**: Implement a mock that doesn't call the original function
+  ```javascript
+  // ❌ DON'T: Create circular references with console.log
+  const mockConsoleLog = jest.spyOn(console, 'log');
+  mockConsoleLog.mockImplementation(console.log); // Creates infinite recursion
+  
+  // ✅ DO: Use a non-recursive mock implementation
+  const mockConsoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
+  ```
+
+- **Mock Function Method Issues**
+  - **Problem**: Trying to use jest.fn() methods on imported functions that aren't properly mocked
+  - **Solution**: Create explicit jest.fn() mocks for functions you need to call jest methods on
+  ```javascript
+  // ❌ DON'T: Try to use jest methods on imported functions without proper mocking
+  import { parsePRD } from '../../scripts/modules/task-manager.js';
+  parsePRD.mockClear(); // Error: parsePRD.mockClear is not a function
+  
+  // ✅ DO: Create proper jest.fn() mocks
+  const mockParsePRD = jest.fn().mockResolvedValue(undefined);
+  jest.mock('../../scripts/modules/task-manager.js', () => ({
+    parsePRD: mockParsePRD
+  }));
+  // Now you can use:
+  mockParsePRD.mockClear();
+  ```
+
+- **EventEmitter Max Listeners Warning**
+  - **Problem**: Commander.js adds many listeners in complex mocks, causing warnings
+  - **Solution**: Either increase the max listeners limit or avoid deep mocking
+  ```javascript
+  // Option 1: Increase max listeners if you must mock Commander
+  class MockCommand extends EventEmitter {
+    constructor() {
+      super();
+      this.setMaxListeners(20); // Avoid MaxListenersExceededWarning
+    }
+  }
+  
+  // Option 2 (preferred): Test command handlers directly instead
+  // (as shown in the first example)
+  ```
+
+- **Test Isolation Issues**
+  - **Problem**: Tests affecting each other due to shared mock state
+  - **Solution**: Reset all mocks in beforeEach and use separate test-specific mocks
+  ```javascript
+  // ❌ DON'T: Allow mock state to persist between tests
+  const globalMock = jest.fn().mockReturnValue('test');
+  
+  // ✅ DO: Clear mocks before each test
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Set up test-specific mock behavior
+    mockFunction.mockReturnValue('test-specific value');
+  });
+  ```
+
+## Reliable Testing Techniques
+
+- **Create Simplified Test Functions**
+  - Create simplified versions of complex functions that focus only on core logic
+  - Remove file system operations, API calls, and other external dependencies
+  - Pass all dependencies as parameters to make testing easier
+  
+  ```javascript
+  // Original function (hard to test)
+  const setTaskStatus = async (taskId, newStatus) => {
+    const tasksPath = 'tasks/tasks.json';
+    const data = await readJSON(tasksPath);
+    // Update task status logic
+    await writeJSON(tasksPath, data);
+    return data;
+  };
+  
+  // Test-friendly simplified function (easy to test)
+  const testSetTaskStatus = (tasksData, taskIdInput, newStatus) => {
+    // Same core logic without file operations
+    // Update task status logic on provided tasksData object
+    return tasksData; // Return updated data for assertions
+  };
+  ```
+
+- **Avoid Real File System Operations**
+  - Never write to real files during tests
+  - Create test-specific versions of file operation functions
+  - Mock all file system operations including read, write, exists, etc.
+  - Verify function behavior using the in-memory data structures
+  
+  ```javascript
+  // Mock file operations
+  const mockReadJSON = jest.fn();
+  const mockWriteJSON = jest.fn();
+  
+  jest.mock('../../scripts/modules/utils.js', () => ({
+    readJSON: mockReadJSON,
+    writeJSON: mockWriteJSON,
+  }));
+  
+  test('should update task status correctly', () => {
+    // Setup mock data
+    const testData = JSON.parse(JSON.stringify(sampleTasks));
+    mockReadJSON.mockReturnValue(testData);
+    
+    // Call the function that would normally modify files
+    const result = testSetTaskStatus(testData, '1', 'done');
+    
+    // Assert on the in-memory data structure
+    expect(result.tasks[0].status).toBe('done');
+  });
+  ```
+
+- **Data Isolation Between Tests**
+  - Always create fresh copies of test data for each test
+  - Use `JSON.parse(JSON.stringify(original))` for deep cloning
+  - Reset all mocks before each test with `jest.clearAllMocks()`
+  - Avoid state that persists between tests
+  
+  ```javascript
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Deep clone the test data
+    testTasksData = JSON.parse(JSON.stringify(sampleTasks));
+  });
+  ```
+
+- **Test All Path Variations**
+  - Regular tasks and subtasks
+  - Single items and multiple items
+  - Success paths and error paths
+  - Edge cases (empty data, invalid inputs, etc.)
+  
+  ```javascript
+  // Multiple test cases covering different scenarios
+  test('should update regular task status', () => {
+    /* test implementation */
+  });
+  
+  test('should update subtask status', () => {
+    /* test implementation */
+  });
+  
+  test('should update multiple tasks when given comma-separated IDs', () => {
+    /* test implementation */
+  });
+  
+  test('should throw error for non-existent task ID', () => {
+    /* test implementation */
+  });
+  ```
+
+- **Stabilize Tests With Predictable Input/Output**
+  - Use consistent, predictable test fixtures
+  - Avoid random values or time-dependent data
+  - Make tests deterministic for reliable CI/CD
+  - Control all variables that might affect test outcomes
+  
+  ```javascript
+  // Use a specific known date instead of current date
+  const fixedDate = new Date('2023-01-01T12:00:00Z');
+  jest.spyOn(global, 'Date').mockImplementation(() => fixedDate);
+  ```
 
 See [tests/README.md](mdc:tests/README.md) for more details on the testing approach.
 

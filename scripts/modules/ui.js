@@ -510,6 +510,21 @@ async function displayNextTask(tasksPath) {
       { padding: { top: 0, bottom: 0, left: 1, right: 1 }, margin: { top: 1, bottom: 0 }, borderColor: 'magenta', borderStyle: 'round' }
     ));
     
+    // Calculate available width for the subtask table
+    const availableWidth = process.stdout.columns - 10 || 100; // Default to 100 if can't detect
+    
+    // Define percentage-based column widths
+    const idWidthPct = 8;
+    const statusWidthPct = 15;
+    const depsWidthPct = 25;
+    const titleWidthPct = 100 - idWidthPct - statusWidthPct - depsWidthPct;
+    
+    // Calculate actual column widths
+    const idWidth = Math.floor(availableWidth * (idWidthPct / 100));
+    const statusWidth = Math.floor(availableWidth * (statusWidthPct / 100));
+    const depsWidth = Math.floor(availableWidth * (depsWidthPct / 100));
+    const titleWidth = Math.floor(availableWidth * (titleWidthPct / 100));
+    
     // Create a table for subtasks with improved handling
     const subtaskTable = new Table({
       head: [
@@ -518,7 +533,7 @@ async function displayNextTask(tasksPath) {
         chalk.magenta.bold('Title'),
         chalk.magenta.bold('Deps')
       ],
-      colWidths: [6, 12, Math.min(50, process.stdout.columns - 65 || 30), 30],
+      colWidths: [idWidth, statusWidth, titleWidth, depsWidth],
       style: {
         head: [],
         border: [],
@@ -741,6 +756,21 @@ async function displayTaskById(tasksPath, taskId) {
       { padding: { top: 0, bottom: 0, left: 1, right: 1 }, margin: { top: 1, bottom: 0 }, borderColor: 'magenta', borderStyle: 'round' }
     ));
     
+    // Calculate available width for the subtask table
+    const availableWidth = process.stdout.columns - 10 || 100; // Default to 100 if can't detect
+    
+    // Define percentage-based column widths
+    const idWidthPct = 8;
+    const statusWidthPct = 15;
+    const depsWidthPct = 25;
+    const titleWidthPct = 100 - idWidthPct - statusWidthPct - depsWidthPct;
+    
+    // Calculate actual column widths
+    const idWidth = Math.floor(availableWidth * (idWidthPct / 100));
+    const statusWidth = Math.floor(availableWidth * (statusWidthPct / 100));
+    const depsWidth = Math.floor(availableWidth * (depsWidthPct / 100));
+    const titleWidth = Math.floor(availableWidth * (titleWidthPct / 100));
+    
     // Create a table for subtasks with improved handling
     const subtaskTable = new Table({
       head: [
@@ -749,7 +779,7 @@ async function displayTaskById(tasksPath, taskId) {
         chalk.magenta.bold('Title'),
         chalk.magenta.bold('Deps')
       ],
-      colWidths: [6, 12, Math.min(50, process.stdout.columns - 65 || 30), 30],
+      colWidths: [idWidth, statusWidth, titleWidth, depsWidth],
       style: {
         head: [],
         border: [],
@@ -945,7 +975,7 @@ async function displayComplexityReport(reportPath) {
   const terminalWidth = process.stdout.columns || 100; // Default to 100 if can't detect
 
   // Calculate dynamic column widths
-  const idWidth = 5;
+  const idWidth = 12;
   const titleWidth = Math.floor(terminalWidth * 0.25); // 25% of width
   const scoreWidth = 8;
   const subtasksWidth = 8;
