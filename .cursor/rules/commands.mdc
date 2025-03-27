@@ -52,6 +52,28 @@ alwaysApply: false
 
   > **Note**: Although options are defined with kebab-case (`--num-tasks`), Commander.js stores them internally as camelCase properties. Access them in code as `options.numTasks`, not `options['num-tasks']`.
 
+- **Boolean Flag Conventions**:
+  - ✅ DO: Use positive flags with `--skip-` prefix for disabling behavior
+  - ❌ DON'T: Use negated boolean flags with `--no-` prefix
+  - ✅ DO: Use consistent flag handling across all commands
+
+  ```javascript
+  // ✅ DO: Use positive flag with skip- prefix 
+  .option('--skip-generate', 'Skip generating task files')
+  
+  // ❌ DON'T: Use --no- prefix 
+  .option('--no-generate', 'Skip generating task files')
+  ```
+
+  > **Important**: When handling boolean flags in the code, make your intent clear:
+  ```javascript
+  // ✅ DO: Use clear variable naming that matches the flag's intent
+  const generateFiles = !options.skipGenerate;
+  
+  // ❌ DON'T: Use confusing double negatives
+  const dontSkipGenerate = !options.skipGenerate;
+  ```
+
 ## Input Validation
 
 - **Required Parameters**:
@@ -141,6 +163,59 @@ alwaysApply: false
     
     process.exit(1);
   }
+  ```
+
+- **Unknown Options Handling**:
+  - ✅ DO: Provide clear error messages for unknown options
+  - ✅ DO: Show available options when an unknown option is used
+  - ✅ DO: Include command-specific help displays for common errors
+  - ❌ DON'T: Allow unknown options with `.allowUnknownOption()`
+
+  ```javascript
+  // ✅ DO: Register global error handlers for unknown options
+  programInstance.on('option:unknown', function(unknownOption) {
+    const commandName = this._name || 'unknown';
+    console.error(chalk.red(`Error: Unknown option '${unknownOption}'`));
+    console.error(chalk.yellow(`Run 'task-master ${commandName} --help' to see available options`));
+    process.exit(1);
+  });
+  
+  // ✅ DO: Add command-specific help displays
+  function showCommandHelp() {
+    console.log(boxen(
+      chalk.white.bold('Command Help') + '\n\n' +
+      chalk.cyan('Usage:') + '\n' +
+      `  task-master command --option1=<value> [options]\n\n` +
+      chalk.cyan('Options:') + '\n' +
+      '  --option1 <value>    Description of option1 (required)\n' +
+      '  --option2 <value>    Description of option2\n\n' +
+      chalk.cyan('Examples:') + '\n' +
+      '  task-master command --option1=value --option2=value',
+      { padding: 1, borderColor: 'blue', borderStyle: 'round' }
+    ));
+  }
+  ```
+
+- **Global Error Handling**:
+  - ✅ DO: Set up global error handlers for uncaught exceptions
+  - ✅ DO: Detect and format Commander-specific errors
+  - ✅ DO: Provide suitable guidance for fixing common errors
+
+  ```javascript
+  // ✅ DO: Set up global error handlers with helpful messages
+  process.on('uncaughtException', (err) => {
+    // Handle Commander-specific errors
+    if (err.code === 'commander.unknownOption') {
+      const option = err.message.match(/'([^']+)'/)?.[1];
+      console.error(chalk.red(`Error: Unknown option '${option}'`));
+      console.error(chalk.yellow(`Run 'task-master <command> --help' to see available options`));
+      process.exit(1);
+    }
+    
+    // Handle other error types...
+    console.error(chalk.red(`Error: ${err.message}`));
+    process.exit(1);
+  });
   ```
 
 ## Integration with Other Modules

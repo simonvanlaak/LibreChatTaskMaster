@@ -20,39 +20,123 @@ This task involves completing the Model Context Protocol (MCP) server implementa
 The implementation must ensure compatibility with existing MCP clients and follow RESTful API design principles, while supporting concurrent requests and maintaining robust error handling.
 
 # Test Strategy:
-Testing for the updated MCP server functionality should include:
+Testing for the MCP server implementation will follow a comprehensive approach based on our established testing guidelines:
 
-1. Unit tests:
-   - Validate direct function imports for Task Master tools, replacing CLI-based execution.
-   - Test updated authentication and authorization mechanisms.
-   - Verify context management operations (CRUD, metadata, windowing).
-   - Test caching mechanisms for frequently accessed contexts.
-   - Validate proper tool registration with descriptions and parameters.
+## Test Organization
 
-2. Integration tests:
-   - Test the MCP server with FastMCP's stdio transport mode.
-   - Verify end-to-end request/response cycles for each endpoint.
-   - Ensure compatibility with the ModelContextProtocol SDK.
-   - Test the tool registration process in `tools/index.js` for correctness and efficiency.
+1. **Unit Tests** (`tests/unit/mcp-server/`):
+   - Test individual MCP server components in isolation
+   - Mock all external dependencies including FastMCP SDK
+   - Test each tool implementation separately
+   - Verify direct function imports work correctly
+   - Test context management and caching mechanisms
+   - Example files: `context-manager.test.js`, `tool-registration.test.js`, `direct-imports.test.js`
 
-3. Performance tests:
-   - Benchmark response times for context operations with large datasets.
-   - Test caching mechanisms and concurrent request handling.
-   - Measure memory usage and server stability under load.
+2. **Integration Tests** (`tests/integration/mcp-server/`):
+   - Test interactions between MCP server components
+   - Verify proper tool registration with FastMCP
+   - Test context flow between components
+   - Validate error handling across module boundaries
+   - Example files: `server-tool-integration.test.js`, `context-flow.test.js`
 
-4. Security tests:
-   - Validate the robustness of authentication/authorization mechanisms.
-   - Test for vulnerabilities such as injection attacks, CSRF, and unauthorized access.
+3. **End-to-End Tests** (`tests/e2e/mcp-server/`):
+   - Test complete MCP server workflows
+   - Verify server instantiation via different methods (direct, npx, global install)
+   - Test actual stdio communication with mock clients
+   - Example files: `server-startup.e2e.test.js`, `client-communication.e2e.test.js`
 
-5. Deployment tests:
-   - Verify proper server instantiation and operation when installed via `npx` or `npm i -g`.
-   - Test configuration loading from `mcp.json`.
+4. **Test Fixtures** (`tests/fixtures/mcp-server/`):
+   - Sample context data
+   - Mock tool definitions
+   - Sample MCP requests and responses
 
-6. Documentation validation:
-   - Ensure all examples in the documentation are accurate and functional.
-   - Verify manual testing workflows using tools like curl or Postman.
+## Testing Approach
 
-All tests should be automated and integrated into the CI/CD pipeline to ensure consistent quality.
+### Module Mocking Strategy
+```javascript
+// Mock the FastMCP SDK
+jest.mock('@model-context-protocol/sdk', () => ({
+  MCPServer: jest.fn().mockImplementation(() => ({
+    registerTool: jest.fn(),
+    registerResource: jest.fn(),
+    start: jest.fn().mockResolvedValue(undefined),
+    stop: jest.fn().mockResolvedValue(undefined)
+  })),
+  MCPError: jest.fn().mockImplementation(function(message, code) {
+    this.message = message;
+    this.code = code;
+  })
+}));
+
+// Import modules after mocks
+import { MCPServer, MCPError } from '@model-context-protocol/sdk';
+import { initMCPServer } from '../../scripts/mcp-server.js';
+```
+
+### Context Management Testing
+- Test context creation, retrieval, and manipulation
+- Verify caching mechanisms work correctly
+- Test context windowing and metadata handling
+- Validate context persistence across server restarts
+
+### Direct Function Import Testing
+- Verify Task Master functions are imported correctly
+- Test performance improvements compared to CLI execution
+- Validate error handling with direct imports
+
+### Tool Registration Testing
+- Verify tools are registered with proper descriptions and parameters
+- Test decorator-based registration patterns
+- Validate tool execution with different input types
+
+### Error Handling Testing
+- Test all error paths with appropriate MCPError types
+- Verify error propagation to clients
+- Test recovery from various error conditions
+
+### Performance Testing
+- Benchmark response times with and without caching
+- Test memory usage under load
+- Verify concurrent request handling
+
+## Test Quality Guidelines
+
+- Follow TDD approach when possible
+- Maintain test independence and isolation
+- Use descriptive test names explaining expected behavior
+- Aim for 80%+ code coverage, with critical paths at 100%
+- Follow the mock-first-then-import pattern for all Jest mocks
+- Avoid testing implementation details that might change
+- Ensure tests don't depend on execution order
+
+## Specific Test Cases
+
+1. **Server Initialization**
+   - Test server creation with various configuration options
+   - Verify proper tool and resource registration
+   - Test server startup and shutdown procedures
+
+2. **Context Operations**
+   - Test context creation, retrieval, update, and deletion
+   - Verify context windowing and truncation
+   - Test context metadata and tagging
+
+3. **Tool Execution**
+   - Test each tool with various input parameters
+   - Verify proper error handling for invalid inputs
+   - Test tool execution performance
+
+4. **MCP.json Integration**
+   - Test creation and updating of .cursor/mcp.json
+   - Verify proper server registration in mcp.json
+   - Test handling of existing mcp.json files
+
+5. **Transport Handling**
+   - Test stdio communication
+   - Verify proper message formatting
+   - Test error handling in transport layer
+
+All tests will be automated and integrated into the CI/CD pipeline to ensure consistent quality.
 
 # Subtasks:
 ## 1. Create Core MCP Server Module and Basic Structure [done]
@@ -122,7 +206,7 @@ Testing approach:
 - Test error handling with invalid inputs
 - Benchmark endpoint performance
 
-## 6. Refactor MCP Server to Leverage ModelContextProtocol SDK [pending]
+## 6. Refactor MCP Server to Leverage ModelContextProtocol SDK [deferred]
 ### Dependencies: 23.1, 23.2, 23.3
 ### Description: Integrate the ModelContextProtocol SDK directly into the MCP server implementation to streamline tool registration and resource handling.
 ### Details:
@@ -138,7 +222,7 @@ Testing approach:
 - Validate compatibility with existing MCP clients.
 - Benchmark performance improvements from SDK integration.
 
-## 8. Implement Direct Function Imports and Replace CLI-based Execution [pending]
+## 8. Implement Direct Function Imports and Replace CLI-based Execution [in-progress]
 ### Dependencies: None
 ### Description: Refactor the MCP server implementation to use direct Task Master function imports instead of the current CLI-based execution using child_process.spawnSync. This will improve performance, reliability, and enable better error handling.
 ### Details:
@@ -149,7 +233,7 @@ Testing approach:
 5. Add unit tests to verify the function imports work correctly
 6. Test performance improvements by comparing response times between CLI and function import approaches
 
-## 9. Implement Context Management and Caching Mechanisms [pending]
+## 9. Implement Context Management and Caching Mechanisms [deferred]
 ### Dependencies: 23.1
 ### Description: Enhance the MCP server with proper context management and caching to improve performance and user experience, especially for frequently accessed data and contexts.
 ### Details:
@@ -192,4 +276,16 @@ Testing approach:
 ### Description: Implement a comprehensive testing framework for the MCP server, including unit tests, integration tests, and end-to-end tests.
 ### Details:
 1. Set up Jest testing framework with proper configuration\n2. Create MCPTestClient for testing FastMCP server interaction\n3. Implement unit tests for individual tool functions\n4. Create integration tests for end-to-end request/response cycles\n5. Set up test fixtures and mock data\n6. Implement test coverage reporting\n7. Document testing guidelines and examples
+
+## 14. Add MCP.json to the Init Workflow [done]
+### Dependencies: 23.1, 23.3
+### Description: Implement functionality to create or update .cursor/mcp.json during project initialization, handling cases where: 1) If there's no mcp.json, create it with the appropriate configuration; 2) If there is an mcp.json, intelligently append to it without syntax errors like trailing commas
+### Details:
+1. Create functionality to detect if .cursor/mcp.json exists in the project\n2. Implement logic to create a new mcp.json file with proper structure if it doesn't exist\n3. Add functionality to read and parse existing mcp.json if it exists\n4. Create method to add a new taskmaster-ai server entry to the mcpServers object\n5. Implement intelligent JSON merging that avoids trailing commas and syntax errors\n6. Ensure proper formatting and indentation in the generated/updated JSON\n7. Add validation to verify the updated configuration is valid JSON\n8. Include this functionality in the init workflow\n9. Add error handling for file system operations and JSON parsing\n10. Document the mcp.json structure and integration process
+
+## 15. Implement SSE Support for Real-time Updates [deferred]
+### Dependencies: 23.1, 23.3, 23.11
+### Description: Add Server-Sent Events (SSE) capabilities to the MCP server to enable real-time updates and streaming of task execution progress, logs, and status changes to clients
+### Details:
+1. Research and implement SSE protocol for the MCP server\n2. Create dedicated SSE endpoints for event streaming\n3. Implement event emitter pattern for internal event management\n4. Add support for different event types (task status, logs, errors)\n5. Implement client connection management with proper keep-alive handling\n6. Add filtering capabilities to allow subscribing to specific event types\n7. Create in-memory event buffer for clients reconnecting\n8. Document SSE endpoint usage and client implementation examples\n9. Add robust error handling for dropped connections\n10. Implement rate limiting and backpressure mechanisms\n11. Add authentication for SSE connections
 

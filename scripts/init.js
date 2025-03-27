@@ -549,6 +549,9 @@ function createProjectStructure(projectName, projectDescription, projectVersion,
     log('success', 'Created package.json');
   }
   
+  // Setup MCP configuration for integration with Cursor
+  setupMCPConfiguration(targetDir, packageJson.name);
+  
   // Copy template files with replacements
   const replacements = {
     projectName,
@@ -659,6 +662,84 @@ function createProjectStructure(projectName, projectDescription, projectVersion,
       titleAlignment: 'center'
     }
   ));
+}
+
+// Function to setup MCP configuration for Cursor integration
+function setupMCPConfiguration(targetDir, projectName) {
+  const mcpDirPath = path.join(targetDir, '.cursor');
+  const mcpJsonPath = path.join(mcpDirPath, 'mcp.json');
+  
+  log('info', 'Setting up MCP configuration for Cursor integration...');
+  
+  // Create .cursor directory if it doesn't exist
+  ensureDirectoryExists(mcpDirPath);
+  
+  // New MCP config to be added - references the installed package
+  const newMCPServer = {
+    "task-master-ai": {
+      "command": "npx",
+      "args": [
+        "task-master-ai",
+        "mcp-server"
+      ]
+    }
+  };
+  
+  // Check if mcp.json already exists
+  if (fs.existsSync(mcpJsonPath)) {
+    log('info', 'MCP configuration file already exists, updating...');
+    try {
+      // Read existing config
+      const mcpConfig = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf8'));
+      
+      // Initialize mcpServers if it doesn't exist
+      if (!mcpConfig.mcpServers) {
+        mcpConfig.mcpServers = {};
+      }
+      
+      // Add the task-master-ai server if it doesn't exist
+      if (!mcpConfig.mcpServers["task-master-ai"]) {
+        mcpConfig.mcpServers["task-master-ai"] = newMCPServer["task-master-ai"];
+        log('info', 'Added task-master-ai server to existing MCP configuration');
+      } else {
+        log('info', 'task-master-ai server already configured in mcp.json');
+      }
+      
+      // Write the updated configuration
+      fs.writeFileSync(
+        mcpJsonPath, 
+        JSON.stringify(mcpConfig, null, 4)
+      );
+      log('success', 'Updated MCP configuration file');
+    } catch (error) {
+      log('error', `Failed to update MCP configuration: ${error.message}`);
+      // Create a backup before potentially modifying
+      const backupPath = `${mcpJsonPath}.backup-${Date.now()}`;
+      if (fs.existsSync(mcpJsonPath)) {
+        fs.copyFileSync(mcpJsonPath, backupPath);
+        log('info', `Created backup of existing mcp.json at ${backupPath}`);
+      }
+      
+      // Create new configuration
+      const newMCPConfig = {
+        "mcpServers": newMCPServer
+      };
+      
+      fs.writeFileSync(mcpJsonPath, JSON.stringify(newMCPConfig, null, 4));
+      log('warn', 'Created new MCP configuration file (backup of original file was created if it existed)');
+    }
+  } else {
+    // If mcp.json doesn't exist, create it
+    const newMCPConfig = {
+      "mcpServers": newMCPServer
+    };
+    
+    fs.writeFileSync(mcpJsonPath, JSON.stringify(newMCPConfig, null, 4));
+    log('success', 'Created MCP configuration file for Cursor integration');
+  }
+  
+  // Add note to console about MCP integration
+  log('info', 'MCP server will use the installed task-master-ai package');
 }
 
 // Run the initialization if this script is executed directly

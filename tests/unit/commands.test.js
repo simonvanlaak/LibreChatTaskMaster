@@ -526,4 +526,59 @@ describe('Commands Module', () => {
       expect(mockExit).toHaveBeenCalledWith(1);
     });
   });
+});
+
+// Test the version comparison utility
+describe('Version comparison', () => {
+  // Use a dynamic import for the commands module
+  let compareVersions;
+  
+  beforeAll(async () => {
+    // Import the function we want to test dynamically
+    const commandsModule = await import('../../scripts/modules/commands.js');
+    compareVersions = commandsModule.compareVersions;
+  });
+
+  test('compareVersions correctly compares semantic versions', () => {
+    expect(compareVersions('1.0.0', '1.0.0')).toBe(0);
+    expect(compareVersions('1.0.0', '1.0.1')).toBe(-1);
+    expect(compareVersions('1.0.1', '1.0.0')).toBe(1);
+    expect(compareVersions('1.0.0', '1.1.0')).toBe(-1);
+    expect(compareVersions('1.1.0', '1.0.0')).toBe(1);
+    expect(compareVersions('1.0.0', '2.0.0')).toBe(-1);
+    expect(compareVersions('2.0.0', '1.0.0')).toBe(1);
+    expect(compareVersions('1.0', '1.0.0')).toBe(0);
+    expect(compareVersions('1.0.0.0', '1.0.0')).toBe(0);
+    expect(compareVersions('1.0.0', '1.0.0.1')).toBe(-1);
+  });
+});
+
+// Test the update check functionality
+describe('Update check', () => {
+  let displayUpgradeNotification;
+  let consoleLogSpy;
+  
+  beforeAll(async () => {
+    // Import the function we want to test dynamically
+    const commandsModule = await import('../../scripts/modules/commands.js');
+    displayUpgradeNotification = commandsModule.displayUpgradeNotification;
+  });
+  
+  beforeEach(() => {
+    // Spy on console.log
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
+  });
+
+  test('displays upgrade notification when newer version is available', () => {
+    // Test displayUpgradeNotification function
+    displayUpgradeNotification('1.0.0', '1.1.0');
+    expect(consoleLogSpy).toHaveBeenCalled();
+    expect(consoleLogSpy.mock.calls[0][0]).toContain('Update Available!');
+    expect(consoleLogSpy.mock.calls[0][0]).toContain('1.0.0');
+    expect(consoleLogSpy.mock.calls[0][0]).toContain('1.1.0');
+  });
 }); 
