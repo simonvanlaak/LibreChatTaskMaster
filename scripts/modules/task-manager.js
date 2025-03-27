@@ -181,6 +181,16 @@ async function updateTasks(tasksPath, fromId, prompt, useResearch = false) {
     
     console.log(table.toString());
     
+    // Display a message about how completed subtasks are handled
+    console.log(boxen(
+      chalk.cyan.bold('How Completed Subtasks Are Handled:') + '\n\n' +
+      chalk.white('• Subtasks marked as "done" or "completed" will be preserved\n') +
+      chalk.white('• New subtasks will build upon what has already been completed\n') +
+      chalk.white('• If completed work needs revision, a new subtask will be created instead of modifying done items\n') +
+      chalk.white('• This approach maintains a clear record of completed work and new requirements'),
+      { padding: 1, borderColor: 'blue', borderStyle: 'round', margin: { top: 1, bottom: 1 } }
+    ));
+    
     // Build the system prompt
     const systemPrompt = `You are an AI assistant helping to update software development tasks based on new context.
 You will be given a set of tasks and a prompt describing changes or new implementation details.
@@ -192,6 +202,11 @@ Guidelines:
 3. Do not change anything unnecessarily - just adapt what needs to change based on the prompt
 4. You should return ALL the tasks in order, not just the modified ones
 5. Return a complete valid JSON object with the updated tasks array
+6. VERY IMPORTANT: Preserve all subtasks marked as "done" or "completed" - do not modify their content
+7. For tasks with completed subtasks, build upon what has already been done rather than rewriting everything
+8. If an existing completed subtask needs to be changed/undone based on the new context, DO NOT modify it directly
+9. Instead, add a new subtask that clearly indicates what needs to be changed or replaced
+10. Use the existence of completed subtasks as an opportunity to make new subtasks more specific and targeted
 
 The changes described in the prompt should be applied to ALL tasks in the list.`;
 
@@ -213,7 +228,7 @@ The changes described in the prompt should be applied to ALL tasks in the list.`
           messages: [
             {
               role: "system", 
-              content: `${systemPrompt}\n\nAdditionally, please research the latest best practices, implementation details, and considerations when updating these tasks. Use your online search capabilities to gather relevant information.`
+              content: `${systemPrompt}\n\nAdditionally, please research the latest best practices, implementation details, and considerations when updating these tasks. Use your online search capabilities to gather relevant information. Remember to strictly follow the guidelines about preserving completed subtasks and building upon what has already been done rather than modifying or replacing it.`
             },
             {
               role: "user",
@@ -222,6 +237,8 @@ ${taskData}
 
 Please update these tasks based on the following new context:
 ${prompt}
+
+IMPORTANT: In the tasks JSON above, any subtasks with "status": "done" or "status": "completed" should be preserved exactly as is. Build your changes around these completed items.
 
 Return only the updated tasks as a valid JSON array.`
             }
@@ -271,6 +288,8 @@ ${taskData}
 
 Please update these tasks based on the following new context:
 ${prompt}
+
+IMPORTANT: In the tasks JSON above, any subtasks with "status": "done" or "status": "completed" should be preserved exactly as is. Build your changes around these completed items.
 
 Return only the updated tasks as a valid JSON array.`
               }
