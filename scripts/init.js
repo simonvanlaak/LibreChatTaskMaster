@@ -39,6 +39,7 @@ program
   .option('-a, --author <author>', 'Author name')
   .option('--skip-install', 'Skip installing dependencies')
   .option('--dry-run', 'Show what would be done without making changes')
+  .option('--aliases', 'Add shell aliases (tm, taskmaster)')
   .parse(process.argv);
 
 const options = program.opts();
@@ -130,6 +131,53 @@ function ensureDirectoryExists(dirPath) {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
     log('info', `Created directory: ${dirPath}`);
+  }
+}
+
+// Function to add shell aliases to the user's shell configuration
+function addShellAliases() {
+  const homeDir = process.env.HOME || process.env.USERPROFILE;
+  let shellConfigFile;
+  
+  // Determine which shell config file to use
+  if (process.env.SHELL?.includes('zsh')) {
+    shellConfigFile = path.join(homeDir, '.zshrc');
+  } else if (process.env.SHELL?.includes('bash')) {
+    shellConfigFile = path.join(homeDir, '.bashrc');
+  } else {
+    log('warn', 'Could not determine shell type. Aliases not added.');
+    return false;
+  }
+  
+  try {
+    // Check if file exists
+    if (!fs.existsSync(shellConfigFile)) {
+      log('warn', `Shell config file ${shellConfigFile} not found. Aliases not added.`);
+      return false;
+    }
+    
+    // Check if aliases already exist
+    const configContent = fs.readFileSync(shellConfigFile, 'utf8');
+    if (configContent.includes('alias tm=\'task-master\'')) {
+      log('info', 'Task Master aliases already exist in shell config.');
+      return true;
+    }
+    
+    // Add aliases to the shell config file
+    const aliasBlock = `
+# Task Master aliases added on ${new Date().toLocaleDateString()}
+alias tm='task-master'
+alias taskmaster='task-master'
+`;
+    
+    fs.appendFileSync(shellConfigFile, aliasBlock);
+    log('success', `Added Task Master aliases to ${shellConfigFile}`);
+    log('info', 'To use the aliases in your current terminal, run: source ' + shellConfigFile);
+    
+    return true;
+  } catch (error) {
+    log('error', `Failed to add aliases: ${error.message}`);
+    return false;
   }
 }
 
@@ -299,6 +347,7 @@ async function initializeProject(options = {}) {
     const authorName = options.authorName || '';
     const dryRun = options.dryRun || false;
     const skipInstall = options.skipInstall || false;
+    const addAliases = options.addAliases || false;
     
     if (dryRun) {
       log('info', 'DRY RUN MODE: No files will be modified');
@@ -306,6 +355,9 @@ async function initializeProject(options = {}) {
       log('info', `Description: ${projectDescription}`);
       log('info', `Author: ${authorName || 'Not specified'}`);
       log('info', 'Would create/update necessary project files');
+      if (addAliases) {
+        log('info', 'Would add shell aliases for task-master');
+      }
       if (!skipInstall) {
         log('info', 'Would install dependencies');
       }
@@ -318,7 +370,7 @@ async function initializeProject(options = {}) {
       };
     }
     
-    createProjectStructure(projectName, projectDescription, projectVersion, authorName, skipInstall);
+    createProjectStructure(projectName, projectDescription, projectVersion, authorName, skipInstall, addAliases);
     return {
       projectName,
       projectDescription,
@@ -340,6 +392,10 @@ async function initializeProject(options = {}) {
     const projectVersionInput = await promptQuestion(rl, chalk.cyan('Enter project version (default: 1.0.0): '));
     const authorName = await promptQuestion(rl, chalk.cyan('Enter your name: '));
     
+    // Ask about shell aliases
+    const addAliasesInput = await promptQuestion(rl, chalk.cyan('Add shell aliases for task-master? (Y/n): '));
+    const addAliases = addAliasesInput.trim().toLowerCase() !== 'n';
+    
     // Set default version if not provided
     const projectVersion = projectVersionInput.trim() ? projectVersionInput : '1.0.0';
     
@@ -349,6 +405,7 @@ async function initializeProject(options = {}) {
     console.log(chalk.blue('Description:'), chalk.white(projectDescription));
     console.log(chalk.blue('Version:'), chalk.white(projectVersion));
     console.log(chalk.blue('Author:'), chalk.white(authorName || 'Not specified'));
+    console.log(chalk.blue('Add shell aliases:'), chalk.white(addAliases ? 'Yes' : 'No'));
     
     const confirmInput = await promptQuestion(rl, chalk.yellow('\nDo you want to continue with these settings? (Y/n): '));
     const shouldContinue = confirmInput.trim().toLowerCase() !== 'n';
@@ -367,6 +424,9 @@ async function initializeProject(options = {}) {
     if (dryRun) {
       log('info', 'DRY RUN MODE: No files will be modified');
       log('info', 'Would create/update necessary project files');
+      if (addAliases) {
+        log('info', 'Would add shell aliases for task-master');
+      }
       if (!skipInstall) {
         log('info', 'Would install dependencies');
       }
@@ -380,7 +440,7 @@ async function initializeProject(options = {}) {
     }
     
     // Create the project structure
-    createProjectStructure(projectName, projectDescription, projectVersion, authorName, skipInstall);
+    createProjectStructure(projectName, projectDescription, projectVersion, authorName, skipInstall, addAliases);
     
     return {
       projectName,
@@ -405,7 +465,7 @@ function promptQuestion(rl, question) {
 }
 
 // Function to create the project structure
-function createProjectStructure(projectName, projectDescription, projectVersion, authorName, skipInstall) {
+function createProjectStructure(projectName, projectDescription, projectVersion, authorName, skipInstall, addAliases) {
   const targetDir = process.cwd();
   log('info', `Initializing project in ${targetDir}`);
   
@@ -571,6 +631,11 @@ function createProjectStructure(projectName, projectDescription, projectVersion,
     }
   ));
   
+  // Add shell aliases if requested
+  if (addAliases) {
+    addShellAliases();
+  }
+  
   // Display next steps in a nice box
   console.log(boxen(
     chalk.cyan.bold('Things you can now do:') + '\n\n' +
@@ -619,7 +684,8 @@ console.log('process.argv:', process.argv);
         projectVersion: options.version || '1.0.0',
         authorName: options.author || '',
         dryRun: options.dryRun || false,
-        skipInstall: options.skipInstall || false
+        skipInstall: options.skipInstall || false,
+        addAliases: options.aliases || false
       });
     } else {
       // Otherwise, prompt for input normally
