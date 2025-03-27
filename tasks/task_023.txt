@@ -5,38 +5,38 @@
 # Priority: medium
 # Description: Extend Task Master to function as an MCP server by leveraging FastMCP's JavaScript/TypeScript implementation for efficient context management services.
 # Details:
-This task involves implementing the Model Context Protocol server capabilities within Task Master using FastMCP. The implementation should:
+This task involves implementing the Model Context Protocol server capabilities within Task Master. The implementation should:
 
-1. Use FastMCP to create the MCP server module (`mcp-server.ts` or equivalent)
-2. Implement the required MCP endpoints using FastMCP:
+1. Create a new module `mcp-server.js` that implements the core MCP server functionality
+2. Implement the required MCP endpoints:
    - `/context` - For retrieving and updating context
    - `/models` - For listing available models
    - `/execute` - For executing operations with context
-3. Utilize FastMCP's built-in features for context management, including:
-   - Efficient context storage and retrieval
-   - Context windowing and truncation
-   - Metadata and tagging support
-4. Add authentication and authorization mechanisms using FastMCP capabilities
-5. Implement error handling and response formatting as per MCP specifications
-6. Configure Task Master to enable/disable MCP server functionality via FastMCP settings
-7. Add documentation on using Task Master as an MCP server with FastMCP
-8. Ensure compatibility with existing MCP clients by adhering to FastMCP's compliance features
-9. Optimize performance using FastMCP tools, especially for context retrieval operations
-10. Add logging for MCP server operations using FastMCP's logging utilities
+3. Develop a context management system that can:
+   - Store and retrieve context data efficiently
+   - Handle context windowing and truncation when limits are reached
+   - Support context metadata and tagging
+4. Add authentication and authorization mechanisms for MCP clients
+5. Implement proper error handling and response formatting according to MCP specifications
+6. Create configuration options in Task Master to enable/disable the MCP server functionality
+7. Add documentation for how to use Task Master as an MCP server
+8. Ensure the implementation is compatible with existing MCP clients
+9. Optimize for performance, especially for context retrieval operations
+10. Add logging for MCP server operations
 
-The implementation should follow RESTful API design principles and leverage FastMCP's concurrency handling for multiple client requests. Consider using TypeScript for better type safety and integration with FastMCP[1][2].
+The implementation should follow RESTful API design principles and should be able to handle concurrent requests from multiple clients.
 
 # Test Strategy:
 Testing for the MCP server functionality should include:
 
 1. Unit tests:
-   - Test each MCP endpoint handler function independently using FastMCP
-   - Verify context storage and retrieval mechanisms provided by FastMCP
+   - Test each MCP endpoint handler function independently
+   - Verify context storage and retrieval mechanisms
    - Test authentication and authorization logic
    - Validate error handling for various failure scenarios
 
 2. Integration tests:
-   - Set up a test MCP server instance using FastMCP
+   - Set up a test MCP server instance
    - Test complete request/response cycles for each endpoint
    - Verify context persistence across multiple requests
    - Test with various payload sizes and content types
@@ -44,11 +44,11 @@ Testing for the MCP server functionality should include:
 3. Compatibility tests:
    - Test with existing MCP client libraries
    - Verify compliance with the MCP specification
-   - Ensure backward compatibility with any MCP versions supported by FastMCP
+   - Ensure backward compatibility with any MCP versions supported
 
 4. Performance tests:
    - Measure response times for context operations with various context sizes
-   - Test concurrent request handling using FastMCP's concurrency tools
+   - Test concurrent request handling
    - Verify memory usage remains within acceptable limits during extended operation
 
 5. Security tests:
@@ -79,7 +79,7 @@ Testing approach:
 - Test basic error handling with invalid requests
 
 ## 2. Implement Context Management System [done]
-### Dependencies: [32m[1m23.1[22m[39m
+### Dependencies: 23.1
 ### Description: Develop a robust context management system that can efficiently store, retrieve, and manipulate context data according to the MCP specification.
 ### Details:
 Implementation steps:
@@ -100,7 +100,7 @@ Testing approach:
 - Test persistence mechanisms with simulated failures
 
 ## 3. Implement MCP Endpoints and API Handlers [done]
-### Dependencies: [32m[1m23.1[22m[39m, [32m[1m23.2[22m[39m
+### Dependencies: 23.1, 23.2
 ### Description: Develop the complete API handlers for all required MCP endpoints, ensuring they follow the protocol specification and integrate with the context management system.
 ### Details:
 Implementation steps:
@@ -126,7 +126,7 @@ Testing approach:
 - Benchmark endpoint performance
 
 ## 4. Implement Authentication and Authorization System [pending]
-### Dependencies: [32m[1m23.1[22m[39m, [32m[1m23.3[22m[39m
+### Dependencies: 23.1, 23.3
 ### Description: Create a secure authentication and authorization mechanism for MCP clients to ensure only authorized applications can access the MCP server functionality.
 ### Details:
 Implementation steps:
@@ -148,7 +148,7 @@ Testing approach:
 - Verify audit logs contain appropriate information
 
 ## 5. Optimize Performance and Finalize Documentation [pending]
-### Dependencies: [32m[1m23.1[22m[39m, [32m[1m23.2[22m[39m, [32m[1m23.3[22m[39m, [31m[1m23.4[22m[39m
+### Dependencies: 23.1, 23.2, 23.3, 23.4
 ### Description: Optimize the MCP server implementation for performance, especially for context retrieval operations, and create comprehensive documentation for users.
 ### Details:
 Implementation steps:

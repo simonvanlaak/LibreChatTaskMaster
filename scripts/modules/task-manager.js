@@ -359,6 +359,379 @@ Return only the updated tasks as a valid JSON array.`
 }
 
 /**
+ * Update a single task by ID
+ * @param {string} tasksPath - Path to the tasks.json file
+ * @param {number} taskId - Task ID to update
+ * @param {string} prompt - Prompt with new context
+ * @param {boolean} useResearch - Whether to use Perplexity AI for research
+ * @returns {Object} - Updated task data or null if task wasn't updated
+ */
+async function updateTaskById(tasksPath, taskId, prompt, useResearch = false) {
+  try {
+    log('info', `Updating single task ${taskId} with prompt: "${prompt}"`);
+    
+    // Validate task ID is a positive integer
+    if (!Number.isInteger(taskId) || taskId <= 0) {
+      throw new Error(`Invalid task ID: ${taskId}. Task ID must be a positive integer.`);
+    }
+    
+    // Validate prompt
+    if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {
+      throw new Error('Prompt cannot be empty. Please provide context for the task update.');
+    }
+    
+    // Validate research flag
+    if (useResearch && (!perplexity || !process.env.PERPLEXITY_API_KEY)) {
+      log('warn', 'Perplexity AI is not available. Falling back to Claude AI.');
+      console.log(chalk.yellow('Perplexity AI is not available (API key may be missing). Falling back to Claude AI.'));
+      useResearch = false;
+    }
+    
+    // Validate tasks file exists
+    if (!fs.existsSync(tasksPath)) {
+      throw new Error(`Tasks file not found at path: ${tasksPath}`);
+    }
+    
+    // Read the tasks file
+    const data = readJSON(tasksPath);
+    if (!data || !data.tasks) {
+      throw new Error(`No valid tasks found in ${tasksPath}. The file may be corrupted or have an invalid format.`);
+    }
+    
+    // Find the specific task to update
+    const taskToUpdate = data.tasks.find(task => task.id === taskId);
+    if (!taskToUpdate) {
+      throw new Error(`Task with ID ${taskId} not found. Please verify the task ID and try again.`);
+    }
+    
+    // Check if task is already completed
+    if (taskToUpdate.status === 'done' || taskToUpdate.status === 'completed') {
+      log('warn', `Task ${taskId} is already marked as done and cannot be updated`);
+      console.log(boxen(
+        chalk.yellow(`Task ${taskId} is already marked as ${taskToUpdate.status} and cannot be updated.`) + '\n\n' +
+        chalk.white('Completed tasks are locked to maintain consistency. To modify a completed task, you must first:') + '\n' +
+        chalk.white('1. Change its status to "pending" or "in-progress"') + '\n' +
+        chalk.white('2. Then run the update-task command'),
+        { padding: 1, borderColor: 'yellow', borderStyle: 'round' }
+      ));
+      return null;
+    }
+    
+    // Show the task that will be updated
+    const table = new Table({
+      head: [
+        chalk.cyan.bold('ID'),
+        chalk.cyan.bold('Title'),
+        chalk.cyan.bold('Status')
+      ],
+      colWidths: [5, 60, 10]
+    });
+    
+    table.push([
+      taskToUpdate.id,
+      truncate(taskToUpdate.title, 57),
+      getStatusWithColor(taskToUpdate.status)
+    ]);
+    
+    console.log(boxen(
+      chalk.white.bold(`Updating Task #${taskId}`),
+      { padding: 1, borderColor: 'blue', borderStyle: 'round', margin: { top: 1, bottom: 0 } }
+    ));
+    
+    console.log(table.toString());
+    
+    // Display a message about how completed subtasks are handled
+    console.log(boxen(
+      chalk.cyan.bold('How Completed Subtasks Are Handled:') + '\n\n' +
+      chalk.white('• Subtasks marked as "done" or "completed" will be preserved\n') +
+      chalk.white('• New subtasks will build upon what has already been completed\n') +
+      chalk.white('• If completed work needs revision, a new subtask will be created instead of modifying done items\n') +
+      chalk.white('• This approach maintains a clear record of completed work and new requirements'),
+      { padding: 1, borderColor: 'blue', borderStyle: 'round', margin: { top: 1, bottom: 1 } }
+    ));
+    
+    // Build the system prompt
+    const systemPrompt = `You are an AI assistant helping to update a software development task based on new context.
+You will be given a task and a prompt describing changes or new implementation details.
+Your job is to update the task to reflect these changes, while preserving its basic structure.
+
+Guidelines:
+1. Maintain the same ID, status, and dependencies unless specifically mentioned in the prompt
+2. Update the title, description, details, and test strategy to reflect the new information
+3. Do not change anything unnecessarily - just adapt what needs to change based on the prompt
+4. Return a complete valid JSON object representing the updated task
+5. VERY IMPORTANT: Preserve all subtasks marked as "done" or "completed" - do not modify their content
+6. For tasks with completed subtasks, build upon what has already been done rather than rewriting everything
+7. If an existing completed subtask needs to be changed/undone based on the new context, DO NOT modify it directly
+8. Instead, add a new subtask that clearly indicates what needs to be changed or replaced
+9. Use the existence of completed subtasks as an opportunity to make new subtasks more specific and targeted
+10. Ensure any new subtasks have unique IDs that don't conflict with existing ones
+
+The changes described in the prompt should be thoughtfully applied to make the task more accurate and actionable.`;
+
+    const taskData = JSON.stringify(taskToUpdate, null, 2);
+    
+    let updatedTask;
+    const loadingIndicator = startLoadingIndicator(useResearch 
+      ? 'Updating task with Perplexity AI research...' 
+      : 'Updating task with Claude AI...');
+    
+    try {
+      if (useResearch) {
+        log('info', 'Using Perplexity AI for research-backed task update');
+        
+        // Verify Perplexity API key exists
+        if (!process.env.PERPLEXITY_API_KEY) {
+          throw new Error('PERPLEXITY_API_KEY environment variable is missing but --research flag was used.');
+        }
+        
+        try {
+          // Call Perplexity AI
+          const perplexityModel = process.env.PERPLEXITY_MODEL || 'sonar-pro';
+          const result = await perplexity.chat.completions.create({
+            model: perplexityModel,
+            messages: [
+              {
+                role: "system", 
+                content: `${systemPrompt}\n\nAdditionally, please research the latest best practices, implementation details, and considerations when updating this task. Use your online search capabilities to gather relevant information. Remember to strictly follow the guidelines about preserving completed subtasks and building upon what has already been done rather than modifying or replacing it.`
+              },
+              {
+                role: "user",
+                content: `Here is the task to update:
+${taskData}
+
+Please update this task based on the following new context:
+${prompt}
+
+IMPORTANT: In the task JSON above, any subtasks with "status": "done" or "status": "completed" should be preserved exactly as is. Build your changes around these completed items.
+
+Return only the updated task as a valid JSON object.`
+              }
+            ],
+            temperature: parseFloat(process.env.TEMPERATURE || CONFIG.temperature),
+            max_tokens: parseInt(process.env.MAX_TOKENS || CONFIG.maxTokens),
+          });
+          
+          const responseText = result.choices[0].message.content;
+          
+          // Extract JSON from response
+          const jsonStart = responseText.indexOf('{');
+          const jsonEnd = responseText.lastIndexOf('}');
+          
+          if (jsonStart === -1 || jsonEnd === -1) {
+            throw new Error("Could not find valid JSON object in Perplexity's response. The response may be malformed.");
+          }
+          
+          const jsonText = responseText.substring(jsonStart, jsonEnd + 1);
+          
+          try {
+            updatedTask = JSON.parse(jsonText);
+          } catch (parseError) {
+            throw new Error(`Failed to parse Perplexity response as JSON: ${parseError.message}\nResponse fragment: ${jsonText.substring(0, 100)}...`);
+          }
+        } catch (perplexityError) {
+          throw new Error(`Perplexity API error: ${perplexityError.message}`);
+        }
+      } else {
+        // Call Claude to update the task with streaming enabled
+        let responseText = '';
+        let streamingInterval = null;
+        
+        try {
+          // Verify Anthropic API key exists
+          if (!process.env.ANTHROPIC_API_KEY) {
+            throw new Error('ANTHROPIC_API_KEY environment variable is missing. Required for task updates.');
+          }
+          
+          // Update loading indicator to show streaming progress
+          let dotCount = 0;
+          const readline = await import('readline');
+          streamingInterval = setInterval(() => {
+            readline.cursorTo(process.stdout, 0);
+            process.stdout.write(`Receiving streaming response from Claude${'.'.repeat(dotCount)}`);
+            dotCount = (dotCount + 1) % 4;
+          }, 500);
+          
+          // Use streaming API call
+          const stream = await anthropic.messages.create({
+            model: CONFIG.model,
+            max_tokens: CONFIG.maxTokens,
+            temperature: CONFIG.temperature,
+            system: systemPrompt,
+            messages: [
+              {
+                role: 'user',
+                content: `Here is the task to update:
+${taskData}
+
+Please update this task based on the following new context:
+${prompt}
+
+IMPORTANT: In the task JSON above, any subtasks with "status": "done" or "status": "completed" should be preserved exactly as is. Build your changes around these completed items.
+
+Return only the updated task as a valid JSON object.`
+              }
+            ],
+            stream: true
+          });
+          
+          // Process the stream
+          for await (const chunk of stream) {
+            if (chunk.type === 'content_block_delta' && chunk.delta.text) {
+              responseText += chunk.delta.text;
+            }
+          }
+          
+          if (streamingInterval) clearInterval(streamingInterval);
+          log('info', "Completed streaming response from Claude API!");
+          
+          // Extract JSON from response
+          const jsonStart = responseText.indexOf('{');
+          const jsonEnd = responseText.lastIndexOf('}');
+          
+          if (jsonStart === -1 || jsonEnd === -1) {
+            throw new Error("Could not find valid JSON object in Claude's response. The response may be malformed.");
+          }
+          
+          const jsonText = responseText.substring(jsonStart, jsonEnd + 1);
+          
+          try {
+            updatedTask = JSON.parse(jsonText);
+          } catch (parseError) {
+            throw new Error(`Failed to parse Claude response as JSON: ${parseError.message}\nResponse fragment: ${jsonText.substring(0, 100)}...`);
+          }
+        } catch (claudeError) {
+          if (streamingInterval) clearInterval(streamingInterval);
+          throw new Error(`Claude API error: ${claudeError.message}`);
+        }
+      }
+      
+      // Validation of the updated task
+      if (!updatedTask || typeof updatedTask !== 'object') {
+        throw new Error('Received invalid task object from AI. The response did not contain a valid task.');
+      }
+      
+      // Ensure critical fields exist
+      if (!updatedTask.title || !updatedTask.description) {
+        throw new Error('Updated task is missing required fields (title or description).');
+      }
+      
+      // Ensure ID is preserved
+      if (updatedTask.id !== taskId) {
+        log('warn', `Task ID was modified in the AI response. Restoring original ID ${taskId}.`);
+        updatedTask.id = taskId;
+      }
+      
+      // Ensure status is preserved unless explicitly changed in prompt
+      if (updatedTask.status !== taskToUpdate.status && !prompt.toLowerCase().includes('status')) {
+        log('warn', `Task status was modified without explicit instruction. Restoring original status '${taskToUpdate.status}'.`);
+        updatedTask.status = taskToUpdate.status;
+      }
+      
+      // Ensure completed subtasks are preserved
+      if (taskToUpdate.subtasks && taskToUpdate.subtasks.length > 0) {
+        if (!updatedTask.subtasks) {
+          log('warn', 'Subtasks were removed in the AI response. Restoring original subtasks.');
+          updatedTask.subtasks = taskToUpdate.subtasks;
+        } else {
+          // Check for each completed subtask
+          const completedSubtasks = taskToUpdate.subtasks.filter(
+            st => st.status === 'done' || st.status === 'completed'
+          );
+          
+          for (const completedSubtask of completedSubtasks) {
+            const updatedSubtask = updatedTask.subtasks.find(st => st.id === completedSubtask.id);
+            
+            // If completed subtask is missing or modified, restore it
+            if (!updatedSubtask) {
+              log('warn', `Completed subtask ${completedSubtask.id} was removed. Restoring it.`);
+              updatedTask.subtasks.push(completedSubtask);
+            } else if (
+              updatedSubtask.title !== completedSubtask.title ||
+              updatedSubtask.description !== completedSubtask.description ||
+              updatedSubtask.details !== completedSubtask.details ||
+              updatedSubtask.status !== completedSubtask.status
+            ) {
+              log('warn', `Completed subtask ${completedSubtask.id} was modified. Restoring original.`);
+              // Find and replace the modified subtask
+              const index = updatedTask.subtasks.findIndex(st => st.id === completedSubtask.id);
+              if (index !== -1) {
+                updatedTask.subtasks[index] = completedSubtask;
+              }
+            }
+          }
+          
+          // Ensure no duplicate subtask IDs
+          const subtaskIds = new Set();
+          const uniqueSubtasks = [];
+          
+          for (const subtask of updatedTask.subtasks) {
+            if (!subtaskIds.has(subtask.id)) {
+              subtaskIds.add(subtask.id);
+              uniqueSubtasks.push(subtask);
+            } else {
+              log('warn', `Duplicate subtask ID ${subtask.id} found. Removing duplicate.`);
+            }
+          }
+          
+          updatedTask.subtasks = uniqueSubtasks;
+        }
+      }
+      
+      // Update the task in the original data
+      const index = data.tasks.findIndex(t => t.id === taskId);
+      if (index !== -1) {
+        data.tasks[index] = updatedTask;
+      } else {
+        throw new Error(`Task with ID ${taskId} not found in tasks array.`);
+      }
+      
+      // Write the updated tasks to the file
+      writeJSON(tasksPath, data);
+      
+      log('success', `Successfully updated task ${taskId}`);
+      
+      // Generate individual task files
+      await generateTaskFiles(tasksPath, path.dirname(tasksPath));
+      
+      console.log(boxen(
+        chalk.green(`Successfully updated task #${taskId}`) + '\n\n' +
+        chalk.white.bold('Updated Title:') + ' ' + updatedTask.title,
+        { padding: 1, borderColor: 'green', borderStyle: 'round' }
+      ));
+      
+      // Return the updated task for testing purposes
+      return updatedTask;
+    } finally {
+      stopLoadingIndicator(loadingIndicator);
+    }
+  } catch (error) {
+    log('error', `Error updating task: ${error.message}`);
+    console.error(chalk.red(`Error: ${error.message}`));
+    
+    // Provide more helpful error messages for common issues
+    if (error.message.includes('ANTHROPIC_API_KEY')) {
+      console.log(chalk.yellow('\nTo fix this issue, set your Anthropic API key:'));
+      console.log('  export ANTHROPIC_API_KEY=your_api_key_here');
+    } else if (error.message.includes('PERPLEXITY_API_KEY')) {
+      console.log(chalk.yellow('\nTo fix this issue:'));
+      console.log('  1. Set your Perplexity API key: export PERPLEXITY_API_KEY=your_api_key_here');
+      console.log('  2. Or run without the research flag: task-master update-task --id=<id> --prompt="..."');
+    } else if (error.message.includes('Task with ID') && error.message.includes('not found')) {
+      console.log(chalk.yellow('\nTo fix this issue:'));
+      console.log('  1. Run task-master list to see all available task IDs');
+      console.log('  2. Use a valid task ID with the --id parameter');
+    }
+    
+    if (CONFIG.debug) {
+      console.error(error);
+    }
+    
+    return null;
+  }
+}
+
+/**
  * Generate individual task files from tasks.json
  * @param {string} tasksPath - Path to the tasks.json file
  * @param {string} outputDir - Output directory for task files
@@ -2599,6 +2972,7 @@ async function removeSubtask(tasksPath, subtaskId, convertToTask = false, genera
 export {
   parsePRD,
   updateTasks,
+  updateTaskById,
   generateTaskFiles,
   setTaskStatus,
   updateSingleTaskStatus,

@@ -22,7 +22,8 @@ import {
   addTask,
   addSubtask,
   removeSubtask,
-  analyzeTaskComplexity
+  analyzeTaskComplexity,
+  updateTaskById
 } from './task-manager.js';
 
 import {
@@ -133,6 +134,92 @@ function registerCommands(programInstance) {
       }
       
       await updateTasks(tasksPath, fromId, prompt, useResearch);
+    });
+
+  // updateTask command
+  programInstance
+    .command('update-task')
+    .description('Update a single task by ID with new information')
+    .option('-f, --file <file>', 'Path to the tasks file', 'tasks/tasks.json')
+    .option('-i, --id <id>', 'Task ID to update (required)')
+    .option('-p, --prompt <text>', 'Prompt explaining the changes or new context (required)')
+    .option('-r, --research', 'Use Perplexity AI for research-backed task updates')
+    .action(async (options) => {
+      try {
+        const tasksPath = options.file;
+        
+        // Validate required parameters
+        if (!options.id) {
+          console.error(chalk.red('Error: --id parameter is required'));
+          console.log(chalk.yellow('Usage example: task-master update-task --id=23 --prompt="Update with new information"'));
+          process.exit(1);
+        }
+        
+        // Parse the task ID and validate it's a number
+        const taskId = parseInt(options.id, 10);
+        if (isNaN(taskId) || taskId <= 0) {
+          console.error(chalk.red(`Error: Invalid task ID: ${options.id}. Task ID must be a positive integer.`));
+          console.log(chalk.yellow('Usage example: task-master update-task --id=23 --prompt="Update with new information"'));
+          process.exit(1);
+        }
+        
+        if (!options.prompt) {
+          console.error(chalk.red('Error: --prompt parameter is required. Please provide information about the changes.'));
+          console.log(chalk.yellow('Usage example: task-master update-task --id=23 --prompt="Update with new information"'));
+          process.exit(1);
+        }
+        
+        const prompt = options.prompt;
+        const useResearch = options.research || false;
+        
+        // Validate tasks file exists
+        if (!fs.existsSync(tasksPath)) {
+          console.error(chalk.red(`Error: Tasks file not found at path: ${tasksPath}`));
+          if (tasksPath === 'tasks/tasks.json') {
+            console.log(chalk.yellow('Hint: Run task-master init or task-master parse-prd to create tasks.json first'));
+          } else {
+            console.log(chalk.yellow(`Hint: Check if the file path is correct: ${tasksPath}`));
+          }
+          process.exit(1);
+        }
+        
+        console.log(chalk.blue(`Updating task ${taskId} with prompt: "${prompt}"`));
+        console.log(chalk.blue(`Tasks file: ${tasksPath}`));
+        
+        if (useResearch) {
+          // Verify Perplexity API key exists if using research
+          if (!process.env.PERPLEXITY_API_KEY) {
+            console.log(chalk.yellow('Warning: PERPLEXITY_API_KEY environment variable is missing. Research-backed updates will not be available.'));
+            console.log(chalk.yellow('Falling back to Claude AI for task update.'));
+          } else {
+            console.log(chalk.blue('Using Perplexity AI for research-backed task update'));
+          }
+        }
+        
+        const result = await updateTaskById(tasksPath, taskId, prompt, useResearch);
+        
+        // If the task wasn't updated (e.g., if it was already marked as done)
+        if (!result) {
+          console.log(chalk.yellow('\nTask update was not completed. Review the messages above for details.'));
+        }
+      } catch (error) {
+        console.error(chalk.red(`Error: ${error.message}`));
+        
+        // Provide more helpful error messages for common issues
+        if (error.message.includes('task') && error.message.includes('not found')) {
+          console.log(chalk.yellow('\nTo fix this issue:'));
+          console.log('  1. Run task-master list to see all available task IDs');
+          console.log('  2. Use a valid task ID with the --id parameter');
+        } else if (error.message.includes('API key')) {
+          console.log(chalk.yellow('\nThis error is related to API keys. Check your environment variables.'));
+        }
+        
+        if (CONFIG.debug) {
+          console.error(error);
+        }
+        
+        process.exit(1);
+      }
     });
 
   // generate command
