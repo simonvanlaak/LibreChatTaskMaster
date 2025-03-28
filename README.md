@@ -136,7 +136,7 @@ To enable enhanced task management capabilities directly within Cursor using the
 4. Configure with the following details:
    - Name: "Task Master"
    - Type: "Command"
-   - Command: "npx -y task-master-mcp"
+   - Command: "npx -y --package task-master-ai task-master-mcp"
 5. Save the settings
 
 Once configured, you can interact with Task Master's task management commands directly through Cursor's interface, providing a more integrated experience.
@@ -469,7 +469,7 @@ task-master fix-dependencies
 
 ### Add a New Task
 
-```bash
+````bash
 # Add a new task using AI
 task-master add-task --prompt="Description of the new task"
 
@@ -517,7 +517,7 @@ npm install -g task-master-ai
 
 # OR install locally within your project
 npm install task-master-ai
-```
+````
 
 ### Initialize a new project
 
@@ -611,11 +611,13 @@ Please use the task-master parse-prd command to generate tasks from my PRD. The 
 ```
 
 The agent will execute:
+
 ```bash
 task-master parse-prd scripts/prd.txt
 ```
 
 This will:
+
 - Parse your PRD document
 - Generate a structured `tasks.json` file with tasks, dependencies, priorities, and test strategies
 - The agent will understand this process due to the Cursor rules
@@ -629,6 +631,7 @@ Please generate individual task files from tasks.json
 ```
 
 The agent will execute:
+
 ```bash
 task-master generate
 ```
@@ -648,6 +651,7 @@ What tasks are available to work on next?
 ```
 
 The agent will:
+
 - Run `task-master list` to see all tasks
 - Run `task-master next` to determine the next task to work on
 - Analyze dependencies to determine which tasks are ready to be worked on
@@ -657,12 +661,14 @@ The agent will:
 ### 2. Task Implementation
 
 When implementing a task, the agent will:
+
 - Reference the task's details section for implementation specifics
 - Consider dependencies on previous tasks
 - Follow the project's coding standards
 - Create appropriate tests based on the task's testStrategy
 
 You can ask:
+
 ```
 Let's implement task 3. What does it involve?
 ```
@@ -670,6 +676,7 @@ Let's implement task 3. What does it involve?
 ### 3. Task Verification
 
 Before marking a task as complete, verify it according to:
+
 - The task's specified testStrategy
 - Any automated tests in the codebase
 - Manual verification if required
@@ -683,6 +690,7 @@ Task 3 is now complete. Please update its status.
 ```
 
 The agent will execute:
+
 ```bash
 task-master set-status --id=3 --status=done
 ```
@@ -690,16 +698,19 @@ task-master set-status --id=3 --status=done
 ### 5. Handling Implementation Drift
 
 If during implementation, you discover that:
+
 - The current approach differs significantly from what was planned
 - Future tasks need to be modified due to current implementation choices
 - New dependencies or requirements have emerged
 
 Tell the agent:
+
 ```
 We've changed our approach. We're now using Express instead of Fastify. Please update all future tasks to reflect this change.
 ```
 
 The agent will execute:
+
 ```bash
 task-master update --from=4 --prompt="Now we are using Express instead of Fastify."
 ```
@@ -715,36 +726,43 @@ Task 5 seems complex. Can you break it down into subtasks?
 ```
 
 The agent will execute:
+
 ```bash
 task-master expand --id=5 --num=3
 ```
 
 You can provide additional context:
+
 ```
 Please break down task 5 with a focus on security considerations.
 ```
 
 The agent will execute:
+
 ```bash
 task-master expand --id=5 --prompt="Focus on security aspects"
 ```
 
 You can also expand all pending tasks:
+
 ```
 Please break down all pending tasks into subtasks.
 ```
 
 The agent will execute:
+
 ```bash
 task-master expand --all
 ```
 
 For research-backed subtask generation using Perplexity AI:
+
 ```
 Please break down task 5 using research-backed generation.
 ```
 
 The agent will execute:
+
 ```bash
 task-master expand --id=5 --research
 ```
@@ -754,6 +772,7 @@ task-master expand --id=5 --research
 Here's a comprehensive reference of all available commands:
 
 ### Parse PRD
+
 ```bash
 # Parse a PRD file and generate tasks
 task-master parse-prd <prd-file.txt>
@@ -763,6 +782,7 @@ task-master parse-prd <prd-file.txt> --num-tasks=10
 ```
 
 ### List Tasks
+
 ```bash
 # List all tasks
 task-master list
@@ -778,12 +798,14 @@ task-master list --status=<status> --with-subtasks
 ```
 
 ### Show Next Task
+
 ```bash
 # Show the next task to work on based on dependencies and status
 task-master next
 ```
 
 ### Show Specific Task
+
 ```bash
 # Show details of a specific task
 task-master show <id>
@@ -795,18 +817,21 @@ task-master show 1.2
 ```
 
 ### Update Tasks
+
 ```bash
 # Update tasks from a specific ID and provide context
 task-master update --from=<id> --prompt="<prompt>"
 ```
 
 ### Generate Task Files
+
 ```bash
 # Generate individual task files from tasks.json
 task-master generate
 ```
 
 ### Set Task Status
+
 ```bash
 # Set status of a single task
 task-master set-status --id=<id> --status=<status>
@@ -821,6 +846,7 @@ task-master set-status --id=1.1,1.2 --status=<status>
 When marking a task as "done", all of its subtasks will automatically be marked as "done" as well.
 
 ### Expand Tasks
+
 ```bash
 # Expand a specific task with subtasks
 task-master expand --id=<id> --num=<number>
@@ -842,6 +868,7 @@ task-master expand --all --research
 ```
 
 ### Clear Subtasks
+
 ```bash
 # Clear subtasks from a specific task
 task-master clear-subtasks --id=<id>
@@ -854,6 +881,7 @@ task-master clear-subtasks --all
 ```
 
 ### Analyze Task Complexity
+
 ```bash
 # Analyze complexity of all tasks
 task-master analyze-complexity
@@ -875,6 +903,7 @@ task-master analyze-complexity --research
 ```
 
 ### View Complexity Report
+
 ```bash
 # Display the task complexity analysis report
 task-master complexity-report
@@ -884,6 +913,7 @@ task-master complexity-report --file=my-report.json
 ```
 
 ### Managing Task Dependencies
+
 ```bash
 # Add a dependency to a task
 task-master add-dependency --id=<id> --depends-on=<id>
@@ -899,6 +929,7 @@ task-master fix-dependencies
 ```
 
 ### Add a New Task
+
 ```bash
 # Add a new task using AI
 task-master add-task --prompt="Description of the new task"
