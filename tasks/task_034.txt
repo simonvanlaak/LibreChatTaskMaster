@@ -1,6 +1,6 @@
 # Task ID: 34
 # Title: Implement updateTask Command for Single Task Updates
-# Status: in-progress
+# Status: done
 # Dependencies: None
 # Priority: high
 # Description: Create a new command that allows updating a specific task by ID using AI-driven refinement while preserving completed subtasks and supporting all existing update command options.
@@ -103,7 +103,7 @@ Testing approach:
 - Test concurrency scenarios with multiple simultaneous updates
 - Verify logging captures appropriate information for troubleshooting
 
-## 4. Write comprehensive tests for updateTask command [in-progress]
+## 4. Write comprehensive tests for updateTask command [done]
 ### Dependencies: 34.1, 34.2, 34.3
 ### Description: Create a comprehensive test suite for the updateTask command to ensure it works correctly in all scenarios and maintains backward compatibility.
 ### Details:
@@ -130,7 +130,7 @@ Testing approach:
 - Create test fixtures for consistent test data
 - Use snapshot testing for command output verification
 
-## 5. Update CLI documentation and help text [pending]
+## 5. Update CLI documentation and help text [done]
 ### Dependencies: 34.2
 ### Description: Update the CLI help documentation to include the new updateTask command and ensure users understand its purpose and options.
 ### Details:

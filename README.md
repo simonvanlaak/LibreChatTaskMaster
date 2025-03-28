@@ -362,6 +362,25 @@ task-master show 1.2
 task-master update --from=<id> --prompt="<prompt>"
 ```
 
+# Use Perplexity AI for research-backed updates
+task-master update --from=<id> --prompt="<prompt>" --research
+```
+
+### Update a Single Task
+
+```bash
+# Update a specific task with new information
+task-master update-task --id=<id> --prompt="<prompt>"
+
+# Use research-backed task updates
+task-master update-task --id=<id> --prompt="<prompt>" --research
+```
+
+The update-task command:
+- Updates a single specified task rather than multiple tasks
+- Provides detailed validation and helpful error messages
+- Falls back gracefully if research API is unavailable
+- Preserves tasks marked as "done"
 ### Generate Task Files
 
 ```bash

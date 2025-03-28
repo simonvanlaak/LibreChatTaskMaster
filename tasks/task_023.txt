@@ -246,7 +246,7 @@ Testing approach:
 7. Add cache statistics for monitoring performance
 8. Create unit tests for context management and caching functionality
 
-## 10. Enhance Tool Registration and Resource Management [pending]
+## 10. Enhance Tool Registration and Resource Management [in-progress]
 ### Dependencies: 23.1
 ### Description: Refactor tool registration to follow FastMCP best practices, using decorators and improving the overall structure. Implement proper resource management for task templates and other shared resources.
 ### Details:

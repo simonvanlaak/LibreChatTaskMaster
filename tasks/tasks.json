@@ -12,12 +12,13 @@
       "id": 1,
       "title": "Implement Task Data Structure",
       "description": "Design and implement the core tasks.json structure that will serve as the single source of truth for the system.",
-      "status": "done",
+      "status": "in-progress",
       "dependencies": [],
       "priority": "high",
       "details": "Create the foundational data structure including:\n- JSON schema for tasks.json\n- Task model with all required fields (id, title, description, status, dependencies, priority, details, testStrategy, subtasks)\n- Validation functions for the task model\n- Basic file system operations for reading/writing tasks.json\n- Error handling for file operations",
       "testStrategy": "Verify that the tasks.json structure can be created, read, and validated. Test with sample data to ensure all fields are properly handled and that validation correctly identifies invalid structures.",
-      "subtasks": []
+      "subtasks": [],
+      "previousStatus": "in-progress"
     },
     {
       "id": 2,
@@ -1419,7 +1420,7 @@
             1
           ],
           "details": "1. Update registerTaskMasterTools function to use FastMCP's decorator pattern\n2. Implement @mcp.tool() decorators for all existing tools\n3. Add proper type annotations and documentation for all tools\n4. Create resource handlers for task templates using @mcp.resource()\n5. Implement resource templates for common task patterns\n6. Update the server initialization to properly register all tools and resources\n7. Add validation for tool inputs using FastMCP's built-in validation\n8. Create comprehensive tests for tool registration and resource access",
-          "status": "pending",
+          "status": "in-progress",
           "parentTaskId": 23
         },
         {
@@ -1816,7 +1817,7 @@
       "id": 34,
       "title": "Implement updateTask Command for Single Task Updates",
       "description": "Create a new command that allows updating a specific task by ID using AI-driven refinement while preserving completed subtasks and supporting all existing update command options.",
-      "status": "in-progress",
+      "status": "done",
       "dependencies": [],
       "priority": "high",
       "details": "Implement a new command called 'updateTask' that focuses on updating a single task rather than all tasks from an ID onwards. The implementation should:\n\n1. Accept a single task ID as a required parameter\n2. Use the same AI-driven approach as the existing update command to refine the task\n3. Preserve the completion status of any subtasks that were previously marked as complete\n4. Support all options from the existing update command including:\n   - The research flag for Perplexity integration\n   - Any formatting or refinement options\n   - Task context options\n5. Update the CLI help documentation to include this new command\n6. Ensure the command follows the same pattern as other commands in the codebase\n7. Add appropriate error handling for cases where the specified task ID doesn't exist\n8. Implement the ability to update task title, description, and details separately if needed\n9. Ensure the command returns appropriate success/failure messages\n10. Optimize the implementation to only process the single task rather than scanning through all tasks\n\nThe command should reuse existing AI prompt templates where possible but modify them to focus on refining a single task rather than multiple tasks.",
@@ -1864,7 +1865,7 @@
             3
           ],
           "details": "Implementation steps:\n1. Create unit tests for the updateTaskById function in task-manager.js\n   - Test finding and updating tasks with various IDs\n   - Test preservation of completed subtasks\n   - Test different update options combinations\n   - Test error handling for non-existent tasks\n2. Create unit tests for the updateTask command in commands.js\n   - Test command parameter parsing\n   - Test option handling\n   - Test error scenarios and messages\n3. Create integration tests that verify the end-to-end flow\n   - Test the command with actual AI service integration\n   - Test with mock AI responses for predictable testing\n4. Implement test fixtures and mocks for consistent testing\n5. Add performance tests to ensure the command is efficient\n6. Test edge cases such as empty tasks, tasks with many subtasks, etc.\n\nTesting approach:\n- Use Jest or similar testing framework\n- Implement mocks for external dependencies like AI services\n- Create test fixtures for consistent test data\n- Use snapshot testing for command output verification",
-          "status": "in-progress",
+          "status": "done",
           "parentTaskId": 34
         },
         {
@@ -1875,7 +1876,7 @@
             2
           ],
           "details": "Implementation steps:\n1. Add comprehensive help text for the updateTask command including:\n   - Command description\n   - Required and optional parameters\n   - Examples of usage\n   - Description of all supported options\n2. Update the main CLI help documentation to include the new command\n3. Add the command to any relevant command groups or categories\n4. Create usage examples that demonstrate common scenarios\n5. Update README.md and other documentation files to include information about the new command\n6. Add inline code comments explaining the implementation details\n7. Update any API documentation if applicable\n8. Create or update user guides with the new functionality\n\nTesting approach:\n- Verify help text is displayed correctly when running `--help`\n- Review documentation for clarity and completeness\n- Have team members review the documentation for usability\n- Test examples to ensure they work as documented",
-          "status": "pending",
+          "status": "done",
           "parentTaskId": 34
         }
       ]
