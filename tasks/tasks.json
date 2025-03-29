@@ -12,12 +12,13 @@
       "id": 1,
       "title": "Implement Task Data Structure",
       "description": "Design and implement the core tasks.json structure that will serve as the single source of truth for the system.",
-      "status": "done",
+      "status": "in-progress",
       "dependencies": [],
       "priority": "high",
       "details": "Create the foundational data structure including:\n- JSON schema for tasks.json\n- Task model with all required fields (id, title, description, status, dependencies, priority, details, testStrategy, subtasks)\n- Validation functions for the task model\n- Basic file system operations for reading/writing tasks.json\n- Error handling for file operations",
       "testStrategy": "Verify that the tasks.json structure can be created, read, and validated. Test with sample data to ensure all fields are properly handled and that validation correctly identifies invalid structures.",
-      "subtasks": []
+      "subtasks": [],
+      "previousStatus": "in-progress"
     },
     {
       "id": 2,
@@ -1336,15 +1337,15 @@
     },
     {
       "id": 23,
-      "title": "Implement MCP Server Functionality for Task Master using FastMCP",
-      "description": "Extend Task Master to function as an MCP server by leveraging FastMCP's JavaScript/TypeScript implementation for efficient context management services.",
-      "status": "pending",
+      "title": "Complete MCP Server Implementation for Task Master using FastMCP",
+      "description": "Finalize the MCP server functionality for Task Master by leveraging FastMCP's capabilities, transitioning from CLI-based execution to direct function imports, and optimizing performance, authentication, and context management. Ensure the server integrates seamlessly with Cursor via `mcp.json` and supports proper tool registration, efficient context handling, and transport type handling (focusing on stdio). Additionally, ensure the server can be instantiated properly when installed via `npx` or `npm i -g`. Evaluate and address gaps in the current implementation, including function imports, context management, caching, tool registration, and adherence to FastMCP best practices.",
+      "status": "in-progress",
       "dependencies": [
         22
       ],
       "priority": "medium",
-      "details": "This task involves implementing the Model Context Protocol server capabilities within Task Master. The implementation should:\n\n1. Create a new module `mcp-server.js` that implements the core MCP server functionality\n2. Implement the required MCP endpoints:\n   - `/context` - For retrieving and updating context\n   - `/models` - For listing available models\n   - `/execute` - For executing operations with context\n3. Develop a context management system that can:\n   - Store and retrieve context data efficiently\n   - Handle context windowing and truncation when limits are reached\n   - Support context metadata and tagging\n4. Add authentication and authorization mechanisms for MCP clients\n5. Implement proper error handling and response formatting according to MCP specifications\n6. Create configuration options in Task Master to enable/disable the MCP server functionality\n7. Add documentation for how to use Task Master as an MCP server\n8. Ensure the implementation is compatible with existing MCP clients\n9. Optimize for performance, especially for context retrieval operations\n10. Add logging for MCP server operations\n\nThe implementation should follow RESTful API design principles and should be able to handle concurrent requests from multiple clients.",
-      "testStrategy": "Testing for the MCP server functionality should include:\n\n1. Unit tests:\n   - Test each MCP endpoint handler function independently\n   - Verify context storage and retrieval mechanisms\n   - Test authentication and authorization logic\n   - Validate error handling for various failure scenarios\n\n2. Integration tests:\n   - Set up a test MCP server instance\n   - Test complete request/response cycles for each endpoint\n   - Verify context persistence across multiple requests\n   - Test with various payload sizes and content types\n\n3. Compatibility tests:\n   - Test with existing MCP client libraries\n   - Verify compliance with the MCP specification\n   - Ensure backward compatibility with any MCP versions supported\n\n4. Performance tests:\n   - Measure response times for context operations with various context sizes\n   - Test concurrent request handling\n   - Verify memory usage remains within acceptable limits during extended operation\n\n5. Security tests:\n   - Verify authentication mechanisms cannot be bypassed\n   - Test for common API vulnerabilities (injection, CSRF, etc.)\n\nAll tests should be automated and included in the CI/CD pipeline. Documentation should include examples of how to test the MCP server functionality manually using tools like curl or Postman.",
+      "details": "This task involves completing the Model Context Protocol (MCP) server implementation for Task Master using FastMCP. Key updates include:\n\n1. Transition from CLI-based execution (currently using `child_process.spawnSync`) to direct Task Master function imports for improved performance and reliability.\n2. Implement caching mechanisms for frequently accessed contexts to enhance performance, leveraging FastMCP's efficient transport mechanisms (e.g., stdio).\n3. Refactor context management to align with best practices for handling large context windows, metadata, and tagging.\n4. Refactor tool registration in `tools/index.js` to include clear descriptions and parameter definitions, leveraging FastMCP's decorator-based patterns for better integration.\n5. Enhance transport type handling to ensure proper stdio communication and compatibility with FastMCP.\n6. Ensure the MCP server can be instantiated and run correctly when installed globally via `npx` or `npm i -g`.\n7. Integrate the ModelContextProtocol SDK directly to streamline resource and tool registration, ensuring compatibility with FastMCP's transport mechanisms.\n8. Identify and address missing components or functionalities to meet FastMCP best practices, such as robust error handling, monitoring endpoints, and concurrency support.\n9. Update documentation to include examples of using the MCP server with FastMCP, detailed setup instructions, and client integration guides.\n\nThe implementation must ensure compatibility with existing MCP clients and follow RESTful API design principles, while supporting concurrent requests and maintaining robust error handling.",
+      "testStrategy": "Testing for the MCP server implementation will follow a comprehensive approach based on our established testing guidelines:\n\n## Test Organization\n\n1. **Unit Tests** (`tests/unit/mcp-server/`):\n   - Test individual MCP server components in isolation\n   - Mock all external dependencies including FastMCP SDK\n   - Test each tool implementation separately\n   - Verify direct function imports work correctly\n   - Test context management and caching mechanisms\n   - Example files: `context-manager.test.js`, `tool-registration.test.js`, `direct-imports.test.js`\n\n2. **Integration Tests** (`tests/integration/mcp-server/`):\n   - Test interactions between MCP server components\n   - Verify proper tool registration with FastMCP\n   - Test context flow between components\n   - Validate error handling across module boundaries\n   - Example files: `server-tool-integration.test.js`, `context-flow.test.js`\n\n3. **End-to-End Tests** (`tests/e2e/mcp-server/`):\n   - Test complete MCP server workflows\n   - Verify server instantiation via different methods (direct, npx, global install)\n   - Test actual stdio communication with mock clients\n   - Example files: `server-startup.e2e.test.js`, `client-communication.e2e.test.js`\n\n4. **Test Fixtures** (`tests/fixtures/mcp-server/`):\n   - Sample context data\n   - Mock tool definitions\n   - Sample MCP requests and responses\n\n## Testing Approach\n\n### Module Mocking Strategy\n```javascript\n// Mock the FastMCP SDK\njest.mock('@model-context-protocol/sdk', () => ({\n  MCPServer: jest.fn().mockImplementation(() => ({\n    registerTool: jest.fn(),\n    registerResource: jest.fn(),\n    start: jest.fn().mockResolvedValue(undefined),\n    stop: jest.fn().mockResolvedValue(undefined)\n  })),\n  MCPError: jest.fn().mockImplementation(function(message, code) {\n    this.message = message;\n    this.code = code;\n  })\n}));\n\n// Import modules after mocks\nimport { MCPServer, MCPError } from '@model-context-protocol/sdk';\nimport { initMCPServer } from '../../scripts/mcp-server.js';\n```\n\n### Context Management Testing\n- Test context creation, retrieval, and manipulation\n- Verify caching mechanisms work correctly\n- Test context windowing and metadata handling\n- Validate context persistence across server restarts\n\n### Direct Function Import Testing\n- Verify Task Master functions are imported correctly\n- Test performance improvements compared to CLI execution\n- Validate error handling with direct imports\n\n### Tool Registration Testing\n- Verify tools are registered with proper descriptions and parameters\n- Test decorator-based registration patterns\n- Validate tool execution with different input types\n\n### Error Handling Testing\n- Test all error paths with appropriate MCPError types\n- Verify error propagation to clients\n- Test recovery from various error conditions\n\n### Performance Testing\n- Benchmark response times with and without caching\n- Test memory usage under load\n- Verify concurrent request handling\n\n## Test Quality Guidelines\n\n- Follow TDD approach when possible\n- Maintain test independence and isolation\n- Use descriptive test names explaining expected behavior\n- Aim for 80%+ code coverage, with critical paths at 100%\n- Follow the mock-first-then-import pattern for all Jest mocks\n- Avoid testing implementation details that might change\n- Ensure tests don't depend on execution order\n\n## Specific Test Cases\n\n1. **Server Initialization**\n   - Test server creation with various configuration options\n   - Verify proper tool and resource registration\n   - Test server startup and shutdown procedures\n\n2. **Context Operations**\n   - Test context creation, retrieval, update, and deletion\n   - Verify context windowing and truncation\n   - Test context metadata and tagging\n\n3. **Tool Execution**\n   - Test each tool with various input parameters\n   - Verify proper error handling for invalid inputs\n   - Test tool execution performance\n\n4. **MCP.json Integration**\n   - Test creation and updating of .cursor/mcp.json\n   - Verify proper server registration in mcp.json\n   - Test handling of existing mcp.json files\n\n5. **Transport Handling**\n   - Test stdio communication\n   - Verify proper message formatting\n   - Test error handling in transport layer\n\nAll tests will be automated and integrated into the CI/CD pipeline to ensure consistent quality.",
       "subtasks": [
         {
           "id": 1,
@@ -1379,29 +1380,109 @@
           "parentTaskId": 23
         },
         {
-          "id": 4,
-          "title": "Implement Authentication and Authorization System",
-          "description": "Create a secure authentication and authorization mechanism for MCP clients to ensure only authorized applications can access the MCP server functionality.",
-          "dependencies": [
-            1,
-            3
-          ],
-          "details": "Implementation steps:\n1. Design authentication scheme (API keys, OAuth, JWT, etc.)\n2. Implement authentication middleware for all MCP endpoints\n3. Create an API key management system for client applications\n4. Develop role-based access control for different operations\n5. Implement rate limiting to prevent abuse\n6. Add secure token validation and handling\n7. Create endpoints for managing client credentials\n8. Implement audit logging for authentication events\n\nTesting approach:\n- Security testing for authentication mechanisms\n- Test access control with various permission levels\n- Verify rate limiting functionality\n- Test token validation with valid and invalid tokens\n- Simulate unauthorized access attempts\n- Verify audit logs contain appropriate information",
-          "status": "pending",
-          "parentTaskId": 23
-        },
-        {
-          "id": 5,
-          "title": "Optimize Performance and Finalize Documentation",
-          "description": "Optimize the MCP server implementation for performance, especially for context retrieval operations, and create comprehensive documentation for users.",
+          "id": 6,
+          "title": "Refactor MCP Server to Leverage ModelContextProtocol SDK",
+          "description": "Integrate the ModelContextProtocol SDK directly into the MCP server implementation to streamline tool registration and resource handling.",
           "dependencies": [
             1,
             2,
-            3,
-            4
+            3
           ],
-          "details": "Implementation steps:\n1. Profile the MCP server to identify performance bottlenecks\n2. Implement caching mechanisms for frequently accessed contexts\n3. Optimize context serialization and deserialization\n4. Add connection pooling for database operations (if applicable)\n5. Implement request batching for bulk operations\n6. Create comprehensive API documentation with examples\n7. Add setup and configuration guides to the Task Master documentation\n8. Create example client implementations\n9. Add monitoring endpoints for server health and metrics\n10. Implement graceful degradation under high load\n\nTesting approach:\n- Load testing with simulated concurrent clients\n- Measure response times for various operations\n- Test with large context sizes to verify performance\n- Verify documentation accuracy with sample requests\n- Test monitoring endpoints\n- Perform stress testing to identify failure points",
+          "details": "Implementation steps:\n1. Replace manual tool registration with ModelContextProtocol SDK methods.\n2. Use SDK utilities to simplify resource and template management.\n3. Ensure compatibility with FastMCP's transport mechanisms.\n4. Update server initialization to include SDK-based configurations.\n\nTesting approach:\n- Verify SDK integration with all MCP endpoints.\n- Test resource and template registration using SDK methods.\n- Validate compatibility with existing MCP clients.\n- Benchmark performance improvements from SDK integration.",
+          "status": "deferred",
+          "parentTaskId": 23
+        },
+        {
+          "id": 8,
+          "title": "Implement Direct Function Imports and Replace CLI-based Execution",
+          "description": "Refactor the MCP server implementation to use direct Task Master function imports instead of the current CLI-based execution using child_process.spawnSync. This will improve performance, reliability, and enable better error handling.",
+          "dependencies": [],
+          "details": "1. Create a new module to import and expose Task Master core functions directly\n2. Modify tools/utils.js to remove executeTaskMasterCommand and replace with direct function calls\n3. Update each tool implementation (listTasks.js, showTask.js, etc.) to use the direct function imports\n4. Implement proper error handling with try/catch blocks and FastMCP's MCPError\n5. Add unit tests to verify the function imports work correctly\n6. Test performance improvements by comparing response times between CLI and function import approaches",
+          "status": "in-progress",
+          "parentTaskId": 23
+        },
+        {
+          "id": 9,
+          "title": "Implement Context Management and Caching Mechanisms",
+          "description": "Enhance the MCP server with proper context management and caching to improve performance and user experience, especially for frequently accessed data and contexts.",
+          "dependencies": [
+            1
+          ],
+          "details": "1. Implement a context manager class that leverages FastMCP's Context object\n2. Add caching for frequently accessed task data with configurable TTL settings\n3. Implement context tagging for better organization of context data\n4. Add methods to efficiently handle large context windows\n5. Create helper functions for storing and retrieving context data\n6. Implement cache invalidation strategies for task updates\n7. Add cache statistics for monitoring performance\n8. Create unit tests for context management and caching functionality",
+          "status": "deferred",
+          "parentTaskId": 23
+        },
+        {
+          "id": 10,
+          "title": "Enhance Tool Registration and Resource Management",
+          "description": "Refactor tool registration to follow FastMCP best practices, using decorators and improving the overall structure. Implement proper resource management for task templates and other shared resources.",
+          "dependencies": [
+            1
+          ],
+          "details": "1. Update registerTaskMasterTools function to use FastMCP's decorator pattern\n2. Implement @mcp.tool() decorators for all existing tools\n3. Add proper type annotations and documentation for all tools\n4. Create resource handlers for task templates using @mcp.resource()\n5. Implement resource templates for common task patterns\n6. Update the server initialization to properly register all tools and resources\n7. Add validation for tool inputs using FastMCP's built-in validation\n8. Create comprehensive tests for tool registration and resource access",
+          "status": "in-progress",
+          "parentTaskId": 23
+        },
+        {
+          "id": 11,
+          "title": "Implement Comprehensive Error Handling",
+          "description": "Implement robust error handling using FastMCP's MCPError, including custom error types for different categories and standardized error responses.",
+          "details": "1. Create custom error types extending MCPError for different categories (validation, auth, etc.)\\n2. Implement standardized error responses following MCP protocol\\n3. Add error handling middleware for all MCP endpoints\\n4. Ensure proper error propagation from tools to client\\n5. Add debug mode with detailed error information\\n6. Document error types and handling patterns",
           "status": "pending",
+          "dependencies": [
+            "23.1",
+            "23.3"
+          ],
+          "parentTaskId": 23
+        },
+        {
+          "id": 12,
+          "title": "Implement Structured Logging System",
+          "description": "Implement a comprehensive logging system for the MCP server with different log levels, structured logging format, and request/response tracking.",
+          "details": "1. Design structured log format for consistent parsing\\n2. Implement different log levels (debug, info, warn, error)\\n3. Add request/response logging middleware\\n4. Implement correlation IDs for request tracking\\n5. Add performance metrics logging\\n6. Configure log output destinations (console, file)\\n7. Document logging patterns and usage",
+          "status": "pending",
+          "dependencies": [
+            "23.1",
+            "23.3"
+          ],
+          "parentTaskId": 23
+        },
+        {
+          "id": 13,
+          "title": "Create Testing Framework and Test Suite",
+          "description": "Implement a comprehensive testing framework for the MCP server, including unit tests, integration tests, and end-to-end tests.",
+          "details": "1. Set up Jest testing framework with proper configuration\\n2. Create MCPTestClient for testing FastMCP server interaction\\n3. Implement unit tests for individual tool functions\\n4. Create integration tests for end-to-end request/response cycles\\n5. Set up test fixtures and mock data\\n6. Implement test coverage reporting\\n7. Document testing guidelines and examples",
+          "status": "pending",
+          "dependencies": [
+            "23.1",
+            "23.3",
+            "23.8"
+          ],
+          "parentTaskId": 23
+        },
+        {
+          "id": 14,
+          "title": "Add MCP.json to the Init Workflow",
+          "description": "Implement functionality to create or update .cursor/mcp.json during project initialization, handling cases where: 1) If there's no mcp.json, create it with the appropriate configuration; 2) If there is an mcp.json, intelligently append to it without syntax errors like trailing commas",
+          "details": "1. Create functionality to detect if .cursor/mcp.json exists in the project\\n2. Implement logic to create a new mcp.json file with proper structure if it doesn't exist\\n3. Add functionality to read and parse existing mcp.json if it exists\\n4. Create method to add a new taskmaster-ai server entry to the mcpServers object\\n5. Implement intelligent JSON merging that avoids trailing commas and syntax errors\\n6. Ensure proper formatting and indentation in the generated/updated JSON\\n7. Add validation to verify the updated configuration is valid JSON\\n8. Include this functionality in the init workflow\\n9. Add error handling for file system operations and JSON parsing\\n10. Document the mcp.json structure and integration process",
+          "status": "done",
+          "dependencies": [
+            "23.1",
+            "23.3"
+          ],
+          "parentTaskId": 23
+        },
+        {
+          "id": 15,
+          "title": "Implement SSE Support for Real-time Updates",
+          "description": "Add Server-Sent Events (SSE) capabilities to the MCP server to enable real-time updates and streaming of task execution progress, logs, and status changes to clients",
+          "details": "1. Research and implement SSE protocol for the MCP server\\n2. Create dedicated SSE endpoints for event streaming\\n3. Implement event emitter pattern for internal event management\\n4. Add support for different event types (task status, logs, errors)\\n5. Implement client connection management with proper keep-alive handling\\n6. Add filtering capabilities to allow subscribing to specific event types\\n7. Create in-memory event buffer for clients reconnecting\\n8. Document SSE endpoint usage and client implementation examples\\n9. Add robust error handling for dropped connections\\n10. Implement rate limiting and backpressure mechanisms\\n11. Add authentication for SSE connections",
+          "status": "deferred",
+          "dependencies": [
+            "23.1",
+            "23.3",
+            "23.11"
+          ],
           "parentTaskId": 23
         }
       ]
@@ -1731,6 +1812,114 @@
       "priority": "medium",
       "details": "This task involves creating a mechanism to generate a Windsurf-specific rules document by combining three existing MDC (Markdown Content) files that are currently used for Cursor Rules. The implementation should:\n\n1. Identify and locate the three primary .mdc files used for Cursor Rules\n2. Extract content from these files and merge them into a single document\n3. Refactor the content to make it Windsurf-specific, replacing Cursor-specific terminology and adapting guidelines as needed\n4. Create a function that generates a .windsurfrules document from this content\n5. Integrate this function into the initialization pipeline\n6. Implement logic to check if a .windsurfrules document already exists:\n   - If it exists, append the new content to it\n   - If it doesn't exist, create a new document\n7. Ensure proper error handling for file operations\n8. Add appropriate logging to track the generation and modification of the .windsurfrules document\n\nThe implementation should be modular and maintainable, with clear separation of concerns between content extraction, refactoring, and file operations.",
       "testStrategy": "Testing should verify both the content generation and the integration with the initialization pipeline:\n\n1. Unit Tests:\n   - Test the content extraction function with mock .mdc files\n   - Test the content refactoring function to ensure Cursor-specific terms are properly replaced\n   - Test the file operation functions with mock filesystem\n\n2. Integration Tests:\n   - Test the creation of a new .windsurfrules document when none exists\n   - Test appending to an existing .windsurfrules document\n   - Test the complete initialization pipeline with the new functionality\n\n3. Manual Verification:\n   - Inspect the generated .windsurfrules document to ensure content is properly combined and refactored\n   - Verify that Cursor-specific terminology has been replaced with Windsurf-specific terminology\n   - Run the initialization process multiple times to verify idempotence (content isn't duplicated on multiple runs)\n\n4. Edge Cases:\n   - Test with missing or corrupted .mdc files\n   - Test with an existing but empty .windsurfrules document\n   - Test with an existing .windsurfrules document that already contains some of the content"
+    },
+    {
+      "id": 34,
+      "title": "Implement updateTask Command for Single Task Updates",
+      "description": "Create a new command that allows updating a specific task by ID using AI-driven refinement while preserving completed subtasks and supporting all existing update command options.",
+      "status": "done",
+      "dependencies": [],
+      "priority": "high",
+      "details": "Implement a new command called 'updateTask' that focuses on updating a single task rather than all tasks from an ID onwards. The implementation should:\n\n1. Accept a single task ID as a required parameter\n2. Use the same AI-driven approach as the existing update command to refine the task\n3. Preserve the completion status of any subtasks that were previously marked as complete\n4. Support all options from the existing update command including:\n   - The research flag for Perplexity integration\n   - Any formatting or refinement options\n   - Task context options\n5. Update the CLI help documentation to include this new command\n6. Ensure the command follows the same pattern as other commands in the codebase\n7. Add appropriate error handling for cases where the specified task ID doesn't exist\n8. Implement the ability to update task title, description, and details separately if needed\n9. Ensure the command returns appropriate success/failure messages\n10. Optimize the implementation to only process the single task rather than scanning through all tasks\n\nThe command should reuse existing AI prompt templates where possible but modify them to focus on refining a single task rather than multiple tasks.",
+      "testStrategy": "Testing should verify the following aspects:\n\n1. **Basic Functionality Test**: Verify that the command successfully updates a single task when given a valid task ID\n2. **Preservation Test**: Create a task with completed subtasks, update it, and verify the completion status remains intact\n3. **Research Flag Test**: Test the command with the research flag and verify it correctly integrates with Perplexity\n4. **Error Handling Tests**:\n   - Test with non-existent task ID and verify appropriate error message\n   - Test with invalid parameters and verify helpful error messages\n5. **Integration Test**: Run a complete workflow that creates a task, updates it with updateTask, and then verifies the changes are persisted\n6. **Comparison Test**: Compare the results of updating a single task with updateTask versus using the original update command on the same task to ensure consistent quality\n7. **Performance Test**: Measure execution time compared to the full update command to verify efficiency gains\n8. **CLI Help Test**: Verify the command appears correctly in help documentation with appropriate descriptions\n\nCreate unit tests for the core functionality and integration tests for the complete workflow. Document any edge cases discovered during testing.",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Create updateTaskById function in task-manager.js",
+          "description": "Implement a new function in task-manager.js that focuses on updating a single task by ID using AI-driven refinement while preserving completed subtasks.",
+          "dependencies": [],
+          "details": "Implementation steps:\n1. Create a new `updateTaskById` function in task-manager.js that accepts parameters: taskId, options object (containing research flag, formatting options, etc.)\n2. Implement logic to find a specific task by ID in the tasks array\n3. Add appropriate error handling for cases where the task ID doesn't exist (throw a custom error)\n4. Reuse existing AI prompt templates but modify them to focus on refining a single task\n5. Implement logic to preserve completion status of subtasks that were previously marked as complete\n6. Add support for updating task title, description, and details separately based on options\n7. Optimize the implementation to only process the single task rather than scanning through all tasks\n8. Return the updated task and appropriate success/failure messages\n\nTesting approach:\n- Unit test the function with various scenarios including:\n  - Valid task ID with different update options\n  - Non-existent task ID\n  - Task with completed subtasks to verify preservation\n  - Different combinations of update options",
+          "status": "done",
+          "parentTaskId": 34
+        },
+        {
+          "id": 2,
+          "title": "Implement updateTask command in commands.js",
+          "description": "Create a new command called 'updateTask' in commands.js that leverages the updateTaskById function to update a specific task by ID.",
+          "dependencies": [
+            1
+          ],
+          "details": "Implementation steps:\n1. Create a new command object for 'updateTask' in commands.js following the Command pattern\n2. Define command parameters including a required taskId parameter\n3. Support all options from the existing update command:\n   - Research flag for Perplexity integration\n   - Formatting and refinement options\n   - Task context options\n4. Implement the command handler function that calls the updateTaskById function from task-manager.js\n5. Add appropriate error handling to catch and display user-friendly error messages\n6. Ensure the command follows the same pattern as other commands in the codebase\n7. Implement proper validation of input parameters\n8. Format and return appropriate success/failure messages to the user\n\nTesting approach:\n- Unit test the command handler with various input combinations\n- Test error handling scenarios\n- Verify command options are correctly passed to the updateTaskById function",
+          "status": "done",
+          "parentTaskId": 34
+        },
+        {
+          "id": 3,
+          "title": "Add comprehensive error handling and validation",
+          "description": "Implement robust error handling and validation for the updateTask command to ensure proper user feedback and system stability.",
+          "dependencies": [
+            1,
+            2
+          ],
+          "details": "Implementation steps:\n1. Create custom error types for different failure scenarios (TaskNotFoundError, ValidationError, etc.)\n2. Implement input validation for the taskId parameter and all options\n3. Add proper error handling for AI service failures with appropriate fallback mechanisms\n4. Implement concurrency handling to prevent conflicts when multiple updates occur simultaneously\n5. Add comprehensive logging for debugging and auditing purposes\n6. Ensure all error messages are user-friendly and actionable\n7. Implement proper HTTP status codes for API responses if applicable\n8. Add validation to ensure the task exists before attempting updates\n\nTesting approach:\n- Test various error scenarios including invalid inputs, non-existent tasks, and API failures\n- Verify error messages are clear and helpful\n- Test concurrency scenarios with multiple simultaneous updates\n- Verify logging captures appropriate information for troubleshooting",
+          "status": "done",
+          "parentTaskId": 34
+        },
+        {
+          "id": 4,
+          "title": "Write comprehensive tests for updateTask command",
+          "description": "Create a comprehensive test suite for the updateTask command to ensure it works correctly in all scenarios and maintains backward compatibility.",
+          "dependencies": [
+            1,
+            2,
+            3
+          ],
+          "details": "Implementation steps:\n1. Create unit tests for the updateTaskById function in task-manager.js\n   - Test finding and updating tasks with various IDs\n   - Test preservation of completed subtasks\n   - Test different update options combinations\n   - Test error handling for non-existent tasks\n2. Create unit tests for the updateTask command in commands.js\n   - Test command parameter parsing\n   - Test option handling\n   - Test error scenarios and messages\n3. Create integration tests that verify the end-to-end flow\n   - Test the command with actual AI service integration\n   - Test with mock AI responses for predictable testing\n4. Implement test fixtures and mocks for consistent testing\n5. Add performance tests to ensure the command is efficient\n6. Test edge cases such as empty tasks, tasks with many subtasks, etc.\n\nTesting approach:\n- Use Jest or similar testing framework\n- Implement mocks for external dependencies like AI services\n- Create test fixtures for consistent test data\n- Use snapshot testing for command output verification",
+          "status": "done",
+          "parentTaskId": 34
+        },
+        {
+          "id": 5,
+          "title": "Update CLI documentation and help text",
+          "description": "Update the CLI help documentation to include the new updateTask command and ensure users understand its purpose and options.",
+          "dependencies": [
+            2
+          ],
+          "details": "Implementation steps:\n1. Add comprehensive help text for the updateTask command including:\n   - Command description\n   - Required and optional parameters\n   - Examples of usage\n   - Description of all supported options\n2. Update the main CLI help documentation to include the new command\n3. Add the command to any relevant command groups or categories\n4. Create usage examples that demonstrate common scenarios\n5. Update README.md and other documentation files to include information about the new command\n6. Add inline code comments explaining the implementation details\n7. Update any API documentation if applicable\n8. Create or update user guides with the new functionality\n\nTesting approach:\n- Verify help text is displayed correctly when running `--help`\n- Review documentation for clarity and completeness\n- Have team members review the documentation for usability\n- Test examples to ensure they work as documented",
+          "status": "done",
+          "parentTaskId": 34
+        }
+      ]
+    },
+    {
+      "id": 35,
+      "title": "Integrate Grok3 API for Research Capabilities",
+      "description": "Replace the current Perplexity API integration with Grok3 API for all research-related functionalities while maintaining existing feature parity.",
+      "status": "pending",
+      "dependencies": [],
+      "priority": "medium",
+      "details": "This task involves migrating from Perplexity to Grok3 API for research capabilities throughout the application. Implementation steps include:\n\n1. Create a new API client module for Grok3 in `src/api/grok3.ts` that handles authentication, request formatting, and response parsing\n2. Update the research service layer to use the new Grok3 client instead of Perplexity\n3. Modify the request payload structure to match Grok3's expected format (parameters like temperature, max_tokens, etc.)\n4. Update response handling to properly parse and extract Grok3's response format\n5. Implement proper error handling for Grok3-specific error codes and messages\n6. Update environment variables and configuration files to include Grok3 API keys and endpoints\n7. Ensure rate limiting and quota management are properly implemented according to Grok3's specifications\n8. Update any UI components that display research provider information to show Grok3 instead of Perplexity\n9. Maintain backward compatibility for any stored research results from Perplexity\n10. Document the new API integration in the developer documentation\n\nGrok3 API has different parameter requirements and response formats compared to Perplexity, so careful attention must be paid to these differences during implementation.",
+      "testStrategy": "Testing should verify that the Grok3 API integration works correctly and maintains feature parity with the previous Perplexity implementation:\n\n1. Unit tests:\n   - Test the Grok3 API client with mocked responses\n   - Verify proper error handling for various error scenarios (rate limits, authentication failures, etc.)\n   - Test the transformation of application requests to Grok3-compatible format\n\n2. Integration tests:\n   - Perform actual API calls to Grok3 with test credentials\n   - Verify that research results are correctly parsed and returned\n   - Test with various types of research queries to ensure broad compatibility\n\n3. End-to-end tests:\n   - Test the complete research flow from UI input to displayed results\n   - Verify that all existing research features work with the new API\n\n4. Performance tests:\n   - Compare response times between Perplexity and Grok3\n   - Ensure the application handles any differences in response time appropriately\n\n5. Regression tests:\n   - Verify that existing features dependent on research capabilities continue to work\n   - Test that stored research results from Perplexity are still accessible and displayed correctly\n\nCreate a test environment with both APIs available to compare results and ensure quality before fully replacing Perplexity with Grok3."
+    },
+    {
+      "id": 36,
+      "title": "Add Ollama Support for AI Services as Claude Alternative",
+      "description": "Implement Ollama integration as an alternative to Claude for all main AI services, allowing users to run local language models instead of relying on cloud-based Claude API.",
+      "status": "pending",
+      "dependencies": [],
+      "priority": "medium",
+      "details": "This task involves creating a comprehensive Ollama integration that can replace Claude across all main AI services in the application. Implementation should include:\n\n1. Create an OllamaService class that implements the same interface as the ClaudeService to ensure compatibility\n2. Add configuration options to specify Ollama endpoint URL (default: http://localhost:11434)\n3. Implement model selection functionality to allow users to choose which Ollama model to use (e.g., llama3, mistral, etc.)\n4. Handle prompt formatting specific to Ollama models, ensuring proper system/user message separation\n5. Implement proper error handling for cases where Ollama server is unavailable or returns errors\n6. Add fallback mechanism to Claude when Ollama fails or isn't configured\n7. Update the AI service factory to conditionally create either Claude or Ollama service based on configuration\n8. Ensure token counting and rate limiting are appropriately handled for Ollama models\n9. Add documentation for users explaining how to set up and use Ollama with the application\n10. Optimize prompt templates specifically for Ollama models if needed\n\nThe implementation should be toggled through a configuration option (useOllama: true/false) and should maintain all existing functionality currently provided by Claude.",
+      "testStrategy": "Testing should verify that Ollama integration works correctly as a drop-in replacement for Claude:\n\n1. Unit tests:\n   - Test OllamaService class methods in isolation with mocked responses\n   - Verify proper error handling when Ollama server is unavailable\n   - Test fallback mechanism to Claude when configured\n\n2. Integration tests:\n   - Test with actual Ollama server running locally with at least two different models\n   - Verify all AI service functions work correctly with Ollama\n   - Compare outputs between Claude and Ollama for quality assessment\n\n3. Configuration tests:\n   - Verify toggling between Claude and Ollama works as expected\n   - Test with various model configurations\n\n4. Performance tests:\n   - Measure and compare response times between Claude and Ollama\n   - Test with different load scenarios\n\n5. Manual testing:\n   - Verify all main AI features work correctly with Ollama\n   - Test edge cases like very long inputs or specialized tasks\n\nCreate a test document comparing output quality between Claude and various Ollama models to help users understand the tradeoffs."
+    },
+    {
+      "id": 37,
+      "title": "Add Gemini Support for Main AI Services as Claude Alternative",
+      "description": "Implement Google's Gemini API integration as an alternative to Claude for all main AI services, allowing users to switch between different LLM providers.",
+      "status": "pending",
+      "dependencies": [],
+      "priority": "medium",
+      "details": "This task involves integrating Google's Gemini API across all main AI services that currently use Claude:\n\n1. Create a new GeminiService class that implements the same interface as the existing ClaudeService\n2. Implement authentication and API key management for Gemini API\n3. Map our internal prompt formats to Gemini's expected input format\n4. Handle Gemini-specific parameters (temperature, top_p, etc.) and response parsing\n5. Update the AI service factory/provider to support selecting Gemini as an alternative\n6. Add configuration options in settings to allow users to select Gemini as their preferred provider\n7. Implement proper error handling for Gemini-specific API errors\n8. Ensure streaming responses are properly supported if Gemini offers this capability\n9. Update documentation to reflect the new Gemini option\n10. Consider implementing model selection if Gemini offers multiple models (e.g., Gemini Pro, Gemini Ultra)\n11. Ensure all existing AI capabilities (summarization, code generation, etc.) maintain feature parity when using Gemini\n\nThe implementation should follow the same pattern as the recent Ollama integration (Task #36) to maintain consistency in how alternative AI providers are supported.",
+      "testStrategy": "Testing should verify Gemini integration works correctly across all AI services:\n\n1. Unit tests:\n   - Test GeminiService class methods with mocked API responses\n   - Verify proper error handling for common API errors\n   - Test configuration and model selection functionality\n\n2. Integration tests:\n   - Verify authentication and API connection with valid credentials\n   - Test each AI service with Gemini to ensure proper functionality\n   - Compare outputs between Claude and Gemini for the same inputs to verify quality\n\n3. End-to-end tests:\n   - Test the complete user flow of switching to Gemini and using various AI features\n   - Verify streaming responses work correctly if supported\n\n4. Performance tests:\n   - Measure and compare response times between Claude and Gemini\n   - Test with various input lengths to verify handling of context limits\n\n5. Manual testing:\n   - Verify the quality of Gemini responses across different use cases\n   - Test edge cases like very long inputs or specialized domain knowledge\n\nAll tests should pass with Gemini selected as the provider, and the user experience should be consistent regardless of which provider is selected."
+    },
+    {
+      "id": 38,
+      "title": "Implement Version Check System with Upgrade Notifications",
+      "description": "Create a system that checks for newer package versions and displays upgrade notifications when users run any command, informing them to update to the latest version.",
+      "status": "done",
+      "dependencies": [],
+      "priority": "high",
+      "details": "Implement a version check mechanism that runs automatically with every command execution:\n\n1. Create a new module (e.g., `versionChecker.js`) that will:\n   - Fetch the latest version from npm registry using the npm registry API (https://registry.npmjs.org/task-master-ai/latest)\n   - Compare it with the current installed version (from package.json)\n   - Store the last check timestamp to avoid excessive API calls (check once per day)\n   - Cache the result to minimize network requests\n\n2. The notification should:\n   - Use colored text (e.g., yellow background with black text) to be noticeable\n   - Include the current version and latest version\n   - Show the exact upgrade command: 'npm i task-master-ai@latest'\n   - Be displayed at the beginning or end of command output, not interrupting the main content\n   - Include a small separator line to distinguish it from command output\n\n3. Implementation considerations:\n   - Handle network failures gracefully (don't block command execution if version check fails)\n   - Add a configuration option to disable update checks if needed\n   - Ensure the check is lightweight and doesn't significantly impact command performance\n   - Consider using a package like 'semver' for proper version comparison\n   - Implement a cooldown period (e.g., only check once per day) to avoid excessive API calls\n\n4. The version check should be integrated into the main command execution flow so it runs for all commands automatically.",
+      "testStrategy": "1. Manual testing:\n   - Install an older version of the package\n   - Run various commands and verify the update notification appears\n   - Update to the latest version and confirm the notification no longer appears\n   - Test with network disconnected to ensure graceful handling of failures\n\n2. Unit tests:\n   - Mock the npm registry response to test different scenarios:\n     - When a newer version exists\n     - When using the latest version\n     - When the registry is unavailable\n   - Test the version comparison logic with various version strings\n   - Test the cooldown/caching mechanism works correctly\n\n3. Integration tests:\n   - Create a test that runs a command and verifies the notification appears in the expected format\n   - Test that the notification appears for all commands\n   - Verify the notification doesn't interfere with normal command output\n\n4. Edge cases to test:\n   - Pre-release versions (alpha/beta)\n   - Very old versions\n   - When package.json is missing or malformed\n   - When npm registry returns unexpected data"
     }
   ]
 }
