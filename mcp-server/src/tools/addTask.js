@@ -45,8 +45,6 @@ export function registerAddTaskTool(server) {
         if (args.priority) cmdArgs.push(`--priority=${args.priority}`);
         if (args.file) cmdArgs.push(`--file=${args.file}`);
 
-        const projectRoot = args.projectRoot;
-
         const result = executeTaskMasterCommand(
           "add-task",
           log,

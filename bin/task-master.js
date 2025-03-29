@@ -13,6 +13,7 @@ import { Command } from 'commander';
 import { displayHelp, displayBanner } from '../scripts/modules/ui.js';
 import { registerCommands } from '../scripts/modules/commands.js';
 import { detectCamelCaseFlags } from '../scripts/modules/utils.js';
+import chalk from 'chalk';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -167,7 +168,7 @@ function createDevScriptAction(commandName) {
           if (value === true) {
             args.push(`--${kebabKey}`);
           } else if (value === false && key === 'generate') {
-            args.push('--no-generate');
+            args.push('--skip-generate');
           }
         } else {
           // Always use kebab-case for option names
@@ -253,7 +254,6 @@ registerInitCommand(program);
 program
   .command('dev')
   .description('Run the dev.js script')
-  .allowUnknownOption(true)
   .action(() => {
     const args = process.argv.slice(process.argv.indexOf('dev') + 1);
     runDevScript(args);
@@ -273,8 +273,7 @@ tempProgram.commands.forEach(cmd => {
   // Create a new command with the same name and description
   const newCmd = program
     .command(cmd.name())
-    .description(cmd.description())
-    .allowUnknownOption(); // Allow any options, including camelCase ones
+    .description(cmd.description());
   
   // Copy all options
   cmd.options.forEach(opt => {
@@ -291,6 +290,39 @@ tempProgram.commands.forEach(cmd => {
 
 // Parse the command line arguments
 program.parse(process.argv);
+
+// Add global error handling for unknown commands and options
+process.on('uncaughtException', (err) => {
+  // Check if this is a commander.js unknown option error
+  if (err.code === 'commander.unknownOption') {
+    const option = err.message.match(/'([^']+)'/)?.[1];
+    const commandArg = process.argv.find(arg => !arg.startsWith('-') && 
+                                            arg !== 'task-master' && 
+                                            !arg.includes('/') && 
+                                            arg !== 'node');
+    const command = commandArg || 'unknown';
+    
+    console.error(chalk.red(`Error: Unknown option '${option}'`));
+    console.error(chalk.yellow(`Run 'task-master ${command} --help' to see available options for this command`));
+    process.exit(1);
+  }
+  
+  // Check if this is a commander.js unknown command error
+  if (err.code === 'commander.unknownCommand') {
+    const command = err.message.match(/'([^']+)'/)?.[1];
+    
+    console.error(chalk.red(`Error: Unknown command '${command}'`));
+    console.error(chalk.yellow(`Run 'task-master --help' to see available commands`));
+    process.exit(1);
+  }
+  
+  // Handle other uncaught exceptions
+  console.error(chalk.red(`Error: ${err.message}`));
+  if (process.env.DEBUG === '1') {
+    console.error(err);
+  }
+  process.exit(1);
+});
 
 // Show help if no command was provided (just 'task-master' with no args)
 if (process.argv.length <= 2) {

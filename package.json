@@ -7,7 +7,7 @@
   "bin": {
     "task-master": "bin/task-master.js",
     "task-master-init": "bin/task-master-init.js",
-    "task-master-mcp": "mcp-server/server.js"
+    "task-master-mcp-server": "mcp-server/server.js"
   },
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
@@ -74,7 +74,7 @@
     "mcp-server/**"
   ],
   "overrides": {
-    "node-fetch": "^2.6.7",
+    "node-fetch": "^3.3.2",
     "whatwg-url": "^11.0.0"
   },
   "devDependencies": {
