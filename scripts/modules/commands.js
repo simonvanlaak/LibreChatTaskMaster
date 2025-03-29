@@ -471,7 +471,12 @@ function registerCommands(programInstance) {
         process.exit(1);
       }
       
-      await addDependency(tasksPath, parseInt(taskId, 10), parseInt(dependencyId, 10));
+      // Handle subtask IDs correctly by preserving the string format for IDs containing dots
+      // Only use parseInt for simple numeric IDs
+      const formattedTaskId = taskId.includes('.') ? taskId : parseInt(taskId, 10);
+      const formattedDependencyId = dependencyId.includes('.') ? dependencyId : parseInt(dependencyId, 10);
+      
+      await addDependency(tasksPath, formattedTaskId, formattedDependencyId);
     });
 
   // remove-dependency command
@@ -491,7 +496,12 @@ function registerCommands(programInstance) {
         process.exit(1);
       }
       
-      await removeDependency(tasksPath, parseInt(taskId, 10), parseInt(dependencyId, 10));
+      // Handle subtask IDs correctly by preserving the string format for IDs containing dots
+      // Only use parseInt for simple numeric IDs
+      const formattedTaskId = taskId.includes('.') ? taskId : parseInt(taskId, 10);
+      const formattedDependencyId = dependencyId.includes('.') ? dependencyId : parseInt(dependencyId, 10);
+      
+      await removeDependency(tasksPath, formattedTaskId, formattedDependencyId);
     });
 
   // validate-dependencies command

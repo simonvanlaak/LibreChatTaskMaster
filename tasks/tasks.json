@@ -1396,7 +1396,9 @@
           "id": 8,
           "title": "Implement Direct Function Imports and Replace CLI-based Execution",
           "description": "Refactor the MCP server implementation to use direct Task Master function imports instead of the current CLI-based execution using child_process.spawnSync. This will improve performance, reliability, and enable better error handling.",
-          "dependencies": [],
+          "dependencies": [
+            "23.13"
+          ],
           "details": "1. Create a new module to import and expose Task Master core functions directly\n2. Modify tools/utils.js to remove executeTaskMasterCommand and replace with direct function calls\n3. Update each tool implementation (listTasks.js, showTask.js, etc.) to use the direct function imports\n4. Implement proper error handling with try/catch blocks and FastMCP's MCPError\n5. Add unit tests to verify the function imports work correctly\n6. Test performance improvements by comparing response times between CLI and function import approaches",
           "status": "in-progress",
           "parentTaskId": 23
@@ -1417,7 +1419,8 @@
           "title": "Enhance Tool Registration and Resource Management",
           "description": "Refactor tool registration to follow FastMCP best practices, using decorators and improving the overall structure. Implement proper resource management for task templates and other shared resources.",
           "dependencies": [
-            1
+            1,
+            "23.8"
           ],
           "details": "1. Update registerTaskMasterTools function to use FastMCP's decorator pattern\n2. Implement @mcp.tool() decorators for all existing tools\n3. Add proper type annotations and documentation for all tools\n4. Create resource handlers for task templates using @mcp.resource()\n5. Implement resource templates for common task patterns\n6. Update the server initialization to properly register all tools and resources\n7. Add validation for tool inputs using FastMCP's built-in validation\n8. Create comprehensive tests for tool registration and resource access",
           "status": "in-progress",
@@ -1455,8 +1458,7 @@
           "status": "pending",
           "dependencies": [
             "23.1",
-            "23.3",
-            "23.8"
+            "23.3"
           ],
           "parentTaskId": 23
         },
