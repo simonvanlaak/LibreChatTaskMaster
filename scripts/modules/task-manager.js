@@ -2969,11 +2969,319 @@ async function removeSubtask(tasksPath, subtaskId, convertToTask = false, genera
   }
 }
 
+/**
+ * Update a subtask by appending additional information to its description and details
+ * @param {string} tasksPath - Path to the tasks.json file
+ * @param {string} subtaskId - ID of the subtask to update in format "parentId.subtaskId"
+ * @param {string} prompt - Prompt for generating additional information
+ * @param {boolean} useResearch - Whether to use Perplexity AI for research-backed updates
+ * @returns {Object|null} - The updated subtask or null if update failed
+ */
+async function updateSubtaskById(tasksPath, subtaskId, prompt, useResearch = false) {
+  try {
+    log('info', `Updating subtask ${subtaskId} with prompt: "${prompt}"`);
+    
+    // Validate subtask ID format
+    if (!subtaskId || typeof subtaskId !== 'string' || !subtaskId.includes('.')) {
+      throw new Error(`Invalid subtask ID format: ${subtaskId}. Subtask ID must be in format "parentId.subtaskId"`);
+    }
+    
+    // Validate prompt
+    if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {
+      throw new Error('Prompt cannot be empty. Please provide context for the subtask update.');
+    }
+    
+    // Validate research flag
+    if (useResearch && (!perplexity || !process.env.PERPLEXITY_API_KEY)) {
+      log('warn', 'Perplexity AI is not available. Falling back to Claude AI.');
+      console.log(chalk.yellow('Perplexity AI is not available (API key may be missing). Falling back to Claude AI.'));
+      useResearch = false;
+    }
+    
+    // Validate tasks file exists
+    if (!fs.existsSync(tasksPath)) {
+      throw new Error(`Tasks file not found at path: ${tasksPath}`);
+    }
+    
+    // Read the tasks file
+    const data = readJSON(tasksPath);
+    if (!data || !data.tasks) {
+      throw new Error(`No valid tasks found in ${tasksPath}. The file may be corrupted or have an invalid format.`);
+    }
+    
+    // Parse parent and subtask IDs
+    const [parentIdStr, subtaskIdStr] = subtaskId.split('.');
+    const parentId = parseInt(parentIdStr, 10);
+    const subtaskIdNum = parseInt(subtaskIdStr, 10);
+    
+    if (isNaN(parentId) || parentId <= 0 || isNaN(subtaskIdNum) || subtaskIdNum <= 0) {
+      throw new Error(`Invalid subtask ID format: ${subtaskId}. Both parent ID and subtask ID must be positive integers.`);
+    }
+    
+    // Find the parent task
+    const parentTask = data.tasks.find(task => task.id === parentId);
+    if (!parentTask) {
+      throw new Error(`Parent task with ID ${parentId} not found. Please verify the task ID and try again.`);
+    }
+    
+    // Find the subtask
+    if (!parentTask.subtasks || !Array.isArray(parentTask.subtasks)) {
+      throw new Error(`Parent task ${parentId} has no subtasks.`);
+    }
+    
+    const subtask = parentTask.subtasks.find(st => st.id === subtaskIdNum);
+    if (!subtask) {
+      throw new Error(`Subtask with ID ${subtaskId} not found. Please verify the subtask ID and try again.`);
+    }
+    
+    // Check if subtask is already completed
+    if (subtask.status === 'done' || subtask.status === 'completed') {
+      log('warn', `Subtask ${subtaskId} is already marked as done and cannot be updated`);
+      console.log(boxen(
+        chalk.yellow(`Subtask ${subtaskId} is already marked as ${subtask.status} and cannot be updated.`) + '\n\n' +
+        chalk.white('Completed subtasks are locked to maintain consistency. To modify a completed subtask, you must first:') + '\n' +
+        chalk.white('1. Change its status to "pending" or "in-progress"') + '\n' +
+        chalk.white('2. Then run the update-subtask command'),
+        { padding: 1, borderColor: 'yellow', borderStyle: 'round' }
+      ));
+      return null;
+    }
+    
+    // Show the subtask that will be updated
+    const table = new Table({
+      head: [
+        chalk.cyan.bold('ID'),
+        chalk.cyan.bold('Title'),
+        chalk.cyan.bold('Status')
+      ],
+      colWidths: [10, 55, 10]
+    });
+    
+    table.push([
+      subtaskId,
+      truncate(subtask.title, 52),
+      getStatusWithColor(subtask.status)
+    ]);
+    
+    console.log(boxen(
+      chalk.white.bold(`Updating Subtask #${subtaskId}`),
+      { padding: 1, borderColor: 'blue', borderStyle: 'round', margin: { top: 1, bottom: 0 } }
+    ));
+    
+    console.log(table.toString());
+    
+    // Build the system prompt
+    const systemPrompt = `You are an AI assistant helping to enhance a software development subtask with additional information.
+You will be given a subtask and a prompt requesting specific details or clarification.
+Your job is to generate concise, technically precise information that addresses the prompt.
+
+Guidelines:
+1. Focus ONLY on generating the additional information requested in the prompt
+2. Be specific, technical, and actionable in your response
+3. Keep your response as low level as possible, the goal is to provide the most detailed information possible to complete the task.
+4. Format your response to be easily readable when appended to existing text
+5. Include code snippets, links to documentation, or technical details when appropriate
+6. Do NOT include any preamble, conclusion or meta-commentary
+7. Return ONLY the new information to be added - do not repeat or summarize existing content`;
+
+    const subtaskData = JSON.stringify(subtask, null, 2);
+    
+    let additionalInformation;
+    const loadingIndicator = startLoadingIndicator(useResearch 
+      ? 'Generating additional information with Perplexity AI research...' 
+      : 'Generating additional information with Claude AI...');
+    
+    try {
+      if (useResearch) {
+        log('info', 'Using Perplexity AI for research-backed subtask update');
+        
+        // Verify Perplexity API key exists
+        if (!process.env.PERPLEXITY_API_KEY) {
+          throw new Error('PERPLEXITY_API_KEY environment variable is missing but --research flag was used.');
+        }
+        
+        try {
+          // Call Perplexity AI
+          const perplexityModel = process.env.PERPLEXITY_MODEL || 'sonar-pro';
+          const result = await perplexity.chat.completions.create({
+            model: perplexityModel,
+            messages: [
+              {
+                role: "system", 
+                content: `${systemPrompt}\n\nUse your online search capabilities to research up-to-date information about the technologies and concepts mentioned in the subtask. Look for best practices, common issues, and implementation details that would be helpful.`
+              },
+              {
+                role: "user",
+                content: `Here is the subtask to enhance:
+${subtaskData}
+
+Please provide additional information addressing this request:
+${prompt}
+
+Return ONLY the new information to add - do not repeat existing content.`
+              }
+            ],
+            temperature: parseFloat(process.env.TEMPERATURE || CONFIG.temperature),
+            max_tokens: parseInt(process.env.MAX_TOKENS || CONFIG.maxTokens),
+          });
+          
+          additionalInformation = result.choices[0].message.content.trim();
+        } catch (perplexityError) {
+          throw new Error(`Perplexity API error: ${perplexityError.message}`);
+        }
+      } else {
+        // Call Claude to generate additional information
+        try {
+          // Verify Anthropic API key exists
+          if (!process.env.ANTHROPIC_API_KEY) {
+            throw new Error('ANTHROPIC_API_KEY environment variable is missing. Required for subtask updates.');
+          }
+          
+          // Use streaming API call
+          let responseText = '';
+          let streamingInterval = null;
+          
+          // Update loading indicator to show streaming progress
+          let dotCount = 0;
+          const readline = await import('readline');
+          streamingInterval = setInterval(() => {
+            readline.cursorTo(process.stdout, 0);
+            process.stdout.write(`Receiving streaming response from Claude${'.'.repeat(dotCount)}`);
+            dotCount = (dotCount + 1) % 4;
+          }, 500);
+          
+          // Use streaming API call
+          const stream = await anthropic.messages.create({
+            model: CONFIG.model,
+            max_tokens: CONFIG.maxTokens,
+            temperature: CONFIG.temperature,
+            system: systemPrompt,
+            messages: [
+              {
+                role: 'user',
+                content: `Here is the subtask to enhance:
+${subtaskData}
+
+Please provide additional information addressing this request:
+${prompt}
+
+Return ONLY the new information to add - do not repeat existing content.`
+              }
+            ],
+            stream: true
+          });
+          
+          // Process the stream
+          for await (const chunk of stream) {
+            if (chunk.type === 'content_block_delta' && chunk.delta.text) {
+              responseText += chunk.delta.text;
+            }
+          }
+          
+          if (streamingInterval) clearInterval(streamingInterval);
+          log('info', "Completed streaming response from Claude API!");
+          
+          additionalInformation = responseText.trim();
+        } catch (claudeError) {
+          throw new Error(`Claude API error: ${claudeError.message}`);
+        }
+      }
+      
+      // Validate the generated information
+      if (!additionalInformation || additionalInformation.trim() === '') {
+        throw new Error('Received empty response from AI. Unable to generate additional information.');
+      }
+      
+      // Create timestamp
+      const currentDate = new Date();
+      const timestamp = currentDate.toISOString();
+      
+      // Format the additional information with timestamp
+      const formattedInformation = `\n\n<info added on ${timestamp}>\n${additionalInformation}\n</info added on ${timestamp}>`;
+      
+      // Append to subtask details and description
+      if (subtask.details) {
+        subtask.details += formattedInformation;
+      } else {
+        subtask.details = `${formattedInformation}`;
+      }
+      
+      if (subtask.description) {
+        // Only append to description if it makes sense (for shorter updates)
+        if (additionalInformation.length < 200) {
+          subtask.description += ` [Updated: ${currentDate.toLocaleDateString()}]`;
+        }
+      }
+      
+      // Update the subtask in the parent task
+      const subtaskIndex = parentTask.subtasks.findIndex(st => st.id === subtaskIdNum);
+      if (subtaskIndex !== -1) {
+        parentTask.subtasks[subtaskIndex] = subtask;
+      } else {
+        throw new Error(`Subtask with ID ${subtaskId} not found in parent task's subtasks array.`);
+      }
+      
+      // Update the parent task in the original data
+      const parentIndex = data.tasks.findIndex(t => t.id === parentId);
+      if (parentIndex !== -1) {
+        data.tasks[parentIndex] = parentTask;
+      } else {
+        throw new Error(`Parent task with ID ${parentId} not found in tasks array.`);
+      }
+      
+      // Write the updated tasks to the file
+      writeJSON(tasksPath, data);
+      
+      log('success', `Successfully updated subtask ${subtaskId}`);
+      
+      // Generate individual task files
+      await generateTaskFiles(tasksPath, path.dirname(tasksPath));
+      
+      console.log(boxen(
+        chalk.green(`Successfully updated subtask #${subtaskId}`) + '\n\n' +
+        chalk.white.bold('Title:') + ' ' + subtask.title + '\n\n' +
+        chalk.white.bold('Information Added:') + '\n' +
+        chalk.white(truncate(additionalInformation, 300, true)),
+        { padding: 1, borderColor: 'green', borderStyle: 'round' }
+      ));
+      
+      // Return the updated subtask for testing purposes
+      return subtask;
+    } finally {
+      stopLoadingIndicator(loadingIndicator);
+    }
+  } catch (error) {
+    log('error', `Error updating subtask: ${error.message}`);
+    console.error(chalk.red(`Error: ${error.message}`));
+    
+    // Provide more helpful error messages for common issues
+    if (error.message.includes('ANTHROPIC_API_KEY')) {
+      console.log(chalk.yellow('\nTo fix this issue, set your Anthropic API key:'));
+      console.log('  export ANTHROPIC_API_KEY=your_api_key_here');
+    } else if (error.message.includes('PERPLEXITY_API_KEY')) {
+      console.log(chalk.yellow('\nTo fix this issue:'));
+      console.log('  1. Set your Perplexity API key: export PERPLEXITY_API_KEY=your_api_key_here');
+      console.log('  2. Or run without the research flag: task-master update-subtask --id=<id> --prompt="..."');
+    } else if (error.message.includes('not found')) {
+      console.log(chalk.yellow('\nTo fix this issue:'));
+      console.log('  1. Run task-master list --with-subtasks to see all available subtask IDs');
+      console.log('  2. Use a valid subtask ID with the --id parameter in format "parentId.subtaskId"');
+    }
+    
+    if (CONFIG.debug) {
+      console.error(error);
+    }
+    
+    return null;
+  }
+}
+
 // Export task manager functions
 export {
   parsePRD,
   updateTasks,
   updateTaskById,
+  updateSubtaskById,
   generateTaskFiles,
   setTaskStatus,
   updateSingleTaskStatus,

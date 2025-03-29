@@ -97,6 +97,32 @@ alwaysApply: true
   - Example: `task-master update --from=4 --prompt="Now we are using Express instead of Fastify."`
   - Notes: Only updates tasks not marked as 'done'. Completed tasks remain unchanged.
 
+- **Command Reference: update-task**
+  - Legacy Syntax: `node scripts/dev.js update-task --id=<id> --prompt="<prompt>"`
+  - CLI Syntax: `task-master update-task --id=<id> --prompt="<prompt>"`
+  - Description: Updates a single task by ID with new information
+  - Parameters:
+    - `--id=<id>`: ID of the task to update (required)
+    - `--prompt="<text>"`: New information or context to update the task (required)
+    - `--research`: Use Perplexity AI for research-backed updates
+  - Example: `task-master update-task --id=5 --prompt="Use JWT for authentication instead of sessions."`
+  - Notes: Only updates tasks not marked as 'done'. Preserves completed subtasks.
+
+- **Command Reference: update-subtask**
+  - Legacy Syntax: `node scripts/dev.js update-subtask --id=<id> --prompt="<prompt>"`
+  - CLI Syntax: `task-master update-subtask --id=<id> --prompt="<prompt>"`
+  - Description: Appends additional information to a specific subtask without replacing existing content
+  - Parameters:
+    - `--id=<id>`: ID of the subtask to update in format "parentId.subtaskId" (required)
+    - `--prompt="<text>"`: Information to add to the subtask (required)
+    - `--research`: Use Perplexity AI for research-backed updates
+  - Example: `task-master update-subtask --id=5.2 --prompt="Add details about API rate limiting."`
+  - Notes: 
+    - Appends new information to subtask details with timestamp
+    - Does not replace existing content, only adds to it
+    - Uses XML-like tags to clearly mark added information
+    - Will not update subtasks marked as 'done' or 'completed'
+
 - **Command Reference: generate**
   - Legacy Syntax: `node scripts/dev.js generate`
   - CLI Syntax: `task-master generate`
