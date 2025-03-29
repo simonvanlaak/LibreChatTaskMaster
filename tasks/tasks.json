@@ -1795,13 +1795,120 @@
     },
     {
       "id": 32,
-      "title": "Implement 'learn' Command for Automatic Cursor Rule Generation",
-      "description": "Create a new 'learn' command that analyzes code changes and chat history to automatically generate or update Cursor rules in the .cursor/rules directory based on successful implementation patterns.",
+      "title": "Implement \"learn\" Command for Automatic Cursor Rule Generation",
+      "description": "Create a new \"learn\" command that analyzes Cursor's chat history and code changes to automatically generate or update rule files in the .cursor/rules directory, following the cursor_rules.mdc template format. This command will help Cursor autonomously improve its ability to follow development standards by learning from successful implementations.",
       "status": "pending",
       "dependencies": [],
       "priority": "high",
-      "details": "Implement a new command in the task-master CLI that enables Cursor to learn from successful coding patterns:\n\n1. Create a new module `commands/learn.js` that implements the command logic\n2. Update `index.js` to register the new command\n3. The command should:\n   - Accept an optional parameter for specifying which patterns to focus on\n   - Use git diff to extract code changes since the last commit\n   - Access the Cursor chat history if possible (investigate API or file storage location)\n   - Call Claude via ai-services.js with the following context:\n     * Code diffs\n     * Chat history excerpts showing challenges and solutions\n     * Existing rules from .cursor/rules if present\n   - Parse Claude's response to extract rule definitions\n   - Create or update .mdc files in the .cursor/rules directory\n   - Provide a summary of what was learned and which rules were updated\n\n4. Create helper functions to:\n   - Extract relevant patterns from diffs\n   - Format the prompt for Claude to focus on identifying reusable patterns\n   - Parse Claude's response into valid rule definitions\n   - Handle rule conflicts or duplications\n\n5. Ensure the command handles errors gracefully, especially if chat history is inaccessible\n6. Add appropriate logging to show the learning process\n7. Document the command in the README.md file",
-      "testStrategy": "1. Unit tests:\n   - Create tests for each helper function in isolation\n   - Mock git diff responses and chat history data\n   - Verify rule extraction logic works with different input patterns\n   - Test error handling for various failure scenarios\n\n2. Integration tests:\n   - Test the command in a repository with actual code changes\n   - Verify it correctly generates .mdc files in the .cursor/rules directory\n   - Check that generated rules follow the correct format\n   - Verify the command correctly updates existing rules without losing custom modifications\n\n3. Manual testing scenarios:\n   - Run the command after implementing a feature with specific patterns\n   - Verify the generated rules capture the intended patterns\n   - Test the command with and without existing rules\n   - Verify the command works when chat history is available and when it isn't\n   - Test with large diffs to ensure performance remains acceptable\n\n4. Validation:\n   - After generating rules, use them in Cursor to verify they correctly guide future implementations\n   - Have multiple team members test the command to ensure consistent results"
+      "details": "Implement a new command in the task-master CLI that enables Cursor to learn from successful coding patterns and chat interactions:\n\nKey Components:\n1. Cursor Data Analysis\n   - Access and parse Cursor's chat history from ~/Library/Application Support/Cursor/User/History\n   - Extract relevant patterns, corrections, and successful implementations\n   - Track file changes and their associated chat context\n\n2. Rule Management\n   - Use cursor_rules.mdc as the template for all rule file formatting\n   - Manage rule files in .cursor/rules directory\n   - Support both creation and updates of rule files\n   - Categorize rules based on context (testing, components, API, etc.)\n\n3. AI Integration\n   - Utilize ai-services.js to interact with Claude\n   - Provide comprehensive context including:\n     * Relevant chat history showing the evolution of solutions\n     * Code changes and their outcomes\n     * Existing rules and template structure\n   - Generate or update rules while maintaining template consistency\n\n4. Implementation Requirements:\n   - Automatic triggering after task completion (configurable)\n   - Manual triggering via CLI command\n   - Proper error handling for missing or corrupt files\n   - Validation against cursor_rules.mdc template\n   - Performance optimization for large histories\n   - Clear logging and progress indication\n\n5. Key Files:\n   - commands/learn.js: Main command implementation\n   - rules/cursor-rules-manager.js: Rule file management\n   - utils/chat-history-analyzer.js: Cursor chat analysis\n   - index.js: Command registration\n\n6. Security Considerations:\n   - Safe file system operations\n   - Proper error handling for inaccessible files\n   - Validation of generated rules\n   - Backup of existing rules before updates",
+      "testStrategy": "1. Unit Tests:\n   - Test each component in isolation:\n     * Chat history extraction and analysis\n     * Rule file management and validation\n     * Pattern detection and categorization\n     * Template validation logic\n   - Mock file system operations and AI responses\n   - Test error handling and edge cases\n\n2. Integration Tests:\n   - End-to-end command execution\n   - File system interactions\n   - AI service integration\n   - Rule generation and updates\n   - Template compliance validation\n\n3. Manual Testing:\n   - Test after completing actual development tasks\n   - Verify rule quality and usefulness\n   - Check template compliance\n   - Validate performance with large histories\n   - Test automatic and manual triggering\n\n4. Validation Criteria:\n   - Generated rules follow cursor_rules.mdc format\n   - Rules capture meaningful patterns\n   - Performance remains acceptable\n   - Error handling works as expected\n   - Generated rules improve Cursor's effectiveness",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Create Initial File Structure",
+          "description": "Set up the basic file structure for the learn command implementation",
+          "details": "Create the following files with basic exports:\n- commands/learn.js\n- rules/cursor-rules-manager.js\n- utils/chat-history-analyzer.js\n- utils/cursor-path-helper.js",
+          "status": "pending"
+        },
+        {
+          "id": 2,
+          "title": "Implement Cursor Path Helper",
+          "description": "Create utility functions to handle Cursor's application data paths",
+          "details": "In utils/cursor-path-helper.js implement:\n- getCursorAppDir(): Returns ~/Library/Application Support/Cursor\n- getCursorHistoryDir(): Returns User/History path\n- getCursorLogsDir(): Returns logs directory path\n- validatePaths(): Ensures required directories exist",
+          "status": "pending"
+        },
+        {
+          "id": 3,
+          "title": "Create Chat History Analyzer Base",
+          "description": "Create the base structure for analyzing Cursor's chat history",
+          "details": "In utils/chat-history-analyzer.js create:\n- ChatHistoryAnalyzer class\n- readHistoryDir(): Lists all history directories\n- readEntriesJson(): Parses entries.json files\n- parseHistoryEntry(): Extracts relevant data from .js files",
+          "status": "pending"
+        },
+        {
+          "id": 4,
+          "title": "Implement Chat History Extraction",
+          "description": "Add core functionality to extract relevant chat history",
+          "details": "In ChatHistoryAnalyzer add:\n- extractChatHistory(startTime): Gets history since task start\n- parseFileChanges(): Extracts code changes\n- parseAIInteractions(): Extracts AI responses\n- filterRelevantHistory(): Removes irrelevant entries",
+          "status": "pending"
+        },
+        {
+          "id": 5,
+          "title": "Create CursorRulesManager Base",
+          "description": "Set up the base structure for managing Cursor rules",
+          "details": "In rules/cursor-rules-manager.js create:\n- CursorRulesManager class\n- readTemplate(): Reads cursor_rules.mdc\n- listRuleFiles(): Lists all .mdc files\n- readRuleFile(): Reads specific rule file",
+          "status": "pending"
+        },
+        {
+          "id": 6,
+          "title": "Implement Template Validation",
+          "description": "Add validation logic for rule files against cursor_rules.mdc",
+          "details": "In CursorRulesManager add:\n- validateRuleFormat(): Checks against template\n- parseTemplateStructure(): Extracts template sections\n- validateAgainstTemplate(): Validates content structure\n- getRequiredSections(): Lists mandatory sections",
+          "status": "pending"
+        },
+        {
+          "id": 7,
+          "title": "Add Rule Categorization Logic",
+          "description": "Implement logic to categorize changes into rule files",
+          "details": "In CursorRulesManager add:\n- categorizeChanges(): Maps changes to rule files\n- detectRuleCategories(): Identifies relevant categories\n- getRuleFileForPattern(): Maps patterns to files\n- createNewRuleFile(): Initializes new rule files",
+          "status": "pending"
+        },
+        {
+          "id": 8,
+          "title": "Implement Pattern Analysis",
+          "description": "Create functions to analyze implementation patterns",
+          "details": "In ChatHistoryAnalyzer add:\n- extractPatterns(): Finds success patterns\n- extractCorrections(): Finds error corrections\n- findSuccessfulPaths(): Tracks successful implementations\n- analyzeDecisions(): Extracts key decisions",
+          "status": "pending"
+        },
+        {
+          "id": 9,
+          "title": "Create AI Prompt Builder",
+          "description": "Implement prompt construction for Claude",
+          "details": "In learn.js create:\n- buildRuleUpdatePrompt(): Builds Claude prompt\n- formatHistoryContext(): Formats chat history\n- formatRuleContext(): Formats current rules\n- buildInstructions(): Creates specific instructions",
+          "status": "pending"
+        },
+        {
+          "id": 10,
+          "title": "Implement Learn Command Core",
+          "description": "Create the main learn command implementation",
+          "details": "In commands/learn.js implement:\n- learnCommand(): Main command function\n- processRuleUpdates(): Handles rule updates\n- generateSummary(): Creates learning summary\n- handleErrors(): Manages error cases",
+          "status": "pending"
+        },
+        {
+          "id": 11,
+          "title": "Add Auto-trigger Support",
+          "description": "Implement automatic learning after task completion",
+          "details": "Update task-manager.js:\n- Add autoLearnConfig handling\n- Modify completeTask() to trigger learning\n- Add learning status tracking\n- Implement learning queue",
+          "status": "pending"
+        },
+        {
+          "id": 12,
+          "title": "Implement CLI Integration",
+          "description": "Add the learn command to the CLI",
+          "details": "Update index.js to:\n- Register learn command\n- Add command options\n- Handle manual triggers\n- Process command flags",
+          "status": "pending"
+        },
+        {
+          "id": 13,
+          "title": "Add Progress Logging",
+          "description": "Implement detailed progress logging",
+          "details": "Create utils/learn-logger.js with:\n- logLearningProgress(): Tracks overall progress\n- logRuleUpdates(): Tracks rule changes\n- logErrors(): Handles error logging\n- createSummary(): Generates final report",
+          "status": "pending"
+        },
+        {
+          "id": 14,
+          "title": "Implement Error Recovery",
+          "description": "Add robust error handling throughout the system",
+          "details": "Create utils/error-handler.js with:\n- handleFileErrors(): Manages file system errors\n- handleParsingErrors(): Manages parsing failures\n- handleAIErrors(): Manages Claude API errors\n- implementRecoveryStrategies(): Adds recovery logic",
+          "status": "pending"
+        },
+        {
+          "id": 15,
+          "title": "Add Performance Optimization",
+          "description": "Optimize performance for large histories",
+          "details": "Add to utils/performance-optimizer.js:\n- implementCaching(): Adds result caching\n- optimizeFileReading(): Improves file reading\n- addProgressiveLoading(): Implements lazy loading\n- addMemoryManagement(): Manages memory usage",
+          "status": "pending"
+        }
+      ]
     },
     {
       "id": 33,

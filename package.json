@@ -17,7 +17,8 @@
     "prepublishOnly": "npm run prepare-package",
     "prepare": "chmod +x bin/task-master.js bin/task-master-init.js",
     "changeset": "changeset",
-    "release": "changeset publish"
+    "release": "changeset publish",
+    "inspector": "CLIENT_PORT=8888 SERVER_PORT=9000 npx @modelcontextprotocol/inspector node mcp-server/server.js"
   },
   "keywords": [
     "claude",
