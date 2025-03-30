@@ -677,6 +677,15 @@ async function displayTaskById(tasksPath, taskId) {
     
     console.log(taskTable.toString());
     
+    // Show details if they exist for subtasks
+    if (task.details && task.details.trim().length > 0) {
+      console.log(boxen(
+        chalk.white.bold('Implementation Details:') + '\n\n' + 
+        task.details,
+        { padding: { top: 0, bottom: 0, left: 1, right: 1 }, borderColor: 'cyan', borderStyle: 'round', margin: { top: 1, bottom: 0 } }
+      ));
+    }
+    
     // Show action suggestions for subtask
     console.log(boxen(
       chalk.white.bold('Suggested Actions:') + '\n' +

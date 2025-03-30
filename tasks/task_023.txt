@@ -226,12 +226,69 @@ Testing approach:
 ### Dependencies: 23.13
 ### Description: Refactor the MCP server implementation to use direct Task Master function imports instead of the current CLI-based execution using child_process.spawnSync. This will improve performance, reliability, and enable better error handling.
 ### Details:
-1. Create a new module to import and expose Task Master core functions directly
-2. Modify tools/utils.js to remove executeTaskMasterCommand and replace with direct function calls
-3. Update each tool implementation (listTasks.js, showTask.js, etc.) to use the direct function imports
-4. Implement proper error handling with try/catch blocks and FastMCP's MCPError
-5. Add unit tests to verify the function imports work correctly
-6. Test performance improvements by comparing response times between CLI and function import approaches
+
+
+<info added on 2025-03-30T00:14:10.040Z>
+```
+# Refactoring Strategy for Direct Function Imports
+
+## Core Approach
+1. Create a clear separation between data retrieval/processing and presentation logic
+2. Modify function signatures to accept `outputFormat` parameter ('cli'|'json', default: 'cli')
+3. Implement early returns for JSON format to bypass CLI-specific code
+
+## Implementation Details for `listTasks`
+```javascript
+function listTasks(tasksPath, statusFilter, withSubtasks = false, outputFormat = 'cli') {
+  try {
+    // Existing data retrieval logic
+    const filteredTasks = /* ... */;
+    
+    // Early return for JSON format
+    if (outputFormat === 'json') return filteredTasks;
+    
+    // Existing CLI output logic
+  } catch (error) {
+    if (outputFormat === 'json') {
+      throw {
+        code: 'TASK_LIST_ERROR',
+        message: error.message,
+        details: error.stack
+      };
+    } else {
+      console.error(error);
+      process.exit(1);
+    }
+  }
+}
+```
+
+## Testing Strategy
+- Create integration tests in `tests/integration/mcp-server/`
+- Use FastMCP InMemoryTransport for direct client-server testing
+- Test both JSON and CLI output formats
+- Verify structure consistency with schema validation
+
+## Additional Considerations
+- Update JSDoc comments to document new parameters and return types
+- Ensure backward compatibility with default CLI behavior
+- Add JSON schema validation for consistent output structure
+- Apply similar pattern to other core functions (expandTask, updateTaskById, etc.)
+
+## Error Handling Improvements
+- Standardize error format for JSON returns:
+```javascript
+{
+  code: 'ERROR_CODE',
+  message: 'Human-readable message',
+  details: {}, // Additional context when available
+  stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+}
+```
+- Enrich JSON errors with error codes and debug info
+- Ensure validation failures return proper objects in JSON mode
+```
+</info added on 2025-03-30T00:14:10.040Z>
 
 ## 9. Implement Context Management and Caching Mechanisms [deferred]
 ### Dependencies: 23.1

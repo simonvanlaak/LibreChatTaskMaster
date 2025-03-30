@@ -24,7 +24,8 @@ import {
   addSubtask,
   removeSubtask,
   analyzeTaskComplexity,
-  updateTaskById
+  updateTaskById,
+  updateSubtaskById
 } from './task-manager.js';
 
 import {
@@ -145,7 +146,7 @@ function registerCommands(programInstance) {
       await updateTasks(tasksPath, fromId, prompt, useResearch);
     });
 
-  // updateTask command
+  // update-task command
   programInstance
     .command('update-task')
     .description('Update a single task by ID with new information')
@@ -219,6 +220,91 @@ function registerCommands(programInstance) {
           console.log(chalk.yellow('\nTo fix this issue:'));
           console.log('  1. Run task-master list to see all available task IDs');
           console.log('  2. Use a valid task ID with the --id parameter');
+        } else if (error.message.includes('API key')) {
+          console.log(chalk.yellow('\nThis error is related to API keys. Check your environment variables.'));
+        }
+        
+        if (CONFIG.debug) {
+          console.error(error);
+        }
+        
+        process.exit(1);
+      }
+    });
+
+  // update-subtask command
+  programInstance
+    .command('update-subtask')
+    .description('Update a subtask by appending additional timestamped information')
+    .option('-f, --file <file>', 'Path to the tasks file', 'tasks/tasks.json')
+    .option('-i, --id <id>', 'Subtask ID to update in format "parentId.subtaskId" (required)')
+    .option('-p, --prompt <text>', 'Prompt explaining what information to add (required)')
+    .option('-r, --research', 'Use Perplexity AI for research-backed updates')
+    .action(async (options) => {
+      try {
+        const tasksPath = options.file;
+        
+        // Validate required parameters
+        if (!options.id) {
+          console.error(chalk.red('Error: --id parameter is required'));
+          console.log(chalk.yellow('Usage example: task-master update-subtask --id=5.2 --prompt="Add more details about the API endpoint"'));
+          process.exit(1);
+        }
+        
+        // Validate subtask ID format (should contain a dot)
+        const subtaskId = options.id;
+        if (!subtaskId.includes('.')) {
+          console.error(chalk.red(`Error: Invalid subtask ID format: ${subtaskId}. Subtask ID must be in format "parentId.subtaskId"`));
+          console.log(chalk.yellow('Usage example: task-master update-subtask --id=5.2 --prompt="Add more details about the API endpoint"'));
+          process.exit(1);
+        }
+        
+        if (!options.prompt) {
+          console.error(chalk.red('Error: --prompt parameter is required. Please provide information to add to the subtask.'));
+          console.log(chalk.yellow('Usage example: task-master update-subtask --id=5.2 --prompt="Add more details about the API endpoint"'));
+          process.exit(1);
+        }
+        
+        const prompt = options.prompt;
+        const useResearch = options.research || false;
+        
+        // Validate tasks file exists
+        if (!fs.existsSync(tasksPath)) {
+          console.error(chalk.red(`Error: Tasks file not found at path: ${tasksPath}`));
+          if (tasksPath === 'tasks/tasks.json') {
+            console.log(chalk.yellow('Hint: Run task-master init or task-master parse-prd to create tasks.json first'));
+          } else {
+            console.log(chalk.yellow(`Hint: Check if the file path is correct: ${tasksPath}`));
+          }
+          process.exit(1);
+        }
+        
+        console.log(chalk.blue(`Updating subtask ${subtaskId} with prompt: "${prompt}"`));
+        console.log(chalk.blue(`Tasks file: ${tasksPath}`));
+        
+        if (useResearch) {
+          // Verify Perplexity API key exists if using research
+          if (!process.env.PERPLEXITY_API_KEY) {
+            console.log(chalk.yellow('Warning: PERPLEXITY_API_KEY environment variable is missing. Research-backed updates will not be available.'));
+            console.log(chalk.yellow('Falling back to Claude AI for subtask update.'));
+          } else {
+            console.log(chalk.blue('Using Perplexity AI for research-backed subtask update'));
+          }
+        }
+        
+        const result = await updateSubtaskById(tasksPath, subtaskId, prompt, useResearch);
+        
+        if (!result) {
+          console.log(chalk.yellow('\nSubtask update was not completed. Review the messages above for details.'));
+        }
+      } catch (error) {
+        console.error(chalk.red(`Error: ${error.message}`));
+        
+        // Provide more helpful error messages for common issues
+        if (error.message.includes('subtask') && error.message.includes('not found')) {
+          console.log(chalk.yellow('\nTo fix this issue:'));
+          console.log('  1. Run task-master list --with-subtasks to see all available subtask IDs');
+          console.log('  2. Use a valid subtask ID with the --id parameter in format "parentId.subtaskId"');
         } else if (error.message.includes('API key')) {
           console.log(chalk.yellow('\nThis error is related to API keys. Check your environment variables.'));
         }
