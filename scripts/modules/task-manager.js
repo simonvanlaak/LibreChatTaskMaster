@@ -987,20 +987,26 @@ async function updateSingleTaskStatus(tasksPath, taskIdInput, newStatus, data) {
  * @param {string} tasksPath - Path to the tasks.json file
  * @param {string} statusFilter - Filter by status
  * @param {boolean} withSubtasks - Whether to show subtasks
+ * @param {string} outputFormat - Output format (text or json)
+ * @returns {Object} - Task list result for json format
  */
-function listTasks(tasksPath, statusFilter, withSubtasks = false) {
+function listTasks(tasksPath, statusFilter, withSubtasks = false, outputFormat = 'text') {
   try {
-    displayBanner();
-    const data = readJSON(tasksPath);
+    // Only display banner for text output
+    if (outputFormat === 'text') {
+      displayBanner();
+    }
+    
+    const data = readJSON(tasksPath); // Reads the whole tasks.json
     if (!data || !data.tasks) {
       throw new Error(`No valid tasks found in ${tasksPath}`);
     }
     
     // Filter tasks by status if specified
-    const filteredTasks = statusFilter 
+    const filteredTasks = statusFilter && statusFilter.toLowerCase() !== 'all' // <-- Added check for 'all'
       ? data.tasks.filter(task => 
           task.status && task.status.toLowerCase() === statusFilter.toLowerCase())
-      : data.tasks;
+      : data.tasks; // Default to all tasks if no filter or filter is 'all'
     
     // Calculate completion statistics
     const totalTasks = data.tasks.length;
@@ -1029,7 +1035,47 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false) {
     
     const subtaskCompletionPercentage = totalSubtasks > 0 ? 
       (completedSubtasks / totalSubtasks) * 100 : 0;
-      
+
+    // For JSON output, return structured data
+    if (outputFormat === 'json') {
+      // *** Modification: Remove 'details' field for JSON output ***
+      const tasksWithoutDetails = filteredTasks.map(task => { // <-- USES filteredTasks!
+        // Omit 'details' from the parent task
+        const { details, ...taskRest } = task;
+
+        // If subtasks exist, omit 'details' from them too
+        if (taskRest.subtasks && Array.isArray(taskRest.subtasks)) {
+          taskRest.subtasks = taskRest.subtasks.map(subtask => {
+            const { details: subtaskDetails, ...subtaskRest } = subtask;
+            return subtaskRest;
+          });
+        }
+        return taskRest;
+      });
+      // *** End of Modification ***
+
+      return {
+        tasks: tasksWithoutDetails, // <--- THIS IS THE ARRAY BEING RETURNED
+        filter: statusFilter || 'all', // Return the actual filter used
+        stats: {
+          total: totalTasks,
+          completed: doneCount,
+          inProgress: inProgressCount,
+          pending: pendingCount,
+          blocked: blockedCount,
+          deferred: deferredCount,
+          completionPercentage,
+          subtasks: {
+            total: totalSubtasks,
+            completed: completedSubtasks,
+            completionPercentage: subtaskCompletionPercentage
+          }
+        }
+      };
+    }
+    
+    // ... existing code for text output ...
+    
     // Create progress bars
     const taskProgressBar = createProgressBar(completionPercentage, 30);
     const subtaskProgressBar = createProgressBar(subtaskCompletionPercentage, 30);
@@ -1460,12 +1506,17 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false) {
     ));
   } catch (error) {
     log('error', `Error listing tasks: ${error.message}`);
-    console.error(chalk.red(`Error: ${error.message}`));
     
-    if (CONFIG.debug) {
-      console.error(error);
+    if (outputFormat === 'json') {
+      // Return structured error for JSON output
+      throw {
+        code: 'TASK_LIST_ERROR',
+        message: error.message,
+        details: error.stack
+      };
     }
     
+    console.error(chalk.red(`Error: ${error.message}`));
     process.exit(1);
   }
 }
