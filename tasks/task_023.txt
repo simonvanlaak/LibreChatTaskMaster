@@ -290,7 +290,7 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false, outputFormat =
 ```
 </info added on 2025-03-30T00:14:10.040Z>
 
-## 9. Implement Context Management and Caching Mechanisms [in-progress]
+## 9. Implement Context Management and Caching Mechanisms [done]
 ### Dependencies: 23.1
 ### Description: Enhance the MCP server with proper context management and caching to improve performance and user experience, especially for frequently accessed data and contexts.
 ### Details:
@@ -303,7 +303,7 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false, outputFormat =
 7. Add cache statistics for monitoring performance
 8. Create unit tests for context management and caching functionality
 
-## 10. Enhance Tool Registration and Resource Management [in-progress]
+## 10. Enhance Tool Registration and Resource Management [deferred]
 ### Dependencies: 23.1, 23.8
 ### Description: Refactor tool registration to follow FastMCP best practices, using decorators and improving the overall structure. Implement proper resource management for task templates and other shared resources.
 ### Details:
@@ -316,19 +316,19 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false, outputFormat =
 7. Add validation for tool inputs using FastMCP's built-in validation
 8. Create comprehensive tests for tool registration and resource access
 
-## 11. Implement Comprehensive Error Handling [pending]
+## 11. Implement Comprehensive Error Handling [deferred]
 ### Dependencies: 23.1, 23.3
 ### Description: Implement robust error handling using FastMCP's MCPError, including custom error types for different categories and standardized error responses.
 ### Details:
 1. Create custom error types extending MCPError for different categories (validation, auth, etc.)\n2. Implement standardized error responses following MCP protocol\n3. Add error handling middleware for all MCP endpoints\n4. Ensure proper error propagation from tools to client\n5. Add debug mode with detailed error information\n6. Document error types and handling patterns
 
-## 12. Implement Structured Logging System [pending]
+## 12. Implement Structured Logging System [deferred]
 ### Dependencies: 23.1, 23.3
 ### Description: Implement a comprehensive logging system for the MCP server with different log levels, structured logging format, and request/response tracking.
 ### Details:
 1. Design structured log format for consistent parsing\n2. Implement different log levels (debug, info, warn, error)\n3. Add request/response logging middleware\n4. Implement correlation IDs for request tracking\n5. Add performance metrics logging\n6. Configure log output destinations (console, file)\n7. Document logging patterns and usage
 
-## 13. Create Testing Framework and Test Suite [pending]
+## 13. Create Testing Framework and Test Suite [deferred]
 ### Dependencies: 23.1, 23.3
 ### Description: Implement a comprehensive testing framework for the MCP server, including unit tests, integration tests, and end-to-end tests.
 ### Details:
