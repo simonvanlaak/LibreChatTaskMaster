@@ -24,6 +24,7 @@ const mockLog = jest.fn();
 const mockIsTaskDependentOn = jest.fn().mockReturnValue(false);
 const mockCreate = jest.fn(); // Mock for Anthropic messages.create
 const mockChatCompletionsCreate = jest.fn(); // Mock for Perplexity chat.completions.create
+const mockGetAvailableAIModel = jest.fn(); // <<<<< Added mock function
 
 // Mock fs module
 jest.mock('fs', () => ({
@@ -43,7 +44,12 @@ jest.mock('path', () => ({
 jest.mock('../../scripts/modules/ui.js', () => ({
   formatDependenciesWithStatus: mockFormatDependenciesWithStatus,
   displayBanner: jest.fn(),
-  displayTaskList: mockDisplayTaskList
+  displayTaskList: mockDisplayTaskList,
+  startLoadingIndicator: jest.fn(() => ({ stop: jest.fn() })), // <<<<< Added mock
+  stopLoadingIndicator: jest.fn(), // <<<<< Added mock
+  createProgressBar: jest.fn(() => ' MOCK_PROGRESS_BAR '), // <<<<< Added mock (used by listTasks)
+  getStatusWithColor: jest.fn(status => status), // Basic mock for status
+  getComplexityWithColor: jest.fn(score => `Score: ${score}`), // Basic mock for complexity
 }));
 
 // Mock dependency-manager
@@ -56,13 +62,31 @@ jest.mock('../../scripts/modules/dependency-manager.js', () => ({
 jest.mock('../../scripts/modules/utils.js', () => ({
   writeJSON: mockWriteJSON,
   readJSON: mockReadJSON,
-  log: mockLog
+  log: mockLog,
+  CONFIG: { // <<<<< Added CONFIG mock
+    model: 'mock-claude-model',
+    maxTokens: 4000,
+    temperature: 0.7,
+    debug: false,
+    defaultSubtasks: 3,
+    // Add other necessary CONFIG properties if needed
+  },
+  sanitizePrompt: jest.fn(prompt => prompt), // <<<<< Added mock
+  findTaskById: jest.fn((tasks, id) => tasks.find(t => t.id === parseInt(id))), // <<<<< Added mock
+  readComplexityReport: jest.fn(), // <<<<< Added mock
+  findTaskInComplexityReport: jest.fn(), // <<<<< Added mock
+  truncate: jest.fn((str, len) => str.slice(0, len)), // <<<<< Added mock
 }));
 
-// Mock AI services - This is the correct way to mock the module
+// Mock AI services - Update this mock
 jest.mock('../../scripts/modules/ai-services.js', () => ({
   callClaude: mockCallClaude,
-  callPerplexity: mockCallPerplexity
+  callPerplexity: mockCallPerplexity,
+  generateSubtasks: jest.fn(), // <<<<< Add other functions as needed
+  generateSubtasksWithPerplexity: jest.fn(), // <<<<< Add other functions as needed
+  generateComplexityAnalysisPrompt: jest.fn(), // <<<<< Add other functions as needed
+  getAvailableAIModel: mockGetAvailableAIModel, // <<<<< Use the new mock function
+  handleClaudeError: jest.fn(), // <<<<< Add other functions as needed
 }));
 
 // Mock Anthropic SDK
@@ -2397,4 +2421,241 @@ describe.skip('updateSubtaskById function', () => {
     expect(closingMatch).toBeTruthy();
     expect(openingMatch[1]).toBe(closingMatch[1]);
   });
-}); 
+
+  let mockTasksData;
+  const tasksPath = 'test-tasks.json';
+  const outputDir = 'test-tasks-output'; // Assuming generateTaskFiles needs this
+
+  beforeEach(() => {
+    // Reset mocks before each test
+    jest.clearAllMocks();
+
+    // Reset mock data (deep copy to avoid test interference)
+    mockTasksData = JSON.parse(JSON.stringify({
+      tasks: [
+        {
+          id: 1,
+          title: 'Parent Task 1',
+          status: 'pending',
+          dependencies: [],
+          priority: 'medium',
+          description: 'Parent description',
+          details: 'Parent details',
+          testStrategy: 'Parent tests',
+          subtasks: [
+            {
+              id: 1,
+              title: 'Subtask 1.1',
+              description: 'Subtask 1.1 description',
+              details: 'Initial subtask details.',
+              status: 'pending',
+              dependencies: [],
+            },
+             {
+              id: 2,
+              title: 'Subtask 1.2',
+              description: 'Subtask 1.2 description',
+              details: 'Initial subtask details for 1.2.',
+              status: 'done', // Completed subtask
+              dependencies: [],
+            }
+          ]
+        }
+      ]
+    }));
+
+    // Default mock behaviors
+    mockReadJSON.mockReturnValue(mockTasksData);
+    mockDirname.mockReturnValue(outputDir); // Mock path.dirname needed by generateTaskFiles
+    mockGenerateTaskFiles.mockResolvedValue(); // Assume generateTaskFiles succeeds
+  });
+
+  test('should successfully update subtask using Claude (non-research)', async () => {
+    const subtaskIdToUpdate = '1.1'; // Valid format
+    const updatePrompt = 'Add more technical details about API integration.'; // Non-empty prompt
+    const expectedClaudeResponse = 'Here are the API integration details you requested.';
+
+    // --- Arrange ---
+    // **Explicitly reset and configure mocks for this test**
+    jest.clearAllMocks(); // Ensure clean state
+
+    // Configure mocks used *before* readJSON
+    mockExistsSync.mockReturnValue(true); // Ensure file is found
+    mockGetAvailableAIModel.mockReturnValue({ // Ensure this returns the correct structure
+      type: 'claude',
+      client: { messages: { create: mockCreate } }
+    });
+
+    // Configure mocks used *after* readJSON (as before)
+    mockReadJSON.mockReturnValue(mockTasksData); // Ensure readJSON returns valid data
+    async function* createMockStream() {
+        yield { type: 'content_block_delta', delta: { text: expectedClaudeResponse.substring(0, 10) } };
+        yield { type: 'content_block_delta', delta: { text: expectedClaudeResponse.substring(10) } };
+        yield { type: 'message_stop' };
+    }
+    mockCreate.mockResolvedValue(createMockStream());
+    mockDirname.mockReturnValue(outputDir);
+    mockGenerateTaskFiles.mockResolvedValue();
+
+    // --- Act ---
+    const updatedSubtask = await taskManager.updateSubtaskById(tasksPath, subtaskIdToUpdate, updatePrompt, false);
+
+    // --- Assert ---
+    // **Add an assertion right at the start to check if readJSON was called**
+    expect(mockReadJSON).toHaveBeenCalledWith(tasksPath); // <<< Let's see if this passes now
+
+    // ... (rest of the assertions as before) ...
+    expect(mockGetAvailableAIModel).toHaveBeenCalledWith({ claudeOverloaded: false, requiresResearch: false });
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    // ... etc ...
+  });
+
+  test('should successfully update subtask using Perplexity (research)', async () => {
+    const subtaskIdToUpdate = '1.1';
+    const updatePrompt = 'Research best practices for this subtask.';
+    const expectedPerplexityResponse = 'Based on research, here are the best practices...';
+    const perplexityModelName = 'mock-perplexity-model'; // Define a mock model name
+
+    // --- Arrange ---
+    // Mock environment variable for Perplexity model if needed by CONFIG/logic
+    process.env.PERPLEXITY_MODEL = perplexityModelName;
+
+    // Mock getAvailableAIModel to return Perplexity client when research is required
+    mockGetAvailableAIModel.mockReturnValue({
+      type: 'perplexity',
+      client: { chat: { completions: { create: mockChatCompletionsCreate } } } // Match the mocked structure
+    });
+
+    // Mock Perplexity's response
+    mockChatCompletionsCreate.mockResolvedValue({
+      choices: [{ message: { content: expectedPerplexityResponse } }]
+    });
+
+    // --- Act ---
+    const updatedSubtask = await taskManager.updateSubtaskById(tasksPath, subtaskIdToUpdate, updatePrompt, true); // useResearch = true
+
+    // --- Assert ---
+    expect(mockReadJSON).toHaveBeenCalledWith(tasksPath);
+    // Verify getAvailableAIModel was called correctly for research
+    expect(mockGetAvailableAIModel).toHaveBeenCalledWith({ claudeOverloaded: false, requiresResearch: true });
+    expect(mockChatCompletionsCreate).toHaveBeenCalledTimes(1);
+
+    // Verify Perplexity API call parameters
+    expect(mockChatCompletionsCreate).toHaveBeenCalledWith(expect.objectContaining({
+      model: perplexityModelName, // Check the correct model is used
+      temperature: 0.7, // From CONFIG mock
+      max_tokens: 4000, // From CONFIG mock
+      messages: expect.arrayContaining([
+        expect.objectContaining({ role: 'system', content: expect.any(String) }),
+        expect.objectContaining({
+          role: 'user',
+          content: expect.stringContaining(updatePrompt) // Check prompt is included
+        })
+      ])
+    }));
+
+    // Verify subtask data was updated
+    const writtenData = mockWriteJSON.mock.calls[0][1]; // Get data passed to writeJSON
+    const parentTask = writtenData.tasks.find(t => t.id === 1);
+    const targetSubtask = parentTask.subtasks.find(st => st.id === 1);
+
+    expect(targetSubtask.details).toContain(expectedPerplexityResponse);
+    expect(targetSubtask.details).toMatch(/<info added on .*>/); // Check for timestamp tag
+    expect(targetSubtask.description).toMatch(/\[Updated: .*]/); // Check description update
+
+    // Verify writeJSON and generateTaskFiles were called
+    expect(mockWriteJSON).toHaveBeenCalledWith(tasksPath, writtenData);
+    expect(mockGenerateTaskFiles).toHaveBeenCalledWith(tasksPath, outputDir);
+
+    // Verify the function returned the updated subtask
+    expect(updatedSubtask).toBeDefined();
+    expect(updatedSubtask.id).toBe(1);
+    expect(updatedSubtask.parentTaskId).toBe(1);
+    expect(updatedSubtask.details).toContain(expectedPerplexityResponse);
+
+    // Clean up env var if set
+    delete process.env.PERPLEXITY_MODEL;
+  });
+
+  test('should fall back to Perplexity if Claude is overloaded', async () => {
+    const subtaskIdToUpdate = '1.1';
+    const updatePrompt = 'Add details, trying Claude first.';
+    const expectedPerplexityResponse = 'Perplexity provided these details as fallback.';
+    const perplexityModelName = 'mock-perplexity-model-fallback';
+
+    // --- Arrange ---
+    // Mock environment variable for Perplexity model
+    process.env.PERPLEXITY_MODEL = perplexityModelName;
+
+    // Mock getAvailableAIModel: Return Claude first, then Perplexity
+    mockGetAvailableAIModel
+      .mockReturnValueOnce({ // First call: Return Claude
+        type: 'claude',
+        client: { messages: { create: mockCreate } }
+      })
+      .mockReturnValueOnce({ // Second call: Return Perplexity (after overload)
+        type: 'perplexity',
+        client: { chat: { completions: { create: mockChatCompletionsCreate } } }
+      });
+
+    // Mock Claude to throw an overload error
+    const overloadError = new Error('Claude API is overloaded.');
+    overloadError.type = 'overloaded_error'; // Match one of the specific checks
+    mockCreate.mockRejectedValue(overloadError); // Simulate Claude failing
+
+    // Mock Perplexity's successful response
+    mockChatCompletionsCreate.mockResolvedValue({
+      choices: [{ message: { content: expectedPerplexityResponse } }]
+    });
+
+    // --- Act ---
+    const updatedSubtask = await taskManager.updateSubtaskById(tasksPath, subtaskIdToUpdate, updatePrompt, false); // Start with useResearch = false
+
+    // --- Assert ---
+    expect(mockReadJSON).toHaveBeenCalledWith(tasksPath);
+
+    // Verify getAvailableAIModel calls
+    expect(mockGetAvailableAIModel).toHaveBeenCalledTimes(2);
+    expect(mockGetAvailableAIModel).toHaveBeenNthCalledWith(1, { claudeOverloaded: false, requiresResearch: false });
+    expect(mockGetAvailableAIModel).toHaveBeenNthCalledWith(2, { claudeOverloaded: true, requiresResearch: false }); // claudeOverloaded should now be true
+
+    // Verify Claude was attempted and failed
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    // Verify Perplexity was called as fallback
+    expect(mockChatCompletionsCreate).toHaveBeenCalledTimes(1);
+
+    // Verify Perplexity API call parameters
+    expect(mockChatCompletionsCreate).toHaveBeenCalledWith(expect.objectContaining({
+      model: perplexityModelName,
+      messages: expect.arrayContaining([
+        expect.objectContaining({
+          role: 'user',
+          content: expect.stringContaining(updatePrompt)
+        })
+      ])
+    }));
+
+    // Verify subtask data was updated with Perplexity's response
+    const writtenData = mockWriteJSON.mock.calls[0][1];
+    const parentTask = writtenData.tasks.find(t => t.id === 1);
+    const targetSubtask = parentTask.subtasks.find(st => st.id === 1);
+
+    expect(targetSubtask.details).toContain(expectedPerplexityResponse); // Should contain fallback response
+    expect(targetSubtask.details).toMatch(/<info added on .*>/);
+    expect(targetSubtask.description).toMatch(/\[Updated: .*]/);
+
+    // Verify writeJSON and generateTaskFiles were called
+    expect(mockWriteJSON).toHaveBeenCalledWith(tasksPath, writtenData);
+    expect(mockGenerateTaskFiles).toHaveBeenCalledWith(tasksPath, outputDir);
+
+    // Verify the function returned the updated subtask
+    expect(updatedSubtask).toBeDefined();
+    expect(updatedSubtask.details).toContain(expectedPerplexityResponse);
+
+    // Clean up env var if set
+    delete process.env.PERPLEXITY_MODEL;
+  });
+
+  // More tests will go here...
+
+});
