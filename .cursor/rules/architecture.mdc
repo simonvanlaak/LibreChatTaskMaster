@@ -108,6 +108,7 @@ alwaysApply: false
       - Handles MCP requests and translates them into calls to the Task Master core logic.
       - Prefers direct function calls to core modules via [`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js) for performance.
       - Uses CLI execution via `executeTaskMasterCommand` as a fallback.
+      - **Implements Caching**: Utilizes a caching layer (`ContextManager` with `lru-cache`) invoked via `getCachedOrExecute` within direct function wrappers ([`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js)) to optimize performance for specific read operations (e.g., listing tasks).
       - Standardizes response formatting for MCP clients using utilities in [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js).
     - **Key Components**:
       - `mcp-server/src/server.js`: Main server setup and initialization.

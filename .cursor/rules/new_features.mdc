@@ -325,7 +325,8 @@ Integrating Task Master commands with the MCP server (for use by tools like Curs
     - This function imports and calls the core logic.
     - It uses utilities like `findTasksJsonPath` if needed.
     - It handles argument parsing and validation specific to the direct call.
-    - It returns a standard `{ success: true/false, data/error }` object.
+    - **Implement Caching (if applicable)**: For read operations that benefit from caching, use the `getCachedOrExecute` utility here to wrap the core logic call. Generate a unique cache key based on relevant arguments.
+    - It returns a standard `{ success: true/false, data/error, fromCache: boolean }` object.
     - Export the function and add it to the `directFunctions` map.
 3.  **MCP Tool File**:
     - Create a new file in `mcp-server/src/tools/` (e.g., `yourCommand.js`).

@@ -29,22 +29,35 @@ The MCP server acts as a bridge between external tools (like Cursor) and the cor
         - `processMCPResponseData`: Filters/cleans data for MCP responses (e.g., removing `details`, `testStrategy`). This is the default processor used by `executeMCPToolAction`.
         - `executeMCPToolAction`: The primary wrapper function for tool execution logic.
         - `executeTaskMasterCommand`: Fallback for executing CLI commands.
+- **Caching**: To improve performance for frequently called read operations (like `listTasks`), a caching layer using `lru-cache` is implemented.
+    - Caching logic should be added *inside* the direct function wrappers in [`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js) using the `getCachedOrExecute` utility from [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js).
+    - Generate unique cache keys based on function arguments that define a distinct call.
+    - Responses will include a `fromCache` flag.
+    - Cache statistics can be monitored using the `cacheStats` MCP tool (implemented via `getCacheStatsDirect`).
 
 ## Implementing MCP Support for a Command
 
 Follow these steps to add MCP support for an existing Task Master command (see [`new_features.mdc`](mdc:.cursor/rules/new_features.mdc) for more detail):
 
 1.  **Ensure Core Logic Exists**: Verify the core functionality is implemented and exported from the relevant module in `scripts/modules/`.
-2.  **Create Direct Wrapper**: In [`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js):
-    - Import the core function.
-    - Create an `async function yourCommandDirect(args, log)` wrapper.
-    - Inside the wrapper:
-        - Use `findTasksJsonPath(args, log)` if the command needs the tasks file path.
-        - Extract and validate arguments from `args`.
-        - Call the imported core logic function.
-        - Handle errors using `try/catch`.
-        - Return a standardized object: `{ success: true, data: result }` or `{ success: false, error: { code: '...', message: '...' } }`.
-    - Export the wrapper function and add it to the `directFunctions` map.
+ 2.  **Create Direct Wrapper**: In [`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js):
+        - Import the core function.
+        - Import `getCachedOrExecute` from `../tools/utils.js`.
+        - Create an `async function yourCommandDirect(args, log)` wrapper.
+        - Inside the wrapper:
+            - Determine arguments needed for both the core logic and the cache key (e.g., `tasksPath`, filters). Use `findTasksJsonPath(args, log)` if needed.
+            - **Generate a unique `cacheKey`** based on the arguments that define a distinct operation (e.g., `\`yourCommand:${tasksPath}:${filter}\``).
+            - **Define the `coreActionFn`**: An `async` function that contains the actual call to the imported core logic function, handling its specific errors and returning `{ success: true/false, data/error }`.
+            - **Call `getCachedOrExecute`**:
+              ```javascript
+              const result = await getCachedOrExecute({
+                cacheKey,
+                actionFn: coreActionFn, // The function wrapping the core logic call
+                log
+              });
+              return result; // Returns { success, data/error, fromCache }
+              ```
+        - Export the wrapper function and add it to the `directFunctions` map.
 3.  **Create MCP Tool**: In `mcp-server/src/tools/`:
     - Create a new file (e.g., `yourCommand.js`).
     - Import `z` for parameter schema definition.
@@ -71,3 +84,4 @@ Follow these steps to add MCP support for an existing Task Master command (see [
 
 - MCP tools should return data formatted by `createContentResponse` (which stringifies objects) or `createErrorResponse`.
 - The `processMCPResponseData` utility automatically removes potentially large fields like `details` and `testStrategy` from task objects before they are returned. This is the default behavior when using `executeMCPToolAction`. If specific fields need to be preserved or different fields removed, a custom `processResult` function can be passed to `executeMCPToolAction`.
+- The `handleApiResult` utility (used by `executeMCPToolAction`) now expects the result object from the direct function wrapper to include a `fromCache` boolean flag. This flag is included in the final JSON response sent to the MCP client, nested alongside the actual data (e.g., `{ "fromCache": true, "data": { ... } }`).
