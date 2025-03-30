@@ -222,7 +222,7 @@ Testing approach:
 - Validate compatibility with existing MCP clients.
 - Benchmark performance improvements from SDK integration.
 
-## 8. Implement Direct Function Imports and Replace CLI-based Execution [in-progress]
+## 8. Implement Direct Function Imports and Replace CLI-based Execution [done]
 ### Dependencies: 23.13
 ### Description: Refactor the MCP server implementation to use direct Task Master function imports instead of the current CLI-based execution using child_process.spawnSync. This will improve performance, reliability, and enable better error handling.
 ### Details:
@@ -290,7 +290,7 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false, outputFormat =
 ```
 </info added on 2025-03-30T00:14:10.040Z>
 
-## 9. Implement Context Management and Caching Mechanisms [deferred]
+## 9. Implement Context Management and Caching Mechanisms [in-progress]
 ### Dependencies: 23.1
 ### Description: Enhance the MCP server with proper context management and caching to improve performance and user experience, especially for frequently accessed data and contexts.
 ### Details:
@@ -345,4 +345,94 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false, outputFormat =
 ### Description: Add Server-Sent Events (SSE) capabilities to the MCP server to enable real-time updates and streaming of task execution progress, logs, and status changes to clients
 ### Details:
 1. Research and implement SSE protocol for the MCP server\n2. Create dedicated SSE endpoints for event streaming\n3. Implement event emitter pattern for internal event management\n4. Add support for different event types (task status, logs, errors)\n5. Implement client connection management with proper keep-alive handling\n6. Add filtering capabilities to allow subscribing to specific event types\n7. Create in-memory event buffer for clients reconnecting\n8. Document SSE endpoint usage and client implementation examples\n9. Add robust error handling for dropped connections\n10. Implement rate limiting and backpressure mechanisms\n11. Add authentication for SSE connections
+
+## 16. Implement parse-prd MCP command [pending]
+### Dependencies: None
+### Description: Create direct function wrapper and MCP tool for parsing PRD documents to generate tasks.
+### Details:
+Following MCP implementation standards:\n\n1. Create parsePRDDirect function in task-master-core.js:\n   - Import parsePRD from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: input file, output path, numTasks\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n   - Add to directFunctions map\n\n2. Create parse-prd.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import parsePRDDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerParsePRDTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n3. Register in tools/index.js\n\n4. Add to .cursor/mcp.json with appropriate schema\n\n5. Write tests following testing guidelines:\n   - Unit test for parsePRDDirect\n   - Integration test for MCP tool
+
+## 17. Implement update MCP command [pending]
+### Dependencies: None
+### Description: Create direct function wrapper and MCP tool for updating multiple tasks based on prompt.
+### Details:
+Following MCP implementation standards:\n\n1. Create updateTasksDirect function in task-master-core.js:\n   - Import updateTasks from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: fromId, prompt, useResearch\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n   - Add to directFunctions map\n\n2. Create update.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import updateTasksDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerUpdateTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n3. Register in tools/index.js\n\n4. Add to .cursor/mcp.json with appropriate schema\n\n5. Write tests following testing guidelines:\n   - Unit test for updateTasksDirect\n   - Integration test for MCP tool
+
+## 18. Implement update-task MCP command [pending]
+### Dependencies: None
+### Description: Create direct function wrapper and MCP tool for updating a single task by ID with new information.
+### Details:
+Following MCP implementation standards:\n\n1. Create updateTaskByIdDirect function in task-master-core.js:\n   - Import updateTaskById from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: taskId, prompt, useResearch\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n   - Add to directFunctions map\n\n2. Create update-task.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import updateTaskByIdDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerUpdateTaskTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n3. Register in tools/index.js\n\n4. Add to .cursor/mcp.json with appropriate schema\n\n5. Write tests following testing guidelines:\n   - Unit test for updateTaskByIdDirect\n   - Integration test for MCP tool
+
+## 19. Implement update-subtask MCP command [pending]
+### Dependencies: None
+### Description: Create direct function wrapper and MCP tool for appending information to a specific subtask.
+### Details:
+Following MCP implementation standards:\n\n1. Create updateSubtaskByIdDirect function in task-master-core.js:\n   - Import updateSubtaskById from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: subtaskId, prompt, useResearch\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n   - Add to directFunctions map\n\n2. Create update-subtask.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import updateSubtaskByIdDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerUpdateSubtaskTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n3. Register in tools/index.js\n\n4. Add to .cursor/mcp.json with appropriate schema\n\n5. Write tests following testing guidelines:\n   - Unit test for updateSubtaskByIdDirect\n   - Integration test for MCP tool
+
+## 20. Implement generate MCP command [pending]
+### Dependencies: None
+### Description: Create direct function wrapper and MCP tool for generating task files from tasks.json.
+### Details:
+Following MCP implementation standards:\n\n1. Create generateTaskFilesDirect function in task-master-core.js:\n   - Import generateTaskFiles from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: tasksPath, outputDir\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n   - Add to directFunctions map\n\n2. Create generate.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import generateTaskFilesDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerGenerateTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n3. Register in tools/index.js\n\n4. Add to .cursor/mcp.json with appropriate schema\n\n5. Write tests following testing guidelines:\n   - Unit test for generateTaskFilesDirect\n   - Integration test for MCP tool
+
+## 21. Implement set-status MCP command [pending]
+### Dependencies: None
+### Description: Create direct function wrapper and MCP tool for setting task status.
+### Details:
+Following MCP implementation standards:\n\n1. Create setTaskStatusDirect function in task-master-core.js:\n   - Import setTaskStatus from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: taskId, status\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n   - Add to directFunctions map\n\n2. Create set-status.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import setTaskStatusDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerSetStatusTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n3. Register in tools/index.js\n\n4. Add to .cursor/mcp.json with appropriate schema\n\n5. Write tests following testing guidelines:\n   - Unit test for setTaskStatusDirect\n   - Integration test for MCP tool
+
+## 22. Implement show-task MCP command [pending]
+### Dependencies: None
+### Description: Create direct function wrapper and MCP tool for showing task details.
+### Details:
+Following MCP implementation standards:\n\n1. Create showTaskDirect function in task-master-core.js:\n   - Import showTask from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: taskId\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n   - Add to directFunctions map\n\n2. Create show-task.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import showTaskDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerShowTaskTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n3. Register in tools/index.js\n\n4. Add to .cursor/mcp.json with appropriate schema\n\n5. Write tests following testing guidelines:\n   - Unit test for showTaskDirect\n   - Integration test for MCP tool
+
+## 23. Implement next-task MCP command [pending]
+### Dependencies: None
+### Description: Create direct function wrapper and MCP tool for finding the next task to work on.
+### Details:
+Following MCP implementation standards:\n\n1. Create nextTaskDirect function in task-master-core.js:\n   - Import nextTask from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments (no specific args needed except projectRoot/file)\n   - Handle errors with try/catch\n   - Return standardized { success, data/error } object\n   - Add to directFunctions map\n\n2. Create next-task.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import nextTaskDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerNextTaskTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n3. Register in tools/index.js\n\n4. Add to .cursor/mcp.json with appropriate schema\n\n5. Write tests following testing guidelines:\n   - Unit test for nextTaskDirect\n   - Integration test for MCP tool
+
+## 24. Implement expand-task MCP command [pending]
+### Dependencies: None
+### Description: Create direct function wrapper and MCP tool for expanding a task into subtasks.
+### Details:
+Following MCP implementation standards:\n\n1. Create expandTaskDirect function in task-master-core.js:\n   - Import expandTask from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: taskId, prompt, num, force, research\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n   - Add to directFunctions map\n\n2. Create expand-task.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import expandTaskDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerExpandTaskTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n3. Register in tools/index.js\n\n4. Add to .cursor/mcp.json with appropriate schema\n\n5. Write tests following testing guidelines:\n   - Unit test for expandTaskDirect\n   - Integration test for MCP tool
+
+## 25. Implement add-task MCP command [pending]
+### Dependencies: None
+### Description: Create direct function wrapper and MCP tool for adding new tasks.
+### Details:
+Following MCP implementation standards:\n\n1. Create addTaskDirect function in task-master-core.js:\n   - Import addTask from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: prompt, priority, dependencies\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n   - Add to directFunctions map\n\n2. Create add-task.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import addTaskDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerAddTaskTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n3. Register in tools/index.js\n\n4. Add to .cursor/mcp.json with appropriate schema\n\n5. Write tests following testing guidelines:\n   - Unit test for addTaskDirect\n   - Integration test for MCP tool
+
+## 26. Implement add-subtask MCP command [pending]
+### Dependencies: None
+### Description: Create direct function wrapper and MCP tool for adding subtasks to existing tasks.
+### Details:
+Following MCP implementation standards:\n\n1. Create addSubtaskDirect function in task-master-core.js:\n   - Import addSubtask from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: parentTaskId, title, description, details\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n   - Add to directFunctions map\n\n2. Create add-subtask.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import addSubtaskDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerAddSubtaskTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n3. Register in tools/index.js\n\n4. Add to .cursor/mcp.json with appropriate schema\n\n5. Write tests following testing guidelines:\n   - Unit test for addSubtaskDirect\n   - Integration test for MCP tool
+
+## 27. Implement remove-subtask MCP command [pending]
+### Dependencies: None
+### Description: Create direct function wrapper and MCP tool for removing subtasks from tasks.
+### Details:
+Following MCP implementation standards:\n\n1. Create removeSubtaskDirect function in task-master-core.js:\n   - Import removeSubtask from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: parentTaskId, subtaskId\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n   - Add to directFunctions map\n\n2. Create remove-subtask.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import removeSubtaskDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerRemoveSubtaskTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n3. Register in tools/index.js\n\n4. Add to .cursor/mcp.json with appropriate schema\n\n5. Write tests following testing guidelines:\n   - Unit test for removeSubtaskDirect\n   - Integration test for MCP tool
+
+## 28. Implement analyze MCP command [pending]
+### Dependencies: None
+### Description: Create direct function wrapper and MCP tool for analyzing task complexity.
+### Details:
+Following MCP implementation standards:\n\n1. Create analyzeTaskComplexityDirect function in task-master-core.js:\n   - Import analyzeTaskComplexity from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: taskId\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n   - Add to directFunctions map\n\n2. Create analyze.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import analyzeTaskComplexityDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerAnalyzeTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n3. Register in tools/index.js\n\n4. Add to .cursor/mcp.json with appropriate schema\n\n5. Write tests following testing guidelines:\n   - Unit test for analyzeTaskComplexityDirect\n   - Integration test for MCP tool
+
+## 29. Implement clear-subtasks MCP command [pending]
+### Dependencies: None
+### Description: Create direct function wrapper and MCP tool for clearing subtasks from a parent task.
+### Details:
+Following MCP implementation standards:\n\n1. Create clearSubtasksDirect function in task-master-core.js:\n   - Import clearSubtasks from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: taskId\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n   - Add to directFunctions map\n\n2. Create clear-subtasks.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import clearSubtasksDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerClearSubtasksTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n3. Register in tools/index.js\n\n4. Add to .cursor/mcp.json with appropriate schema\n\n5. Write tests following testing guidelines:\n   - Unit test for clearSubtasksDirect\n   - Integration test for MCP tool
+
+## 30. Implement expand-all MCP command [pending]
+### Dependencies: None
+### Description: Create direct function wrapper and MCP tool for expanding all tasks into subtasks.
+### Details:
+Following MCP implementation standards:\n\n1. Create expandAllTasksDirect function in task-master-core.js:\n   - Import expandAllTasks from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: prompt, num, force, research\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n   - Add to directFunctions map\n\n2. Create expand-all.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import expandAllTasksDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerExpandAllTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n3. Register in tools/index.js\n\n4. Add to .cursor/mcp.json with appropriate schema\n\n5. Write tests following testing guidelines:\n   - Unit test for expandAllTasksDirect\n   - Integration test for MCP tool
 

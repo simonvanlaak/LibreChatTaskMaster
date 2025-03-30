@@ -997,16 +997,16 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false, outputFormat =
       displayBanner();
     }
     
-    const data = readJSON(tasksPath);
+    const data = readJSON(tasksPath); // Reads the whole tasks.json
     if (!data || !data.tasks) {
       throw new Error(`No valid tasks found in ${tasksPath}`);
     }
     
     // Filter tasks by status if specified
-    const filteredTasks = statusFilter 
+    const filteredTasks = statusFilter && statusFilter.toLowerCase() !== 'all' // <-- Added check for 'all'
       ? data.tasks.filter(task => 
           task.status && task.status.toLowerCase() === statusFilter.toLowerCase())
-      : data.tasks;
+      : data.tasks; // Default to all tasks if no filter or filter is 'all'
     
     // Calculate completion statistics
     const totalTasks = data.tasks.length;
@@ -1039,7 +1039,7 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false, outputFormat =
     // For JSON output, return structured data
     if (outputFormat === 'json') {
       // *** Modification: Remove 'details' field for JSON output ***
-      const tasksWithoutDetails = filteredTasks.map(task => {
+      const tasksWithoutDetails = filteredTasks.map(task => { // <-- USES filteredTasks!
         // Omit 'details' from the parent task
         const { details, ...taskRest } = task;
 
@@ -1055,8 +1055,8 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false, outputFormat =
       // *** End of Modification ***
 
       return {
-        tasks: tasksWithoutDetails, // Return the modified tasks
-        filter: statusFilter,
+        tasks: tasksWithoutDetails, // <--- THIS IS THE ARRAY BEING RETURNED
+        filter: statusFilter || 'all', // Return the actual filter used
         stats: {
           total: totalTasks,
           completed: doneCount,

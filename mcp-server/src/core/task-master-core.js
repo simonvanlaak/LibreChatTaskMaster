@@ -21,6 +21,10 @@ import {
   // We'll import more functions as we continue implementation
 } from '../../../scripts/modules/task-manager.js';
 
+// Import context manager
+import { contextManager } from './context-manager.js';
+import { getCachedOrExecute } from '../tools/utils.js'; // Import the utility here
+
 /**
  * Finds the absolute path to the tasks.json file based on project root and arguments.
  * @param {Object} args - Command arguments, potentially including 'projectRoot' and 'file'.
@@ -58,52 +62,95 @@ function findTasksJsonPath(args, log) {
   }
 
   // If no file was found, throw an error
-  throw new Error(`Tasks file not found in any of the expected locations relative to ${projectRoot}: ${possiblePaths.join(', ')}`);
+  const error = new Error(`Tasks file not found in any of the expected locations relative to ${projectRoot}: ${possiblePaths.join(', ')}`);
+  error.code = 'TASKS_FILE_NOT_FOUND';
+  throw error;
 }
 
 /**
- * Direct function wrapper for listTasks with error handling
- * 
- * @param {Object} args - Command arguments (projectRoot is expected to be resolved)
- * @param {Object} log - Logger object
- * @returns {Object} - Task list result
+ * Direct function wrapper for listTasks with error handling and caching.
+ *
+ * @param {Object} args - Command arguments (projectRoot is expected to be resolved).
+ * @param {Object} log - Logger object.
+ * @returns {Promise<Object>} - Task list result { success: boolean, data?: any, error?: { code: string, message: string }, fromCache: boolean }.
  */
 export async function listTasksDirect(args, log) {
+  let tasksPath;
   try {
-    log.info(`Listing tasks with args: ${JSON.stringify(args)}`);
-    
-    // Use the helper function to find the tasks file path
-    const tasksPath = findTasksJsonPath(args, log);
-    
-    // Extract other arguments
-    const statusFilter = args.status || null;
-    const withSubtasks = args.withSubtasks || false;
-    
-    log.info(`Using tasks file at: ${tasksPath}`);
-    log.info(`Status filter: ${statusFilter}, withSubtasks: ${withSubtasks}`);
-    
-    // Call listTasks with json format
-    const result = listTasks(tasksPath, statusFilter, withSubtasks, 'json');
-    
-    if (!result || !result.tasks) {
-      throw new Error('Invalid or empty response from listTasks function');
+    // Find the tasks path first - needed for cache key and execution
+    tasksPath = findTasksJsonPath(args, log);
+  } catch (error) {
+    if (error.code === 'TASKS_FILE_NOT_FOUND') {
+      log.error(`Tasks file not found: ${error.message}`);
+      // Return the error structure expected by the calling tool/handler
+      return { success: false, error: { code: error.code, message: error.message }, fromCache: false };
     }
-    
-    log.info(`Successfully retrieved ${result.tasks.length} tasks`);
-    
-    // Return the raw result directly
+    log.error(`Unexpected error finding tasks file: ${error.message}`);
+    // Re-throw for outer catch or return structured error
+     return { success: false, error: { code: 'FIND_TASKS_PATH_ERROR', message: error.message }, fromCache: false };
+  }
+
+  // Generate cache key *after* finding tasksPath
+  const statusFilter = args.status || 'all';
+  const withSubtasks = args.withSubtasks || false;
+  const cacheKey = `listTasks:${tasksPath}:${statusFilter}:${withSubtasks}`;
+  
+  // Define the action function to be executed on cache miss
+  const coreListTasksAction = async () => {
+    try {
+      log.info(`Executing core listTasks function for path: ${tasksPath}, filter: ${statusFilter}, subtasks: ${withSubtasks}`);
+      const resultData = listTasks(tasksPath, statusFilter, withSubtasks, 'json');
+
+      if (!resultData || !resultData.tasks) {
+        log.error('Invalid or empty response from listTasks core function');
+        return { success: false, error: { code: 'INVALID_CORE_RESPONSE', message: 'Invalid or empty response from listTasks core function' } };
+      }
+      log.info(`Core listTasks function retrieved ${resultData.tasks.length} tasks`);
+      return { success: true, data: resultData };
+
+    } catch (error) {
+      log.error(`Core listTasks function failed: ${error.message}`);
+      return { success: false, error: { code: 'LIST_TASKS_CORE_ERROR', message: error.message || 'Failed to list tasks' } };
+    }
+  };
+
+  // Use the caching utility
+  try {
+      const result = await getCachedOrExecute({
+          cacheKey,
+          actionFn: coreListTasksAction,
+          log
+      });
+      log.info(`listTasksDirect completed. From cache: ${result.fromCache}`);
+      return result; // Returns { success, data/error, fromCache }
+  } catch(error) {
+      // Catch unexpected errors from getCachedOrExecute itself (though unlikely)
+      log.error(`Unexpected error during getCachedOrExecute for listTasks: ${error.message}`);
+      console.error(error.stack);
+      return { success: false, error: { code: 'CACHE_UTIL_ERROR', message: error.message }, fromCache: false };
+  }
+}
+
+/**
+ * Get cache statistics for monitoring
+ * @param {Object} args - Command arguments
+ * @param {Object} log - Logger object
+ * @returns {Object} - Cache statistics
+ */
+export async function getCacheStatsDirect(args, log) {
+  try {
+    log.info('Retrieving cache statistics');
+    const stats = contextManager.getStats();
     return {
       success: true,
-      data: result // Return the actual object, not a stringified version
+      data: stats
     };
   } catch (error) {
-    log.error(`Error in listTasksDirect: ${error.message}`);
-    
-    // Ensure we always return a properly structured error object
+    log.error(`Error getting cache stats: ${error.message}`);
     return {
       success: false,
       error: {
-        code: error.code || 'LIST_TASKS_ERROR',
+        code: 'CACHE_STATS_ERROR',
         message: error.message || 'Unknown error occurred'
       }
     };
@@ -115,5 +162,6 @@ export async function listTasksDirect(args, log) {
  */
 export const directFunctions = {
   list: listTasksDirect,
+  cacheStats: getCacheStatsDirect,
   // Add more functions as we implement them
 }; 

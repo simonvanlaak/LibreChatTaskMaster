@@ -24,8 +24,8 @@ const mockLogger = {
 };
 
 // Test file paths
-const testProjectRoot = path.join(__dirname, '../../fixtures/test-project');
-const testTasksPath = path.join(testProjectRoot, 'tasks.json');
+const testProjectRoot = path.join(__dirname, '../../fixture');
+const testTasksPath = path.join(testProjectRoot, 'test-tasks.json');
 
 describe('MCP Server Direct Functions', () => {
   // Create test data before tests

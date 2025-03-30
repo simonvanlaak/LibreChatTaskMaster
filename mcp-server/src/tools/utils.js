@@ -5,6 +5,7 @@
 
 import { spawnSync } from "child_process";
 import path from "path";
+import { contextManager } from '../core/context-manager.js'; // Import the singleton
 
 /**
  * Get normalized project root path 
@@ -36,15 +37,25 @@ export function getProjectRoot(projectRootRaw, log) {
 export function handleApiResult(result, log, errorPrefix = 'API error', processFunction = processMCPResponseData) {
   if (!result.success) {
     const errorMsg = result.error?.message || `Unknown ${errorPrefix}`;
-    log.error(`${errorPrefix}: ${errorMsg}`);
+    // Include cache status in error logs
+    log.error(`${errorPrefix}: ${errorMsg}. From cache: ${result.fromCache}`); // Keep logging cache status on error
     return createErrorResponse(errorMsg);
   }
   
-  // Process the result data if needed and if we have a processor function
+  // Process the result data if needed
   const processedData = processFunction ? processFunction(result.data) : result.data;
   
-  // Return formatted response
-  return createContentResponse(processedData);
+  // Log success including cache status
+  log.info(`Successfully completed operation. From cache: ${result.fromCache}`); // Add success log with cache status
+
+  // Create the response payload including the fromCache flag
+  const responsePayload = {
+    fromCache: result.fromCache, // Get the flag from the original 'result'
+    data: processedData         // Nest the processed data under a 'data' key
+  };
+  
+  // Pass this combined payload to createContentResponse
+  return createContentResponse(responsePayload);
 }
 
 /**
@@ -121,56 +132,140 @@ export function executeTaskMasterCommand(
 }
 
 /**
- * Executes a Task Master tool action with standardized error handling, logging, and response formatting
+ * Checks cache for a result using the provided key. If not found, executes the action function,
+ * caches the result upon success, and returns the result.
+ *
+ * @param {Object} options - Configuration options.
+ * @param {string} options.cacheKey - The unique key for caching this operation's result.
+ * @param {Function} options.actionFn - The async function to execute if the cache misses.
+ *                                      Should return an object like { success: boolean, data?: any, error?: { code: string, message: string } }.
+ * @param {Object} options.log - The logger instance.
+ * @returns {Promise<Object>} - An object containing the result, indicating if it was from cache.
+ *                              Format: { success: boolean, data?: any, error?: { code: string, message: string }, fromCache: boolean }
+ */
+export async function getCachedOrExecute({ cacheKey, actionFn, log }) {
+  // Check cache first
+  const cachedResult = contextManager.getCachedData(cacheKey);
+  
+  if (cachedResult !== undefined) {
+    log.info(`Cache hit for key: ${cacheKey}`);
+    // Return the cached data in the same structure as a fresh result
+    return {
+      ...cachedResult,  // Spread the cached result to maintain its structure
+      fromCache: true   // Just add the fromCache flag
+    };
+  }
+
+  log.info(`Cache miss for key: ${cacheKey}. Executing action function.`);
+  
+  // Execute the action function if cache missed
+  const result = await actionFn();
+  
+  // If the action was successful, cache the result (but without fromCache flag)
+  if (result.success && result.data !== undefined) {
+    log.info(`Action successful. Caching result for key: ${cacheKey}`);
+    // Cache the entire result structure (minus the fromCache flag)
+    const { fromCache, ...resultToCache } = result;
+    contextManager.setCachedData(cacheKey, resultToCache);
+  } else if (!result.success) {
+    log.warn(`Action failed for cache key ${cacheKey}. Result not cached. Error: ${result.error?.message}`);
+  } else {
+    log.warn(`Action for cache key ${cacheKey} succeeded but returned no data. Result not cached.`);
+  }
+  
+  // Return the fresh result, indicating it wasn't from cache
+  return {
+    ...result,
+    fromCache: false
+  };
+}
+
+/**
+ * Executes a Task Master tool action with standardized error handling, logging, and response formatting.
+ * Integrates caching logic via getCachedOrExecute if a cacheKeyGenerator is provided.
+ *
  * @param {Object} options - Options for executing the tool action
- * @param {Function} options.actionFn - The core action function to execute (must return {success, data, error})
- * @param {Object} options.args - Arguments for the action
- * @param {Object} options.log - Logger object from FastMCP
- * @param {string} options.actionName - Name of the action for logging purposes
- * @param {Function} options.processResult - Optional function to process the result before returning
- * @returns {Promise<Object>} - Standardized response for FastMCP
+ * @param {Function} options.actionFn - The core action function (e.g., listTasksDirect) to execute. Should return {success, data, error}.
+ * @param {Object} options.args - Arguments for the action, passed to actionFn and cacheKeyGenerator.
+ * @param {Object} options.log - Logger object from FastMCP.
+ * @param {string} options.actionName - Name of the action for logging purposes.
+ * @param {Function} [options.cacheKeyGenerator] - Optional function to generate a cache key based on args. If provided, caching is enabled.
+ * @param {Function} [options.processResult=processMCPResponseData] - Optional function to process the result data before returning.
+ * @returns {Promise<Object>} - Standardized response for FastMCP.
  */
 export async function executeMCPToolAction({
   actionFn,
   args,
   log,
   actionName,
+  cacheKeyGenerator, // Note: We decided not to use this for listTasks for now
   processResult = processMCPResponseData
 }) {
   try {
     // Log the action start
     log.info(`${actionName} with args: ${JSON.stringify(args)}`);
-    
+
     // Normalize project root path - common to almost all tools
     const projectRootRaw = args.projectRoot || process.cwd();
     const projectRoot = path.isAbsolute(projectRootRaw)
       ? projectRootRaw
       : path.resolve(process.cwd(), projectRootRaw);
-    
+
     log.info(`Using project root: ${projectRoot}`);
-    
-    // Execute the core action function with normalized arguments
-    const result = await actionFn({...args, projectRoot}, log);
-    
+    const executionArgs = { ...args, projectRoot };
+
+    let result;
+    const cacheKey = cacheKeyGenerator ? cacheKeyGenerator(executionArgs) : null;
+
+    if (cacheKey) {
+      // Use caching utility
+      log.info(`Caching enabled for ${actionName} with key: ${cacheKey}`);
+      const cacheWrappedAction = async () => await actionFn(executionArgs, log);
+      result = await getCachedOrExecute({
+         cacheKey,
+         actionFn: cacheWrappedAction,
+         log
+      });
+    } else {
+      // Execute directly without caching
+      log.info(`Caching disabled for ${actionName}. Executing directly.`);
+      // We need to ensure the result from actionFn has a fromCache field
+      // Let's assume actionFn now consistently returns { success, data/error, fromCache }
+      // The current listTasksDirect does this if it calls getCachedOrExecute internally.
+      result = await actionFn(executionArgs, log);
+      // If the action function itself doesn't determine caching (like our original listTasksDirect refactor attempt),
+      // we'd set it here:
+      // result.fromCache = false; 
+    }
+
     // Handle error case
     if (!result.success) {
       const errorMsg = result.error?.message || `Unknown error during ${actionName.toLowerCase()}`;
-      log.error(`Error during ${actionName.toLowerCase()}: ${errorMsg}`);
+      // Include fromCache in error logs too, might be useful
+      log.error(`Error during ${actionName.toLowerCase()}: ${errorMsg}. From cache: ${result.fromCache}`);
       return createErrorResponse(errorMsg);
     }
-    
+
     // Log success
-    log.info(`Successfully completed ${actionName.toLowerCase()}`);
-    
+    log.info(`Successfully completed ${actionName.toLowerCase()}. From cache: ${result.fromCache}`);
+
     // Process the result data if needed
     const processedData = processResult ? processResult(result.data) : result.data;
+
+    // Create a new object that includes both the processed data and the fromCache flag
+    const responsePayload = {
+      fromCache: result.fromCache, // Include the flag here
+      data: processedData         // Embed the actual data under a 'data' key
+    };
     
-    // Return formatted response
-    return createContentResponse(processedData);
+    // Pass this combined payload to createContentResponse
+    return createContentResponse(responsePayload);
+
   } catch (error) {
-    // Handle unexpected errors
-    log.error(`Unexpected error during ${actionName.toLowerCase()}: ${error.message}`);
-    return createErrorResponse(error.message);
+    // Handle unexpected errors during the execution wrapper itself
+    log.error(`Unexpected error during ${actionName.toLowerCase()} execution wrapper: ${error.message}`);
+    console.error(error.stack); // Log stack for debugging wrapper errors
+    return createErrorResponse(`Internal server error during ${actionName.toLowerCase()}: ${error.message}`);
   }
 }
 
