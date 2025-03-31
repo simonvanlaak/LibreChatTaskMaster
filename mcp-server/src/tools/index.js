@@ -4,13 +4,9 @@
  */
 
 import logger from "../logger.js";
-import { registerListTasksTool } from "./listTasks.js";
-import { registerShowTaskTool } from "./showTask.js";
-import { registerSetTaskStatusTool } from "./setTaskStatus.js";
-import { registerExpandTaskTool } from "./expandTask.js";
-import { registerNextTaskTool } from "./nextTask.js";
-import { registerAddTaskTool } from "./addTask.js";
-import { registerParsePRDTool } from "./parsePRD.js";
+import { registerListTasksTool } from "./list-tasks.js";
+import { registerSetTaskStatusTool } from "./set-task-status.js";
+import { registerParsePRDTool } from "./parse-prd.js";
 import { registerUpdateTool } from "./update.js";
 import { registerUpdateTaskTool } from "./update-task.js";
 import { registerUpdateSubtaskTool } from "./update-subtask.js";
@@ -22,11 +18,7 @@ import { registerGenerateTool } from "./generate.js";
  */
 export function registerTaskMasterTools(server) {
   registerListTasksTool(server);
-  registerShowTaskTool(server);
   registerSetTaskStatusTool(server);
-  registerExpandTaskTool(server);
-  registerNextTaskTool(server);
-  registerAddTaskTool(server);
   registerParsePRDTool(server);
   registerUpdateTool(server);
   registerUpdateTaskTool(server);

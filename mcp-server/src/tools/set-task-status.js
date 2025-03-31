@@ -16,7 +16,7 @@ import { setTaskStatusDirect } from "../core/task-master-core.js";
  */
 export function registerSetTaskStatusTool(server) {
   server.addTool({
-    name: "setTaskStatus",
+    name: "set_task_status",
     description: "Set the status of a task",
     parameters: z.object({
       id: z

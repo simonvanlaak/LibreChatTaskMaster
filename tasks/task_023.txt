@@ -17,6 +17,7 @@ This task involves completing the Model Context Protocol (MCP) server implementa
 8. Identify and address missing components or functionalities to meet FastMCP best practices, such as robust error handling, monitoring endpoints, and concurrency support.
 9. Update documentation to include examples of using the MCP server with FastMCP, detailed setup instructions, and client integration guides.
 10. Organize direct function implementations in a modular structure within the mcp-server/src/core/direct-functions/ directory for improved maintainability and organization.
+11. Follow consistent naming conventions: file names use kebab-case (like-this.js), direct functions use camelCase with Direct suffix (functionNameDirect), tool registration functions use camelCase with Tool suffix (registerToolNameTool), and MCP tool names exposed to clients use snake_case (tool_name).
 
 The implementation must ensure compatibility with existing MCP clients and follow RESTful API design principles, while supporting concurrent requests and maintaining robust error handling.
 
@@ -529,7 +530,7 @@ Following MCP implementation standards:
    - Implement registerShowTaskTool(server) with server.addTool
    - Use executeMCPToolAction in execute method
 
-4. Register in tools/index.js
+4. Register in tools/index.js with tool name 'show_task'
 
 5. Add to .cursor/mcp.json with appropriate schema
 
@@ -562,7 +563,7 @@ Following MCP implementation standards:
    - Implement registerNextTaskTool(server) with server.addTool
    - Use executeMCPToolAction in execute method
 
-4. Register in tools/index.js
+4. Register in tools/index.js with tool name 'next_task'
 
 5. Add to .cursor/mcp.json with appropriate schema
 
@@ -595,7 +596,7 @@ Following MCP implementation standards:
    - Implement registerExpandTaskTool(server) with server.addTool
    - Use executeMCPToolAction in execute method
 
-4. Register in tools/index.js
+4. Register in tools/index.js with tool name 'expand_task'
 
 5. Add to .cursor/mcp.json with appropriate schema
 
@@ -628,7 +629,7 @@ Following MCP implementation standards:
    - Implement registerAddTaskTool(server) with server.addTool
    - Use executeMCPToolAction in execute method
 
-4. Register in tools/index.js
+4. Register in tools/index.js with tool name 'add_task'
 
 5. Add to .cursor/mcp.json with appropriate schema
 
@@ -661,7 +662,7 @@ Following MCP implementation standards:
    - Implement registerAddSubtaskTool(server) with server.addTool
    - Use executeMCPToolAction in execute method
 
-4. Register in tools/index.js
+4. Register in tools/index.js with tool name 'add_subtask'
 
 5. Add to .cursor/mcp.json with appropriate schema
 
@@ -694,7 +695,7 @@ Following MCP implementation standards:
    - Implement registerRemoveSubtaskTool(server) with server.addTool
    - Use executeMCPToolAction in execute method
 
-4. Register in tools/index.js
+4. Register in tools/index.js with tool name 'remove_subtask'
 
 5. Add to .cursor/mcp.json with appropriate schema
 
@@ -727,7 +728,7 @@ Following MCP implementation standards:
    - Implement registerAnalyzeTool(server) with server.addTool
    - Use executeMCPToolAction in execute method
 
-4. Register in tools/index.js
+4. Register in tools/index.js with tool name 'analyze'
 
 5. Add to .cursor/mcp.json with appropriate schema
 
@@ -760,7 +761,7 @@ Following MCP implementation standards:
    - Implement registerClearSubtasksTool(server) with server.addTool
    - Use executeMCPToolAction in execute method
 
-4. Register in tools/index.js
+4. Register in tools/index.js with tool name 'clear_subtasks'
 
 5. Add to .cursor/mcp.json with appropriate schema
 
@@ -793,7 +794,7 @@ Following MCP implementation standards:
    - Implement registerExpandAllTool(server) with server.addTool
    - Use executeMCPToolAction in execute method
 
-4. Register in tools/index.js
+4. Register in tools/index.js with tool name 'expand_all'
 
 5. Add to .cursor/mcp.json with appropriate schema
 
@@ -826,4 +827,18 @@ Following MCP implementation standards:
 6. Update documentation to reflect the new structure
 7. Ensure all MCP tools reference the functions through task-master-core.js
 8. Verify backward compatibility with existing code
+
+## 33. Implement Naming Convention Standards [pending]
+### Dependencies: None
+### Description: Update all MCP server components to follow the standardized naming conventions for files, functions, and tools.
+### Details:
+1. Audit all existing MCP server files and update file names to use kebab-case (like-this.js)
+2. Refactor direct function names to use camelCase with Direct suffix (functionNameDirect)
+3. Update tool registration functions to use camelCase with Tool suffix (registerToolNameTool)
+4. Ensure all MCP tool names exposed to clients use snake_case (tool_name)
+5. Create a naming convention documentation file for future reference
+6. Update imports/exports in all files to reflect the new naming conventions
+7. Verify that all tools are properly registered with the correct naming pattern
+8. Update tests to reflect the new naming conventions
+9. Create a linting rule to enforce naming conventions in future development
 

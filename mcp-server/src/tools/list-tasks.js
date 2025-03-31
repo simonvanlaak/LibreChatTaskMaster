@@ -16,7 +16,7 @@ import { listTasksDirect } from "../core/task-master-core.js";
  */
 export function registerListTasksTool(server) {
   server.addTool({
-    name: "listTasks",
+    name: "list-tasks",
     description: "List all tasks from Task Master",
     parameters: z.object({
       status: z.string().optional().describe("Filter tasks by status"),

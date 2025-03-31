@@ -119,6 +119,11 @@ alwaysApply: false
       - `mcp-server/src/core/direct-functions/`: Directory containing individual files for each direct function wrapper (`*Direct`). These files contain the primary logic, including path resolution, core function calls, and caching.
       - [`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js): Acts as an import/export hub, collecting and exporting direct functions from the `direct-functions` directory and utility functions.
       - `mcp-server/src/tools/utils.js`: Provides utilities like `handleApiResult`, `processMCPResponseData`, and `getCachedOrExecute`.
+    - **Naming Conventions**:
+      - **Files** use **kebab-case**: `list-tasks.js`, `set-task-status.js`, `parse-prd.js`
+      - **Direct Functions** use **camelCase** with `Direct` suffix: `listTasksDirect`, `setTaskStatusDirect`, `parsePRDDirect`
+      - **Tool Registration Functions** use **camelCase** with `Tool` suffix: `registerListTasksTool`, `registerSetTaskStatusTool`
+      - **MCP Tool Names** use **snake_case**: `list_tasks`, `set_task_status`, `parse_prd_document`
 
 - **Data Flow and Module Dependencies**:
 

@@ -16,7 +16,7 @@ import { parsePRDDirect } from "../core/task-master-core.js";
  */
 export function registerParsePRDTool(server) {
   server.addTool({
-    name: "parsePRD",
+    name: "parse_prd_document",
     description: "Parse PRD document and generate tasks",
     parameters: z.object({
       input: z.string().describe("Path to the PRD document file"),
