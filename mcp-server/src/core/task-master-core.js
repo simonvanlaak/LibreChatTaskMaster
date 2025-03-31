@@ -13,6 +13,7 @@ import { updateTaskByIdDirect } from './direct-functions/update-task-by-id.js';
 import { updateSubtaskByIdDirect } from './direct-functions/update-subtask-by-id.js';
 import { generateTaskFilesDirect } from './direct-functions/generate-task-files.js';
 import { setTaskStatusDirect } from './direct-functions/set-task-status.js';
+import { showTaskDirect } from './direct-functions/show-task.js';
 
 // Re-export utility functions
 export { findTasksJsonPath } from './utils/path-utils.js';
@@ -27,6 +28,7 @@ export {
   updateSubtaskByIdDirect,
   generateTaskFilesDirect,
   setTaskStatusDirect,
+  showTaskDirect,
 };
 
 /**
@@ -42,5 +44,6 @@ export const directFunctions = {
   updateSubtask: updateSubtaskByIdDirect,
   generate: generateTaskFilesDirect,
   setStatus: setTaskStatusDirect,
+  showTask: showTaskDirect,
   // Add more functions as we implement them
 }; 

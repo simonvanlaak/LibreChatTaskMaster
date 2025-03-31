@@ -505,7 +505,7 @@ Following MCP implementation standards:
    - Unit test for setTaskStatusDirect.js
    - Integration test for MCP tool
 
-## 22. Implement show-task MCP command [pending]
+## 22. Implement show-task MCP command [in-progress]
 ### Dependencies: None
 ### Description: Create direct function wrapper and MCP tool for showing task details.
 ### Details:
