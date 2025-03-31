@@ -1701,7 +1701,7 @@
           "title": "Implement add-dependency MCP command",
           "description": "Create MCP tool implementation for the add-dependency command",
           "details": "",
-          "status": "in-progress",
+          "status": "done",
           "dependencies": [
             "23.31"
           ],

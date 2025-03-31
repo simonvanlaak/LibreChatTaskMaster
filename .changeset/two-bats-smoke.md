@@ -20,5 +20,6 @@
 - Implement validate-dependencies MCP command for checking validity of task dependencies
 - Implement fix-dependencies MCP command for automatically fixing invalid dependencies
 - Implement complexity-report MCP command for displaying task complexity analysis reports
+- Implement add-dependency MCP command for creating dependency relationships between tasks
 - Document MCP server naming conventions in architecture.mdc and mcp.mdc files (file names use kebab-case, direct functions use camelCase with Direct suffix, tool registration functions use camelCase with Tool suffix, and MCP tool names use snake_case)
 - Enhance task show view with a color-coded progress bar for visualizing subtask completion percentage
