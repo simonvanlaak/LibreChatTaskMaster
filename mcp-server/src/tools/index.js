@@ -15,6 +15,7 @@ import { registerShowTaskTool } from "./show-task.js";
 import { registerNextTaskTool } from "./next-task.js";
 import { registerExpandTaskTool } from "./expand-task.js";
 import { registerAddTaskTool } from "./add-task.js";
+import { registerAddSubtaskTool } from "./add-subtask.js";
 
 /**
  * Register all Task Master tools with the MCP server
@@ -32,6 +33,7 @@ export function registerTaskMasterTools(server) {
   registerNextTaskTool(server);
   registerExpandTaskTool(server);
   registerAddTaskTool(server);
+  registerAddSubtaskTool(server);
   
   logger.info("Registered all Task Master tools with MCP server");
 }

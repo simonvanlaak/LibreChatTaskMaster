@@ -1582,7 +1582,7 @@
           "title": "Implement add-subtask MCP command",
           "description": "Create direct function wrapper and MCP tool for adding subtasks to existing tasks.",
           "details": "Following MCP implementation standards:\n\n1. Create addSubtaskDirect.js in mcp-server/src/core/direct-functions/:\n   - Import addSubtask from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: parentTaskId, title, description, details\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n\n2. Export from task-master-core.js:\n   - Import the function from its file\n   - Add to directFunctions map\n\n3. Create add-subtask.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import addSubtaskDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerAddSubtaskTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n4. Register in tools/index.js with tool name 'add_subtask'\n\n5. Add to .cursor/mcp.json with appropriate schema\n\n6. Write tests following testing guidelines:\n   - Unit test for addSubtaskDirect.js\n   - Integration test for MCP tool",
-          "status": "pending",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 23
         },
@@ -1627,7 +1627,7 @@
           "title": "Create Core Direct Function Structure",
           "description": "Set up the modular directory structure for direct functions and update task-master-core.js to act as an import/export hub.",
           "details": "1. Create the mcp-server/src/core/direct-functions/ directory structure\n2. Update task-master-core.js to import and re-export functions from individual files\n3. Create a utils directory for shared utility functions\n4. Implement a standard template for direct function files\n5. Create documentation for the new modular structure\n6. Update existing imports in MCP tools to use the new structure\n7. Create unit tests for the import/export hub functionality\n8. Ensure backward compatibility with any existing code using the old structure",
-          "status": "pending",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 23
         },
@@ -1636,7 +1636,7 @@
           "title": "Refactor Existing Direct Functions to Modular Structure",
           "description": "Move existing direct function implementations from task-master-core.js to individual files in the new directory structure.",
           "details": "1. Identify all existing direct functions in task-master-core.js\n2. Create individual files for each function in mcp-server/src/core/direct-functions/\n3. Move the implementation to the new files, ensuring consistent error handling\n4. Update imports/exports in task-master-core.js\n5. Create unit tests for each individual function file\n6. Update documentation to reflect the new structure\n7. Ensure all MCP tools reference the functions through task-master-core.js\n8. Verify backward compatibility with existing code",
-          "status": "pending",
+          "status": "done",
           "dependencies": [
             "23.31"
           ],
@@ -1647,7 +1647,7 @@
           "title": "Implement Naming Convention Standards",
           "description": "Update all MCP server components to follow the standardized naming conventions for files, functions, and tools.",
           "details": "1. Audit all existing MCP server files and update file names to use kebab-case (like-this.js)\n2. Refactor direct function names to use camelCase with Direct suffix (functionNameDirect)\n3. Update tool registration functions to use camelCase with Tool suffix (registerToolNameTool)\n4. Ensure all MCP tool names exposed to clients use snake_case (tool_name)\n5. Create a naming convention documentation file for future reference\n6. Update imports/exports in all files to reflect the new naming conventions\n7. Verify that all tools are properly registered with the correct naming pattern\n8. Update tests to reflect the new naming conventions\n9. Create a linting rule to enforce naming conventions in future development",
-          "status": "pending",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 23
         }

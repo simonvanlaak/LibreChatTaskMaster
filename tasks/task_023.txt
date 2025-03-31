@@ -637,7 +637,7 @@ Following MCP implementation standards:
    - Unit test for addTaskDirect.js
    - Integration test for MCP tool
 
-## 26. Implement add-subtask MCP command [pending]
+## 26. Implement add-subtask MCP command [done]
 ### Dependencies: None
 ### Description: Create direct function wrapper and MCP tool for adding subtasks to existing tasks.
 ### Details:
@@ -802,7 +802,7 @@ Following MCP implementation standards:
    - Unit test for expandAllTasksDirect.js
    - Integration test for MCP tool
 
-## 31. Create Core Direct Function Structure [pending]
+## 31. Create Core Direct Function Structure [done]
 ### Dependencies: None
 ### Description: Set up the modular directory structure for direct functions and update task-master-core.js to act as an import/export hub.
 ### Details:
@@ -815,7 +815,7 @@ Following MCP implementation standards:
 7. Create unit tests for the import/export hub functionality
 8. Ensure backward compatibility with any existing code using the old structure
 
-## 32. Refactor Existing Direct Functions to Modular Structure [pending]
+## 32. Refactor Existing Direct Functions to Modular Structure [done]
 ### Dependencies: 23.31
 ### Description: Move existing direct function implementations from task-master-core.js to individual files in the new directory structure.
 ### Details:
@@ -828,7 +828,7 @@ Following MCP implementation standards:
 7. Ensure all MCP tools reference the functions through task-master-core.js
 8. Verify backward compatibility with existing code
 
-## 33. Implement Naming Convention Standards [pending]
+## 33. Implement Naming Convention Standards [done]
 ### Dependencies: None
 ### Description: Update all MCP server components to follow the standardized naming conventions for files, functions, and tools.
 ### Details:
