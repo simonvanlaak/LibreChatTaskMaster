@@ -22,7 +22,7 @@ export function registerClearSubtasksTool(server) {
       id: z.string().optional().describe("Task IDs (comma-separated) to clear subtasks from"),
       all: z.boolean().optional().describe("Clear subtasks from all tasks"),
       file: z.string().optional().describe("Path to the tasks file (default: tasks/tasks.json)"),
-      projectRoot: z.string().optional().describe("Root directory of the project (default: current working directory)")
+      projectRoot: z.string().describe("Root directory of the project (default: current working directory)")
     }).refine(data => data.id || data.all, {
       message: "Either 'id' or 'all' parameter must be provided",
       path: ["id", "all"]

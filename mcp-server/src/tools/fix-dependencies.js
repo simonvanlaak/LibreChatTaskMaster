@@ -20,7 +20,7 @@ export function registerFixDependenciesTool(server) {
     description: "Fix invalid dependencies in tasks automatically",
     parameters: z.object({
       file: z.string().optional().describe("Path to the tasks file"),
-      projectRoot: z.string().optional().describe("Root directory of the project (default: current working directory)")
+      projectRoot: z.string().describe("Root directory of the project (default: current working directory)")
     }),
     execute: async (args, { log }) => {
       try {

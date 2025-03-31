@@ -24,7 +24,7 @@ export function registerAnalyzeTool(server) {
       threshold: z.union([z.number(), z.string()]).optional().describe("Minimum complexity score to recommend expansion (1-10) (default: 5)"),
       file: z.string().optional().describe("Path to the tasks file (default: tasks/tasks.json)"),
       research: z.boolean().optional().describe("Use Perplexity AI for research-backed complexity analysis"),
-      projectRoot: z.string().optional().describe("Root directory of the project (default: current working directory)")
+      projectRoot: z.string().describe("Root directory of the project (default: current working directory)")
     }),
     execute: async (args, { log }) => {
       try {

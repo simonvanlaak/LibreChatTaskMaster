@@ -23,7 +23,6 @@ export function registerGenerateTool(server) {
       output: z.string().optional().describe("Output directory (default: same directory as tasks file)"),
       projectRoot: z
         .string()
-        .optional()
         .describe(
           "Root directory of the project (default: current working directory)"
         ),

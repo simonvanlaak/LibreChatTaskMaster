@@ -22,7 +22,6 @@ export function registerNextTaskTool(server) {
       file: z.string().optional().describe("Path to the tasks file"),
       projectRoot: z
         .string()
-        .optional()
         .describe(
           "Root directory of the project (default: current working directory)"
         ),

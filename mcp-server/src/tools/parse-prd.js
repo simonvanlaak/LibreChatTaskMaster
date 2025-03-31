@@ -24,7 +24,6 @@ export function registerParsePRDTool(server) {
       output: z.string().optional().describe("Output path for tasks.json file (default: tasks/tasks.json)"),
       projectRoot: z
         .string()
-        .optional()
         .describe(
           "Root directory of the project (default: current working directory)"
         ),

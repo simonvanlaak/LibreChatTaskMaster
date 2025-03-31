@@ -22,7 +22,7 @@ export function registerRemoveDependencyTool(server) {
       id: z.string().describe("Task ID to remove dependency from"),
       dependsOn: z.string().describe("Task ID to remove as a dependency"),
       file: z.string().optional().describe("Path to the tasks file (default: tasks/tasks.json)"),
-      projectRoot: z.string().optional().describe("Root directory of the project (default: current working directory)")
+      projectRoot: z.string().describe("Root directory of the project (default: current working directory)")
     }),
     execute: async (args, { log }) => {
       try {
