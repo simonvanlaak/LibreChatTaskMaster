@@ -13,6 +13,7 @@ import { registerAddTaskTool } from "./addTask.js";
 import { registerParsePRDTool } from "./parsePRD.js";
 import { registerUpdateTool } from "./update.js";
 import { registerUpdateTaskTool } from "./update-task.js";
+import { registerUpdateSubtaskTool } from "./update-subtask.js";
 
 /**
  * Register all Task Master tools with the MCP server
@@ -28,6 +29,7 @@ export function registerTaskMasterTools(server) {
   registerParsePRDTool(server);
   registerUpdateTool(server);
   registerUpdateTaskTool(server);
+  registerUpdateSubtaskTool(server);
 }
 
 export default {

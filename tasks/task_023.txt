@@ -405,7 +405,7 @@ Following MCP implementation standards:
    - Unit test for updateTaskByIdDirect.js
    - Integration test for MCP tool
 
-## 19. Implement update-subtask MCP command [pending]
+## 19. Implement update-subtask MCP command [done]
 ### Dependencies: None
 ### Description: Create direct function wrapper and MCP tool for appending information to a specific subtask.
 ### Details:
