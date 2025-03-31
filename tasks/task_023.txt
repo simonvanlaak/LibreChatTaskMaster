@@ -872,7 +872,7 @@ Implement the addTemplates function in the MCP server's index.js file to enable 
 ### Details:
 Analyze and refactor the project root handling mechanism to ensure consistent file path resolution across all MCP direct functions. This should properly handle relative and absolute paths, respect the projectRoot parameter when provided, and have appropriate fallbacks when not specified. Document the approach in a comment within path-utils.js for future maintainers.
 
-## 39. Implement add-dependency MCP command [pending]
+## 39. Implement add-dependency MCP command [in-progress]
 ### Dependencies: 23.31
 ### Description: Create MCP tool implementation for the add-dependency command
 ### Details:
@@ -896,7 +896,7 @@ Analyze and refactor the project root handling mechanism to ensure consistent fi
 ### Details:
 
 
-## 43. Implement complexity-report MCP command [in-progress]
+## 43. Implement complexity-report MCP command [done]
 ### Dependencies: 23.31
 ### Description: Create MCP tool implementation for the complexity-report command
 ### Details:

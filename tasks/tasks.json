@@ -1701,7 +1701,7 @@
           "title": "Implement add-dependency MCP command",
           "description": "Create MCP tool implementation for the add-dependency command",
           "details": "",
-          "status": "pending",
+          "status": "in-progress",
           "dependencies": [
             "23.31"
           ],
@@ -1748,7 +1748,7 @@
           "title": "Implement complexity-report MCP command",
           "description": "Create MCP tool implementation for the complexity-report command",
           "details": "",
-          "status": "in-progress",
+          "status": "done",
           "dependencies": [
             "23.31"
           ],
