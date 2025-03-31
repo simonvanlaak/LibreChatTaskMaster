@@ -1555,7 +1555,7 @@
           "title": "Implement next-task MCP command",
           "description": "Create direct function wrapper and MCP tool for finding the next task to work on.",
           "details": "Following MCP implementation standards:\n\n1. Create nextTaskDirect.js in mcp-server/src/core/direct-functions/:\n   - Import nextTask from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments (no specific args needed except projectRoot/file)\n   - Handle errors with try/catch\n   - Return standardized { success, data/error } object\n\n2. Export from task-master-core.js:\n   - Import the function from its file\n   - Add to directFunctions map\n\n3. Create next-task.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import nextTaskDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerNextTaskTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n4. Register in tools/index.js with tool name 'next_task'\n\n5. Add to .cursor/mcp.json with appropriate schema\n\n6. Write tests following testing guidelines:\n   - Unit test for nextTaskDirect.js\n   - Integration test for MCP tool",
-          "status": "pending",
+          "status": "in-progress",
           "dependencies": [],
           "parentTaskId": 23
         },

@@ -538,7 +538,7 @@ Following MCP implementation standards:
    - Unit test for showTaskDirect.js
    - Integration test for MCP tool
 
-## 23. Implement next-task MCP command [pending]
+## 23. Implement next-task MCP command [in-progress]
 ### Dependencies: None
 ### Description: Create direct function wrapper and MCP tool for finding the next task to work on.
 ### Details:
