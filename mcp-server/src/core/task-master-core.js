@@ -19,6 +19,7 @@ const __dirname = dirname(__filename);
 import { 
   listTasks,
   parsePRD,
+  updateTasks,
   // We'll import more functions as we continue implementation
 } from '../../../scripts/modules/task-manager.js';
 
@@ -159,60 +160,187 @@ export async function getCacheStatsDirect(args, log) {
 }
 
 /**
- * Direct function wrapper for parsePRD with error handling.
- *
- * @param {Object} args - Command arguments (input file path, output path, numTasks).
+ * Direct function wrapper for parsing PRD documents and generating tasks.
+ * 
+ * @param {Object} args - Command arguments containing input, numTasks or tasks, and output options.
  * @param {Object} log - Logger object.
- * @returns {Promise<Object>} - Result object { success: boolean, data?: any, error?: { code: string, message: string }, fromCache: boolean }.
+ * @returns {Promise<Object>} - Result object with success status and data/error information.
  */
 export async function parsePRDDirect(args, log) {
   try {
-    // Normalize paths based on projectRoot
-    const projectRoot = args.projectRoot || process.cwd();
+    log.info(`Parsing PRD document with args: ${JSON.stringify(args)}`);
     
-    // Get the input file path (PRD file)
-    const inputPath = args.input 
-      ? path.resolve(projectRoot, args.input) 
-      : path.resolve(projectRoot, 'sample-prd.txt');
-    
-    log.info(`Using PRD file: ${inputPath}`);
-    
-    // Determine tasks output path
-    let tasksPath;
-    try {
-      // Try to find existing tasks.json first
-      tasksPath = findTasksJsonPath(args, log);
-    } catch (error) {
-      // If not found, use default path
-      tasksPath = path.resolve(projectRoot, 'tasks', 'tasks.json');
-      log.info(`No existing tasks.json found, will create at: ${tasksPath}`);
+    // Check required parameters
+    if (!args.input) {
+      const errorMessage = 'No input file specified. Please provide an input PRD document path.';
+      log.error(errorMessage);
+      return { 
+        success: false, 
+        error: { code: 'MISSING_INPUT_FILE', message: errorMessage },
+        fromCache: false 
+      };
     }
     
-    // Get number of tasks to generate
-    const numTasks = args.numTasks ? parseInt(args.numTasks, 10) : undefined;
+    // Resolve input path (relative to project root if provided)
+    const projectRoot = args.projectRoot || process.cwd();
+    const inputPath = path.isAbsolute(args.input) ? args.input : path.resolve(projectRoot, args.input);
     
-    log.info(`Parsing PRD file ${inputPath} to generate tasks in ${tasksPath}`);
+    // Determine output path
+    let outputPath;
+    if (args.output) {
+      outputPath = path.isAbsolute(args.output) ? args.output : path.resolve(projectRoot, args.output);
+    } else {
+      // Default to tasks/tasks.json in the project root
+      outputPath = path.resolve(projectRoot, 'tasks', 'tasks.json');
+    }
     
-    // Call the core parsePRD function
-    await parsePRD(inputPath, tasksPath, numTasks);
+    // Verify input file exists
+    if (!fs.existsSync(inputPath)) {
+      const errorMessage = `Input file not found: ${inputPath}`;
+      log.error(errorMessage);
+      return { 
+        success: false, 
+        error: { code: 'INPUT_FILE_NOT_FOUND', message: errorMessage },
+        fromCache: false 
+      };
+    }
     
-    return { 
-      success: true, 
-      data: { 
-        message: `Successfully parsed PRD and generated tasks in ${tasksPath}`,
-        inputFile: inputPath,
-        outputFile: tasksPath
-      },
-      fromCache: false // PRD parsing is never cached
-    };
+    // Parse number of tasks - handle both string and number values
+    let numTasks = 10; // Default
+    if (args.numTasks) {
+      numTasks = typeof args.numTasks === 'string' ? parseInt(args.numTasks, 10) : args.numTasks;
+      if (isNaN(numTasks)) {
+        numTasks = 10; // Fallback to default if parsing fails
+        log.warn(`Invalid numTasks value: ${args.numTasks}. Using default: 10`);
+      }
+    }
+    
+    log.info(`Preparing to parse PRD from ${inputPath} and output to ${outputPath} with ${numTasks} tasks`);
+    
+    // Execute core parsePRD function (which is not async but we'll await it to maintain consistency)
+    await parsePRD(inputPath, outputPath, numTasks);
+    
+    // Since parsePRD doesn't return a value but writes to a file, we'll read the result
+    // to return it to the caller
+    if (fs.existsSync(outputPath)) {
+      const tasksData = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+      log.info(`Successfully parsed PRD and generated ${tasksData.tasks?.length || 0} tasks`);
+      
+      return {
+        success: true,
+        data: {
+          message: `Successfully generated ${tasksData.tasks?.length || 0} tasks from PRD`,
+          taskCount: tasksData.tasks?.length || 0,
+          outputPath
+        },
+        fromCache: false // This operation always modifies state and should never be cached
+      };
+    } else {
+      const errorMessage = `Tasks file was not created at ${outputPath}`;
+      log.error(errorMessage);
+      return { 
+        success: false, 
+        error: { code: 'OUTPUT_FILE_NOT_CREATED', message: errorMessage },
+        fromCache: false 
+      };
+    }
   } catch (error) {
     log.error(`Error parsing PRD: ${error.message}`);
     return { 
       success: false, 
-      error: { 
-        code: 'PARSE_PRD_ERROR', 
-        message: error.message 
-      }, 
+      error: { code: 'PARSE_PRD_ERROR', message: error.message || 'Unknown error parsing PRD' },
+      fromCache: false 
+    };
+  }
+}
+
+/**
+ * Direct function wrapper for updating tasks based on new context/prompt.
+ * 
+ * @param {Object} args - Command arguments containing fromId, prompt, useResearch and file path options.
+ * @param {Object} log - Logger object.
+ * @returns {Promise<Object>} - Result object with success status and data/error information.
+ */
+export async function updateTasksDirect(args, log) {
+  try {
+    log.info(`Updating tasks with args: ${JSON.stringify(args)}`);
+    
+    // Check required parameters
+    if (!args.from) {
+      const errorMessage = 'No from ID specified. Please provide a task ID to start updating from.';
+      log.error(errorMessage);
+      return { 
+        success: false, 
+        error: { code: 'MISSING_FROM_ID', message: errorMessage },
+        fromCache: false 
+      };
+    }
+    
+    if (!args.prompt) {
+      const errorMessage = 'No prompt specified. Please provide a prompt with new context for task updates.';
+      log.error(errorMessage);
+      return { 
+        success: false, 
+        error: { code: 'MISSING_PROMPT', message: errorMessage },
+        fromCache: false 
+      };
+    }
+    
+    // Parse fromId - handle both string and number values
+    let fromId;
+    if (typeof args.from === 'string') {
+      fromId = parseInt(args.from, 10);
+      if (isNaN(fromId)) {
+        const errorMessage = `Invalid from ID: ${args.from}. Task ID must be a positive integer.`;
+        log.error(errorMessage);
+        return { 
+          success: false, 
+          error: { code: 'INVALID_FROM_ID', message: errorMessage },
+          fromCache: false 
+        };
+      }
+    } else {
+      fromId = args.from;
+    }
+    
+    // Get tasks file path
+    let tasksPath;
+    try {
+      tasksPath = findTasksJsonPath(args, log);
+    } catch (error) {
+      log.error(`Error finding tasks file: ${error.message}`);
+      return { 
+        success: false, 
+        error: { code: 'TASKS_FILE_ERROR', message: error.message },
+        fromCache: false 
+      };
+    }
+    
+    // Get research flag
+    const useResearch = args.research === true;
+    
+    log.info(`Updating tasks from ID ${fromId} with prompt "${args.prompt}" and research: ${useResearch}`);
+    
+    // Execute core updateTasks function
+    await updateTasks(tasksPath, fromId, args.prompt, useResearch);
+    
+    // Since updateTasks doesn't return a value but modifies the tasks file,
+    // we'll return a success message
+    return {
+      success: true,
+      data: {
+        message: `Successfully updated tasks from ID ${fromId} based on the prompt`,
+        fromId,
+        tasksPath,
+        useResearch
+      },
+      fromCache: false // This operation always modifies state and should never be cached
+    };
+  } catch (error) {
+    log.error(`Error updating tasks: ${error.message}`);
+    return { 
+      success: false, 
+      error: { code: 'UPDATE_TASKS_ERROR', message: error.message || 'Unknown error updating tasks' },
       fromCache: false 
     };
   }
@@ -225,5 +353,6 @@ export const directFunctions = {
   list: listTasksDirect,
   cacheStats: getCacheStatsDirect,
   parsePRD: parsePRDDirect,
+  update: updateTasksDirect,
   // Add more functions as we implement them
 }; 

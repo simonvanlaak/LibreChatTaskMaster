@@ -1,10 +1,13 @@
 /**
  * tools/parsePRD.js
- * Tool to parse PRD documents and generate Task Master tasks
+ * Tool to parse PRD document and generate tasks
  */
 
 import { z } from "zod";
-import { executeMCPToolAction } from "./utils.js";
+import {
+  handleApiResult,
+  createErrorResponse
+} from "./utils.js";
 import { parsePRDDirect } from "../core/task-master-core.js";
 
 /**
@@ -14,28 +17,34 @@ import { parsePRDDirect } from "../core/task-master-core.js";
 export function registerParsePRDTool(server) {
   server.addTool({
     name: "parsePRD",
-    description: "Parse a PRD document and generate Task Master tasks",
+    description: "Parse PRD document and generate tasks",
     parameters: z.object({
-      input: z
-        .string()
-        .optional()
-        .describe("Path to the PRD text file (default: sample-prd.txt)"),
-      numTasks: z
-        .number()
-        .optional()
-        .describe("Number of tasks to generate"),
+      input: z.string().describe("Path to the PRD document file"),
+      numTasks: z.union([z.number(), z.string()]).optional().describe("Number of tasks to generate (default: 10)"),
+      output: z.string().optional().describe("Output path for tasks.json file (default: tasks/tasks.json)"),
       projectRoot: z
         .string()
         .optional()
-        .describe("Root directory of the project (default: current working directory)")
+        .describe(
+          "Root directory of the project (default: current working directory)"
+        ),
     }),
     execute: async (args, { log }) => {
-      return executeMCPToolAction({
-        actionFn: parsePRDDirect,
-        args,
-        log,
-        actionName: "Parse PRD and generate tasks"
-      });
+      try {
+        log.info(`Parsing PRD document with args: ${JSON.stringify(args)}`);
+        
+        // Call the direct function wrapper
+        const result = await parsePRDDirect(args, log);
+        
+        // Log result
+        log.info(`${result.success ? `Successfully generated ${result.data?.taskCount || 0} tasks` : 'Failed to parse PRD'}`);
+        
+        // Use handleApiResult to format the response
+        return handleApiResult(result, log, 'Error parsing PRD document');
+      } catch (error) {
+        log.error(`Error in parsePRD tool: ${error.message}`);
+        return createErrorResponse(error.message);
+      }
     },
   });
 } 
