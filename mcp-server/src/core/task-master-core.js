@@ -16,11 +16,28 @@ import { setTaskStatusDirect } from './direct-functions/set-task-status.js';
 import { showTaskDirect } from './direct-functions/show-task.js';
 import { nextTaskDirect } from './direct-functions/next-task.js';
 import { expandTaskDirect } from './direct-functions/expand-task.js';
+import { addTaskDirect } from './direct-functions/add-task.js';
 
 // Re-export utility functions
 export { findTasksJsonPath } from './utils/path-utils.js';
 
-// Re-export all direct functions
+// Use Map for potential future enhancements like introspection or dynamic dispatch
+export const directFunctions = new Map([
+  ['listTasksDirect', listTasksDirect],
+  ['getCacheStatsDirect', getCacheStatsDirect],
+  ['parsePRDDirect', parsePRDDirect],
+  ['updateTasksDirect', updateTasksDirect],
+  ['updateTaskByIdDirect', updateTaskByIdDirect],
+  ['updateSubtaskByIdDirect', updateSubtaskByIdDirect],
+  ['generateTaskFilesDirect', generateTaskFilesDirect],
+  ['setTaskStatusDirect', setTaskStatusDirect],
+  ['showTaskDirect', showTaskDirect],
+  ['nextTaskDirect', nextTaskDirect],
+  ['expandTaskDirect', expandTaskDirect],
+  ['addTaskDirect', addTaskDirect]
+]);
+
+// Re-export all direct function implementations
 export {
   listTasksDirect,
   getCacheStatsDirect,
@@ -33,23 +50,5 @@ export {
   showTaskDirect,
   nextTaskDirect,
   expandTaskDirect,
-};
-
-/**
- * Maps Task Master functions to their direct implementation
- * This map is used by tools to look up the appropriate function by name
- */
-export const directFunctions = {
-  list: listTasksDirect,
-  cacheStats: getCacheStatsDirect,
-  parsePRD: parsePRDDirect,
-  update: updateTasksDirect,
-  updateTask: updateTaskByIdDirect,
-  updateSubtask: updateSubtaskByIdDirect,
-  generate: generateTaskFilesDirect,
-  setStatus: setTaskStatusDirect,
-  showTask: showTaskDirect,
-  nextTask: nextTaskDirect,
-  expandTask: expandTaskDirect,
-  // Add more functions as we implement them
+  addTaskDirect
 }; 
