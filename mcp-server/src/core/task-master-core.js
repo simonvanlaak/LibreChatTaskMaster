@@ -22,6 +22,7 @@ import { removeSubtaskDirect } from './direct-functions/remove-subtask.js';
 import { analyzeTaskComplexityDirect } from './direct-functions/analyze-task-complexity.js';
 import { clearSubtasksDirect } from './direct-functions/clear-subtasks.js';
 import { expandAllTasksDirect } from './direct-functions/expand-all-tasks.js';
+import { removeDependencyDirect } from './direct-functions/remove-dependency.js';
 
 // Re-export utility functions
 export { findTasksJsonPath } from './utils/path-utils.js';
@@ -44,7 +45,8 @@ export const directFunctions = new Map([
   ['removeSubtaskDirect', removeSubtaskDirect],
   ['analyzeTaskComplexityDirect', analyzeTaskComplexityDirect],
   ['clearSubtasksDirect', clearSubtasksDirect],
-  ['expandAllTasksDirect', expandAllTasksDirect]
+  ['expandAllTasksDirect', expandAllTasksDirect],
+  ['removeDependencyDirect', removeDependencyDirect]
 ]);
 
 // Re-export all direct function implementations
@@ -65,5 +67,6 @@ export {
   removeSubtaskDirect,
   analyzeTaskComplexityDirect,
   clearSubtasksDirect,
-  expandAllTasksDirect
+  expandAllTasksDirect,
+  removeDependencyDirect
 }; 

@@ -1712,7 +1712,7 @@
           "title": "Implement remove-dependency MCP command",
           "description": "Create MCP tool implementation for the remove-dependency command",
           "details": "",
-          "status": "pending",
+          "status": "done",
           "dependencies": [
             "23.31"
           ],

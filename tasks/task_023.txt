@@ -878,7 +878,7 @@ Analyze and refactor the project root handling mechanism to ensure consistent fi
 ### Details:
 
 
-## 40. Implement remove-dependency MCP command [pending]
+## 40. Implement remove-dependency MCP command [done]
 ### Dependencies: 23.31
 ### Description: Create MCP tool implementation for the remove-dependency command
 ### Details:
