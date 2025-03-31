@@ -3,8 +3,8 @@
  * Export all Task Master CLI tools for MCP server
  */
 
-import logger from "../logger.js";
 import { registerListTasksTool } from "./list-tasks.js";
+import logger from "../logger.js";
 import { registerSetTaskStatusTool } from "./set-task-status.js";
 import { registerParsePRDTool } from "./parse-prd.js";
 import { registerUpdateTool } from "./update.js";
@@ -23,6 +23,7 @@ import { registerExpandAllTool } from "./expand-all.js";
 import { registerRemoveDependencyTool } from "./remove-dependency.js";
 import { registerValidateDependenciesTool } from "./validate-dependencies.js";
 import { registerFixDependenciesTool } from "./fix-dependencies.js";
+import { registerComplexityReportTool } from "./complexity-report.js";
 
 /**
  * Register all Task Master tools with the MCP server
@@ -52,6 +53,7 @@ export function registerTaskMasterTools(server) {
     registerRemoveDependencyTool(server);
     registerValidateDependenciesTool(server);
     registerFixDependenciesTool(server);
+    registerComplexityReportTool(server);
     
     logger.info("Successfully registered all Task Master tools");
   } catch (error) {

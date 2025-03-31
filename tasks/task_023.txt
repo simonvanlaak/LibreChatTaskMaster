@@ -890,13 +890,13 @@ Analyze and refactor the project root handling mechanism to ensure consistent fi
 ### Details:
 
 
-## 42. Implement fix-dependencies MCP command [pending]
+## 42. Implement fix-dependencies MCP command [done]
 ### Dependencies: 23.31, 23.41
 ### Description: Create MCP tool implementation for the fix-dependencies command
 ### Details:
 
 
-## 43. Implement complexity-report MCP command [pending]
+## 43. Implement complexity-report MCP command [in-progress]
 ### Dependencies: 23.31
 ### Description: Create MCP tool implementation for the complexity-report command
 ### Details:

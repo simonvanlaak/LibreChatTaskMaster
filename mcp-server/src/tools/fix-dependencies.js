@@ -22,12 +22,25 @@ export function registerFixDependenciesTool(server) {
       file: z.string().optional().describe("Path to the tasks file"),
       projectRoot: z.string().optional().describe("Root directory of the project (default: current working directory)")
     }),
-    handler: async ({ file, projectRoot }, { logger }) => {
+    execute: async (args, { log }) => {
       try {
-        const result = await fixDependenciesDirect({ file, projectRoot }, logger);
-        return handleApiResult(result);
+        log.info(`Fixing dependencies with args: ${JSON.stringify(args)}`);
+        
+        // Call the direct function wrapper
+        const result = await fixDependenciesDirect(args, log);
+        
+        // Log result
+        if (result.success) {
+          log.info(`Successfully fixed dependencies: ${result.data.message}`);
+        } else {
+          log.error(`Failed to fix dependencies: ${result.error.message}`);
+        }
+        
+        // Use handleApiResult to format the response
+        return handleApiResult(result, log, 'Error fixing dependencies');
       } catch (error) {
-        return createErrorResponse(error);
+        log.error(`Error in fixDependencies tool: ${error.message}`);
+        return createErrorResponse(error.message);
       }
     }
   });

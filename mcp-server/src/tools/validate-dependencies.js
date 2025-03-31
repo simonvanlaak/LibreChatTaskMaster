@@ -22,13 +22,26 @@ export function registerValidateDependenciesTool(server) {
       file: z.string().optional().describe("Path to the tasks file"),
       projectRoot: z.string().optional().describe("Root directory of the project (default: current working directory)")
     }),
-    handler: async ({ file, projectRoot }, { logger }) => {
+    execute: async (args, { log }) => {
       try {
-        const result = await validateDependenciesDirect({ file, projectRoot }, logger);
-        return handleApiResult(result);
+        log.info(`Validating dependencies with args: ${JSON.stringify(args)}`);
+        
+        // Call the direct function wrapper
+        const result = await validateDependenciesDirect(args, log);
+        
+        // Log result
+        if (result.success) {
+          log.info(`Successfully validated dependencies: ${result.data.message}`);
+        } else {
+          log.error(`Failed to validate dependencies: ${result.error.message}`);
+        }
+        
+        // Use handleApiResult to format the response
+        return handleApiResult(result, log, 'Error validating dependencies');
       } catch (error) {
-        return createErrorResponse(error);
+        log.error(`Error in validateDependencies tool: ${error.message}`);
+        return createErrorResponse(error.message);
       }
-    }
+    },
   });
 } 
