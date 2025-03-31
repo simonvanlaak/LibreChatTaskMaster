@@ -106,16 +106,18 @@ alwaysApply: false
     - **Responsibilities** (See also: [`mcp.mdc`](mdc:.cursor/rules/mcp.mdc)):
       - Registers Task Master functionalities as tools consumable via MCP.
       - Handles MCP requests via tool `execute` methods defined in `mcp-server/src/tools/*.js`.
-      - Tool `execute` methods call corresponding direct function wrappers in [`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js) for core logic execution.
+      - Tool `execute` methods call corresponding direct function wrappers.
       - Direct function wrappers (`*Direct` functions) contain the main logic, including path resolution and optional caching.
       - Tool `execute` methods use `handleApiResult` from [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js) to process the result from the direct function and format the final MCP response.
       - Uses CLI execution via `executeTaskMasterCommand` as a fallback only when necessary.
-      - **Implements Caching**: Utilizes a caching layer (`ContextManager` with `lru-cache`). Caching logic is invoked *within* the direct function wrappers ([`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js)) using the `getCachedOrExecute` utility for performance-sensitive read operations (e.g., `listTasks`).
+      - **Implements Caching**: Utilizes a caching layer (`ContextManager` with `lru-cache`). Caching logic is invoked *within* the direct function wrappers (located in [`mcp-server/src/core/direct-functions/`](mdc:mcp-server/src/core/direct-functions/)) using the `getCachedOrExecute` utility for performance-sensitive read operations (e.g., `listTasks`).
       - Standardizes response formatting and data filtering using utilities in [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js).
     - **Key Components**:
       - `mcp-server/src/server.js`: Main server setup and initialization.
       - `mcp-server/src/tools/`: Directory containing individual tool definitions. Each tool's `execute` method orchestrates the call to core logic and handles the response.
-      - `mcp-server/src/core/task-master-core.js`: Contains direct function wrappers (`*Direct`) that encapsulate core logic calls and caching.
+      - `mcp-server/src/core/utils/`: Directory containing utility functions like `path-utils.js` with `findTasksJsonPath`.
+      - `mcp-server/src/core/direct-functions/`: Directory containing individual files for each direct function wrapper (`*Direct`). These files contain the primary logic, including path resolution, core function calls, and caching.
+      - [`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js): Acts as an import/export hub, collecting and exporting direct functions from the `direct-functions` directory and utility functions.
       - `mcp-server/src/tools/utils.js`: Provides utilities like `handleApiResult`, `processMCPResponseData`, and `getCachedOrExecute`.
 
 - **Data Flow and Module Dependencies**:
@@ -125,7 +127,7 @@ alwaysApply: false
   - **UI for Presentation**:  [`ui.js`](mdc:scripts/modules/ui.js) is used by command handlers and task/dependency managers to display information to the user. UI functions primarily consume data and format it for output, without modifying core application state.
   - **Utilities for Common Tasks**: [`utils.js`](mdc:scripts/modules/utils.js) provides helper functions used by all other modules for configuration, logging, file operations, and common data manipulations.
   - **AI Services Integration**: AI functionalities (complexity analysis, task expansion, PRD parsing) are invoked from [`task-manager.js`](mdc:scripts/modules/task-manager.js) and potentially [`commands.js`](mdc:scripts/modules/commands.js), likely using functions that would reside in a dedicated `ai-services.js` module or be integrated within `utils.js` or `task-manager.js`.
-  - **MCP Server Interaction**: External tools interact with the `mcp-server`, which then calls direct function wrappers in `task-master-core.js` or falls back to `executeTaskMasterCommand`. Responses are formatted by `mcp-server/src/tools/utils.js`. See [`mcp.mdc`](mdc:.cursor/rules/mcp.mdc) for details.
+  - **MCP Server Interaction**: External tools interact with the `mcp-server`, which then calls direct function wrappers (located in `mcp-server/src/core/direct-functions/` and exported via `task-master-core.js`) or falls back to `executeTaskMasterCommand`. Responses are formatted by `mcp-server/src/tools/utils.js`. See [`mcp.mdc`](mdc:.cursor/rules/mcp.mdc) for details.
 
 - **Testing Architecture**:
 
@@ -168,3 +170,40 @@ alwaysApply: false
   - **Clarity**: The modular structure provides a clear separation of concerns, making the codebase easier to navigate and understand for developers.
 
 This architectural overview should help AI models understand the structure and organization of the Task Master CLI codebase, enabling them to more effectively assist with code generation, modification, and understanding.
+
+## Implementing MCP Support for a Command
+
+Follow these steps to add MCP support for an existing Task Master command (see [`new_features.mdc`](mdc:.cursor/rules/new_features.mdc) for more detail):
+
+1.  **Ensure Core Logic Exists**: Verify the core functionality is implemented and exported from the relevant module in `scripts/modules/`.
+
+2.  **Create Direct Function File in `mcp-server/src/core/direct-functions/`**:
+    - Create a new file (e.g., `your-command.js`) in the `direct-functions` directory.
+    - Import necessary core functions from Task Master modules (e.g., `../../../../scripts/modules/task-manager.js`).
+    - Import utilities: `findTasksJsonPath` from `../utils/path-utils.js` and `getCachedOrExecute` from `../../tools/utils.js` if needed.
+    - Implement `async function yourCommandDirect(args, log)`:
+        - Parse `args` and determine necessary inputs (e.g., `tasksPath` via `findTasksJsonPath`).
+        - **If Caching**:
+            - Generate a unique `cacheKey` based on arguments defining the operation.
+            - Define an `async` function `coreActionFn` containing the call to the core logic.
+            - Call `const result = await getCachedOrExecute({ cacheKey, actionFn: coreActionFn, log });`.
+        - **If Not Caching**:
+            - Directly call the core logic function within a try/catch block.
+        - Format the return as `{ success: true/false, data/error, fromCache: boolean }`.
+    - Export the wrapper function.
+
+3.  **Update `task-master-core.js` with Import/Export**:
+    - Import your direct function: `import { yourCommandDirect } from './direct-functions/your-command.js';`
+    - Re-export it in the exports section.
+    - Add it to the `directFunctions` map: `yourCommand: yourCommandDirect`.
+
+4.  **Create MCP Tool (`mcp-server/src/tools/`)**:
+    - Create a new file (e.g., `your-command.js`).
+    - Import `z` for schema definition.
+    - Import `handleApiResult` from `./utils.js`.
+    - Import the `yourCommandDirect` wrapper function from `../core/task-master-core.js`.
+    - Implement `registerYourCommandTool(server)` following the standard pattern.
+
+5.  **Register Tool**: Import and call `registerYourCommandTool` in `mcp-server/src/tools/index.js`.
+
+6.  **Update `mcp.json`**: Add the new tool definition to the `tools` array in `.cursor/mcp.json`.

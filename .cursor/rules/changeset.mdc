@@ -15,7 +15,7 @@ Changesets is used to manage package versioning and generate accurate `CHANGELOG
     - **Bug Fixes** (Fixes to existing functionality)
     - **Breaking Changes** (Changes that are not backward-compatible)
     - **Performance Improvements** (Enhancements to speed or resource usage)
-    - **Significant Refactoring** (Major code restructuring, even if external behavior is unchanged, as it might affect stability or maintainability)
+    - **Significant Refactoring** (Major code restructuring, even if external behavior is unchanged, as it might affect stability or maintainability) - *Such as reorganizing the MCP server's direct function implementations into separate files*
     - **User-Facing Documentation Updates** (Changes to README, usage guides, public API docs)
     - **Dependency Updates** (Especially if they fix known issues or introduce significant changes)
     - **Build/Tooling Changes** (If they affect how consumers might build or interact with the package)

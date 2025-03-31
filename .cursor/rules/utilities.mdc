@@ -361,4 +361,13 @@ alwaysApply: false
   };
   ```
 
-Refer to [`utils.js`](mdc:scripts/modules/utils.js) for implementation examples and [`new_features.mdc`](mdc:.cursor/rules/new_features.mdc) for integration guidelines. Use [`commands.mdc`](mdc:.cursor/rules/commands.mdc) for CLI integration details. 
+Refer to [`utils.js`](mdc:scripts/modules/utils.js) for implementation examples and [`new_features.mdc`](mdc:.cursor/rules/new_features.mdc) for integration guidelines. Use [`commands.mdc`](mdc:.cursor/rules/commands.mdc) for CLI integration details.
+
+## MCP Server Utilities Structure
+
+- **Core Utilities** (`mcp-server/src/core/utils/path-utils.js`):
+  - Contains path-related utilities like `findTasksJsonPath` that are used by direct function implementations.
+  - These are imported by direct function files in the `direct-functions/` directory.
+
+- **MCP Tool Utilities** (`mcp-server/src/tools/utils.js`):
+  - Contains utilities related to MCP response handling and caching. 
