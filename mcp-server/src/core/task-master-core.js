@@ -26,6 +26,7 @@ import { removeDependencyDirect } from './direct-functions/remove-dependency.js'
 import { validateDependenciesDirect } from './direct-functions/validate-dependencies.js';
 import { fixDependenciesDirect } from './direct-functions/fix-dependencies.js';
 import { complexityReportDirect } from './direct-functions/complexity-report.js';
+import { addDependencyDirect } from './direct-functions/add-dependency.js';
 
 // Re-export utility functions
 export { findTasksJsonPath } from './utils/path-utils.js';
@@ -52,7 +53,8 @@ export const directFunctions = new Map([
   ['removeDependencyDirect', removeDependencyDirect],
   ['validateDependenciesDirect', validateDependenciesDirect],
   ['fixDependenciesDirect', fixDependenciesDirect],
-  ['complexityReportDirect', complexityReportDirect]
+  ['complexityReportDirect', complexityReportDirect],
+  ['addDependencyDirect', addDependencyDirect]
 ]);
 
 // Re-export all direct function implementations
@@ -77,5 +79,6 @@ export {
   removeDependencyDirect,
   validateDependenciesDirect,
   fixDependenciesDirect,
-  complexityReportDirect
+  complexityReportDirect,
+  addDependencyDirect
 }; 
