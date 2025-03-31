@@ -24,6 +24,7 @@ import { clearSubtasksDirect } from './direct-functions/clear-subtasks.js';
 import { expandAllTasksDirect } from './direct-functions/expand-all-tasks.js';
 import { removeDependencyDirect } from './direct-functions/remove-dependency.js';
 import { validateDependenciesDirect } from './direct-functions/validate-dependencies.js';
+import { fixDependenciesDirect } from './direct-functions/fix-dependencies.js';
 
 // Re-export utility functions
 export { findTasksJsonPath } from './utils/path-utils.js';
@@ -48,7 +49,8 @@ export const directFunctions = new Map([
   ['clearSubtasksDirect', clearSubtasksDirect],
   ['expandAllTasksDirect', expandAllTasksDirect],
   ['removeDependencyDirect', removeDependencyDirect],
-  ['validateDependenciesDirect', validateDependenciesDirect]
+  ['validateDependenciesDirect', validateDependenciesDirect],
+  ['fixDependenciesDirect', fixDependenciesDirect]
 ]);
 
 // Re-export all direct function implementations
@@ -71,5 +73,6 @@ export {
   clearSubtasksDirect,
   expandAllTasksDirect,
   removeDependencyDirect,
-  validateDependenciesDirect
+  validateDependenciesDirect,
+  fixDependenciesDirect
 }; 

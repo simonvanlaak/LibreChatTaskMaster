@@ -18,5 +18,6 @@
 - Implement clear-subtasks MCP command for clearing subtasks from parent tasks
 - Implement remove-dependency MCP command for removing dependencies from tasks
 - Implement validate-dependencies MCP command for checking validity of task dependencies
+- Implement fix-dependencies MCP command for automatically fixing invalid dependencies
 - Document MCP server naming conventions in architecture.mdc and mcp.mdc files (file names use kebab-case, direct functions use camelCase with Direct suffix, tool registration functions use camelCase with Tool suffix, and MCP tool names use snake_case)
 - Enhance task show view with a color-coded progress bar for visualizing subtask completion percentage
