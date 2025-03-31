@@ -842,3 +842,33 @@ Following MCP implementation standards:
 8. Update tests to reflect the new naming conventions
 9. Create a linting rule to enforce naming conventions in future development
 
+## 34. Review functionality of all MCP direct functions [pending]
+### Dependencies: None
+### Description: Verify that all implemented MCP direct functions work correctly with edge cases
+### Details:
+Perform comprehensive testing of all MCP direct function implementations to ensure they handle various input scenarios correctly and return appropriate responses. Check edge cases, error handling, and parameter validation.
+
+## 35. Review commands.js to ensure all commands are available via MCP [pending]
+### Dependencies: None
+### Description: Verify that all CLI commands have corresponding MCP implementations
+### Details:
+Compare the commands defined in scripts/modules/commands.js with the MCP tools implemented in mcp-server/src/tools/. Create a list of any commands missing MCP implementations and ensure all command options are properly represented in the MCP parameter schemas.
+
+## 36. Finish setting up addResearch in index.js [pending]
+### Dependencies: None
+### Description: Complete the implementation of addResearch functionality in the MCP server
+### Details:
+Implement the addResearch function in the MCP server's index.js file to enable research-backed functionality. This should include proper integration with Perplexity AI and ensure that all MCP tools requiring research capabilities have access to this functionality.
+
+## 37. Finish setting up addTemplates in index.js [pending]
+### Dependencies: None
+### Description: Complete the implementation of addTemplates functionality in the MCP server
+### Details:
+Implement the addTemplates function in the MCP server's index.js file to enable template-based generation. Configure proper loading of templates from the appropriate directory and ensure they're accessible to all MCP tools that need to generate formatted content.
+
+## 38. Implement robust project root handling for file paths [pending]
+### Dependencies: None
+### Description: Create a consistent approach for handling project root paths across MCP tools
+### Details:
+Analyze and refactor the project root handling mechanism to ensure consistent file path resolution across all MCP direct functions. This should properly handle relative and absolute paths, respect the projectRoot parameter when provided, and have appropriate fallbacks when not specified. Document the approach in a comment within path-utils.js for future maintainers.
+

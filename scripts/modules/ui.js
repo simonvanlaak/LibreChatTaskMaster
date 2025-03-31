@@ -88,10 +88,25 @@ function createProgressBar(percent, length = 30) {
   const filled = Math.round(percent * length / 100);
   const empty = length - filled;
   
-  const filledBar = '█'.repeat(filled);
-  const emptyBar = '░'.repeat(empty);
+  // Determine color based on percentage
+  let barColor;
+  if (percent < 25) {
+    barColor = chalk.red;
+  } else if (percent < 50) {
+    barColor = chalk.hex('#FFA500'); // Orange
+  } else if (percent < 75) {
+    barColor = chalk.yellow;
+  } else if (percent < 100) {
+    barColor = chalk.green;
+  } else {
+    barColor = chalk.hex('#006400'); // Dark green
+  }
   
-  return `${filledBar}${emptyBar} ${percent.toFixed(0)}%`;
+  const filledBar = barColor('█'.repeat(filled));
+  const emptyBar = chalk.gray('░'.repeat(empty));
+  
+  // Use the same color for the percentage text
+  return `${filledBar}${emptyBar} ${barColor(`${percent.toFixed(0)}%`)}`;
 }
 
 /**
@@ -851,6 +866,31 @@ async function displayTaskById(tasksPath, taskId) {
     });
     
     console.log(subtaskTable.toString());
+    
+    // Calculate and display subtask completion progress
+    if (task.subtasks && task.subtasks.length > 0) {
+      const totalSubtasks = task.subtasks.length;
+      const completedSubtasks = task.subtasks.filter(st => 
+        st.status === 'done' || st.status === 'completed'
+      ).length;
+      
+      const completionPercentage = (completedSubtasks / totalSubtasks) * 100;
+      
+      // Calculate appropriate progress bar length based on terminal width
+      // Subtract padding (2), borders (2), and the percentage text (~5)
+      const availableWidth = process.stdout.columns || 80; // Default to 80 if can't detect
+      const boxPadding = 2; // 1 on each side
+      const boxBorders = 2; // 1 on each side
+      const percentTextLength = 5; // ~5 chars for " 100%"
+      const progressBarLength = Math.max(30, availableWidth - boxPadding - boxBorders - percentTextLength - 20); // Minimum 30 chars
+      
+      console.log(boxen(
+        chalk.white.bold('Subtask Progress:') + '\n\n' +
+        `${chalk.cyan('Completed:')} ${completedSubtasks}/${totalSubtasks} (${completionPercentage.toFixed(1)}%)\n` +
+        `${chalk.cyan('Progress:')} ${createProgressBar(completionPercentage, progressBarLength)}`,
+        { padding: { top: 0, bottom: 0, left: 1, right: 1 }, borderColor: 'blue', borderStyle: 'round', margin: { top: 1, bottom: 0 } }
+      ));
+    }
   } else {
     // Suggest expanding if no subtasks
     console.log(boxen(

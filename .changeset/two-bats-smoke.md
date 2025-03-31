@@ -17,3 +17,4 @@
 - Implement clear-subtasks MCP command for clearing subtasks from parent tasks
 - Implement expand-all MCP command for expanding all pending tasks with subtasks
 - Document MCP server naming conventions in architecture.mdc and mcp.mdc files (file names use kebab-case, direct functions use camelCase with Direct suffix, tool registration functions use camelCase with Tool suffix, and MCP tool names use snake_case)
+- Enhance task show view with a color-coded progress bar for visualizing subtask completion percentage

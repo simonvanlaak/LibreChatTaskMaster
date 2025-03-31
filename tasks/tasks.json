@@ -1650,6 +1650,51 @@
           "status": "done",
           "dependencies": [],
           "parentTaskId": 23
+        },
+        {
+          "id": 34,
+          "title": "Review functionality of all MCP direct functions",
+          "description": "Verify that all implemented MCP direct functions work correctly with edge cases",
+          "details": "Perform comprehensive testing of all MCP direct function implementations to ensure they handle various input scenarios correctly and return appropriate responses. Check edge cases, error handling, and parameter validation.",
+          "status": "pending",
+          "dependencies": [],
+          "parentTaskId": 23
+        },
+        {
+          "id": 35,
+          "title": "Review commands.js to ensure all commands are available via MCP",
+          "description": "Verify that all CLI commands have corresponding MCP implementations",
+          "details": "Compare the commands defined in scripts/modules/commands.js with the MCP tools implemented in mcp-server/src/tools/. Create a list of any commands missing MCP implementations and ensure all command options are properly represented in the MCP parameter schemas.",
+          "status": "pending",
+          "dependencies": [],
+          "parentTaskId": 23
+        },
+        {
+          "id": 36,
+          "title": "Finish setting up addResearch in index.js",
+          "description": "Complete the implementation of addResearch functionality in the MCP server",
+          "details": "Implement the addResearch function in the MCP server's index.js file to enable research-backed functionality. This should include proper integration with Perplexity AI and ensure that all MCP tools requiring research capabilities have access to this functionality.",
+          "status": "pending",
+          "dependencies": [],
+          "parentTaskId": 23
+        },
+        {
+          "id": 37,
+          "title": "Finish setting up addTemplates in index.js",
+          "description": "Complete the implementation of addTemplates functionality in the MCP server",
+          "details": "Implement the addTemplates function in the MCP server's index.js file to enable template-based generation. Configure proper loading of templates from the appropriate directory and ensure they're accessible to all MCP tools that need to generate formatted content.",
+          "status": "pending",
+          "dependencies": [],
+          "parentTaskId": 23
+        },
+        {
+          "id": 38,
+          "title": "Implement robust project root handling for file paths",
+          "description": "Create a consistent approach for handling project root paths across MCP tools",
+          "details": "Analyze and refactor the project root handling mechanism to ensure consistent file path resolution across all MCP direct functions. This should properly handle relative and absolute paths, respect the projectRoot parameter when provided, and have appropriate fallbacks when not specified. Document the approach in a comment within path-utils.js for future maintainers.",
+          "status": "pending",
+          "dependencies": [],
+          "parentTaskId": 23
         }
       ]
     },
