@@ -471,7 +471,7 @@ Following MCP implementation standards:
    - Unit test for generateTaskFilesDirect.js
    - Integration test for MCP tool
 
-## 21. Implement set-status MCP command [pending]
+## 21. Implement set-status MCP command [done]
 ### Dependencies: None
 ### Description: Create direct function wrapper and MCP tool for setting task status.
 ### Details:

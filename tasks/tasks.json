@@ -1537,7 +1537,7 @@
           "title": "Implement set-status MCP command",
           "description": "Create direct function wrapper and MCP tool for setting task status.",
           "details": "Following MCP implementation standards:\n\n1. Create setTaskStatusDirect.js in mcp-server/src/core/direct-functions/:\n   - Import setTaskStatus from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: taskId, status\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n\n2. Export from task-master-core.js:\n   - Import the function from its file\n   - Add to directFunctions map\n\n3. Create set-status.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import setTaskStatusDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerSetStatusTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n4. Register in tools/index.js\n\n5. Add to .cursor/mcp.json with appropriate schema\n\n6. Write tests following testing guidelines:\n   - Unit test for setTaskStatusDirect.js\n   - Integration test for MCP tool",
-          "status": "pending",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 23
         },

@@ -5,10 +5,10 @@
 
 import { z } from "zod";
 import {
-  executeTaskMasterCommand,
-  createContentResponse,
-  createErrorResponse,
+  handleApiResult,
+  createErrorResponse
 } from "./utils.js";
+import { setTaskStatusDirect } from "../core/task-master-core.js";
 
 /**
  * Register the setTaskStatus tool with the MCP server
@@ -28,6 +28,7 @@ export function registerSetTaskStatusTool(server) {
       file: z.string().optional().describe("Path to the tasks file"),
       projectRoot: z
         .string()
+        .optional()
         .describe(
           "Root directory of the project (default: current working directory)"
         ),
@@ -35,29 +36,18 @@ export function registerSetTaskStatusTool(server) {
     execute: async (args, { log }) => {
       try {
         log.info(`Setting status of task(s) ${args.id} to: ${args.status}`);
-
-        const cmdArgs = [`--id=${args.id}`, `--status=${args.status}`];
-        if (args.file) cmdArgs.push(`--file=${args.file}`);
-
-        const projectRoot = args.projectRoot;
-
-        const result = executeTaskMasterCommand(
-          "set-status",
-          log,
-          cmdArgs,
-          projectRoot
-        );
-
-        if (!result.success) {
-          throw new Error(result.error);
-        }
-
-        return createContentResponse(result.stdout);
+        
+        // Call the direct function wrapper
+        const result = await setTaskStatusDirect(args, log);
+        
+        // Log result
+        log.info(`${result.success ? `Successfully updated task ${args.id} status to "${args.status}"` : 'Failed to update task status'}`);
+        
+        // Use handleApiResult to format the response
+        return handleApiResult(result, log, 'Error setting task status');
       } catch (error) {
-        log.error(`Error setting task status: ${error.message}`);
-        return createErrorResponse(
-          `Error setting task status: ${error.message}`
-        );
+        log.error(`Error in setTaskStatus tool: ${error.message}`);
+        return createErrorResponse(`Error setting task status: ${error.message}`);
       }
     },
   });
