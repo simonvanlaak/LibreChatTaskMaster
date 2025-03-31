@@ -12,6 +12,7 @@ import { registerNextTaskTool } from "./nextTask.js";
 import { registerAddTaskTool } from "./addTask.js";
 import { registerParsePRDTool } from "./parsePRD.js";
 import { registerUpdateTool } from "./update.js";
+import { registerUpdateTaskTool } from "./update-task.js";
 
 /**
  * Register all Task Master tools with the MCP server
@@ -26,6 +27,7 @@ export function registerTaskMasterTools(server) {
   registerAddTaskTool(server);
   registerParsePRDTool(server);
   registerUpdateTool(server);
+  registerUpdateTaskTool(server);
 }
 
 export default {

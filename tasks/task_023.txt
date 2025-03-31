@@ -372,7 +372,7 @@ Following MCP implementation standards:\n\n1. Create parsePRDDirect function in 
 ### Details:
 Following MCP implementation standards:\n\n1. Create updateTasksDirect function in task-master-core.js:\n   - Import updateTasks from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: fromId, prompt, useResearch\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n   - Add to directFunctions map\n\n2. Create update.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import updateTasksDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerUpdateTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n3. Register in tools/index.js\n\n4. Add to .cursor/mcp.json with appropriate schema\n\n5. Write tests following testing guidelines:\n   - Unit test for updateTasksDirect\n   - Integration test for MCP tool
 
-## 18. Implement update-task MCP command [pending]
+## 18. Implement update-task MCP command [done]
 ### Dependencies: None
 ### Description: Create direct function wrapper and MCP tool for updating a single task by ID with new information.
 ### Details:

@@ -9,6 +9,7 @@ import { listTasksDirect } from './direct-functions/list-tasks.js';
 import { getCacheStatsDirect } from './direct-functions/cache-stats.js';
 import { parsePRDDirect } from './direct-functions/parse-prd.js';
 import { updateTasksDirect } from './direct-functions/update-tasks.js';
+import { updateTaskByIdDirect } from './direct-functions/update-task-by-id.js';
 
 // Re-export utility functions
 export { findTasksJsonPath } from './utils/path-utils.js';
@@ -19,6 +20,7 @@ export {
   getCacheStatsDirect,
   parsePRDDirect,
   updateTasksDirect,
+  updateTaskByIdDirect,
 };
 
 /**
@@ -30,5 +32,6 @@ export const directFunctions = {
   cacheStats: getCacheStatsDirect,
   parsePRD: parsePRDDirect,
   update: updateTasksDirect,
+  updateTask: updateTaskByIdDirect,
   // Add more functions as we implement them
 }; 
