@@ -13,9 +13,10 @@
 - Implement add-task MCP command for creating new tasks using AI assistance
 - Implement add-subtask MCP command for adding subtasks to existing tasks
 - Implement remove-subtask MCP command for removing subtasks from parent tasks
-- Implement analyze-complexity MCP command for analyzing task complexity and generating recommendations
+- Implement expand-all MCP command for expanding all tasks into subtasks
+- Implement analyze-complexity MCP command for analyzing task complexity
 - Implement clear-subtasks MCP command for clearing subtasks from parent tasks
-- Implement expand-all MCP command for expanding all pending tasks with subtasks
 - Implement remove-dependency MCP command for removing dependencies from tasks
+- Implement validate-dependencies MCP command for checking validity of task dependencies
 - Document MCP server naming conventions in architecture.mdc and mcp.mdc files (file names use kebab-case, direct functions use camelCase with Direct suffix, tool registration functions use camelCase with Tool suffix, and MCP tool names use snake_case)
 - Enhance task show view with a color-coded progress bar for visualizing subtask completion percentage

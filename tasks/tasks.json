@@ -1723,7 +1723,7 @@
           "title": "Implement validate-dependencies MCP command",
           "description": "Create MCP tool implementation for the validate-dependencies command",
           "details": "",
-          "status": "pending",
+          "status": "done",
           "dependencies": [
             "23.31",
             "23.39",
