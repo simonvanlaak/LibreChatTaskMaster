@@ -127,7 +127,8 @@ function getStatusWithColor(status, forTable = false) {
     'in-progress': { color: chalk.hex('#FFA500'), icon: '🔄', tableIcon: '►' },
     'deferred': { color: chalk.gray, icon: '⏱️', tableIcon: '⏱' },
     'blocked': { color: chalk.red, icon: '❌', tableIcon: '✗' },
-    'review': { color: chalk.magenta, icon: '👀', tableIcon: '👁' }
+    'review': { color: chalk.magenta, icon: '👀', tableIcon: '👁' },
+    'cancelled': { color: chalk.gray, icon: '❌', tableIcon: '✗' }
   };
   
   const config = statusConfig[status.toLowerCase()] || { color: chalk.red, icon: '❌', tableIcon: '✗' };
