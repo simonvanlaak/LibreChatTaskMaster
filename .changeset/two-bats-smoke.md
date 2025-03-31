@@ -25,3 +25,8 @@
 - Enhance task show view with a color-coded progress bar for visualizing subtask completion percentage
 - Add "cancelled" status to UI module status configurations for marking tasks as cancelled without deletion
 - Improve MCP server resource documentation with comprehensive implementation examples and best practices
+- Enhance progress bars with status breakdown visualization showing proportional sections for different task statuses
+- Add improved status tracking for both tasks and subtasks with detailed counts by status
+- Optimize progress bar display with width constraints to prevent UI overflow on smaller terminals
+- Improve status counts display with clear text labels beside status icons for better readability
+- Treat deferred and cancelled tasks as effectively complete for progress calculation while maintaining visual distinction

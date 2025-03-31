@@ -1014,22 +1014,33 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false, outputFormat =
       task.status === 'done' || task.status === 'completed').length;
     const completionPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
     
-    // Count statuses
+    // Count statuses for tasks
     const doneCount = completedTasks;
     const inProgressCount = data.tasks.filter(task => task.status === 'in-progress').length;
     const pendingCount = data.tasks.filter(task => task.status === 'pending').length;
     const blockedCount = data.tasks.filter(task => task.status === 'blocked').length;
     const deferredCount = data.tasks.filter(task => task.status === 'deferred').length;
+    const cancelledCount = data.tasks.filter(task => task.status === 'cancelled').length;
     
-    // Count subtasks
+    // Count subtasks and their statuses
     let totalSubtasks = 0;
     let completedSubtasks = 0;
+    let inProgressSubtasks = 0;
+    let pendingSubtasks = 0;
+    let blockedSubtasks = 0;
+    let deferredSubtasks = 0;
+    let cancelledSubtasks = 0;
     
     data.tasks.forEach(task => {
       if (task.subtasks && task.subtasks.length > 0) {
         totalSubtasks += task.subtasks.length;
         completedSubtasks += task.subtasks.filter(st => 
           st.status === 'done' || st.status === 'completed').length;
+        inProgressSubtasks += task.subtasks.filter(st => st.status === 'in-progress').length;
+        pendingSubtasks += task.subtasks.filter(st => st.status === 'pending').length;
+        blockedSubtasks += task.subtasks.filter(st => st.status === 'blocked').length;
+        deferredSubtasks += task.subtasks.filter(st => st.status === 'deferred').length;
+        cancelledSubtasks += task.subtasks.filter(st => st.status === 'cancelled').length;
       }
     });
     
@@ -1064,10 +1075,16 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false, outputFormat =
           pending: pendingCount,
           blocked: blockedCount,
           deferred: deferredCount,
+          cancelled: cancelledCount,
           completionPercentage,
           subtasks: {
             total: totalSubtasks,
             completed: completedSubtasks,
+            inProgress: inProgressSubtasks,
+            pending: pendingSubtasks,
+            blocked: blockedSubtasks,
+            deferred: deferredSubtasks,
+            cancelled: cancelledSubtasks,
             completionPercentage: subtaskCompletionPercentage
           }
         }
@@ -1076,9 +1093,26 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false, outputFormat =
     
     // ... existing code for text output ...
     
-    // Create progress bars
-    const taskProgressBar = createProgressBar(completionPercentage, 30);
-    const subtaskProgressBar = createProgressBar(subtaskCompletionPercentage, 30);
+    // Calculate status breakdowns as percentages of total
+    const taskStatusBreakdown = {
+      'in-progress': totalTasks > 0 ? (inProgressCount / totalTasks) * 100 : 0,
+      'pending': totalTasks > 0 ? (pendingCount / totalTasks) * 100 : 0,
+      'blocked': totalTasks > 0 ? (blockedCount / totalTasks) * 100 : 0,
+      'deferred': totalTasks > 0 ? (deferredCount / totalTasks) * 100 : 0,
+      'cancelled': totalTasks > 0 ? (cancelledCount / totalTasks) * 100 : 0
+    };
+    
+    const subtaskStatusBreakdown = {
+      'in-progress': totalSubtasks > 0 ? (inProgressSubtasks / totalSubtasks) * 100 : 0,
+      'pending': totalSubtasks > 0 ? (pendingSubtasks / totalSubtasks) * 100 : 0,
+      'blocked': totalSubtasks > 0 ? (blockedSubtasks / totalSubtasks) * 100 : 0,
+      'deferred': totalSubtasks > 0 ? (deferredSubtasks / totalSubtasks) * 100 : 0,
+      'cancelled': totalSubtasks > 0 ? (cancelledSubtasks / totalSubtasks) * 100 : 0
+    };
+    
+    // Create progress bars with status breakdowns
+    const taskProgressBar = createProgressBar(completionPercentage, 30, taskStatusBreakdown);
+    const subtaskProgressBar = createProgressBar(subtaskCompletionPercentage, 30, subtaskStatusBreakdown);
     
     // Calculate dependency statistics
     const completedTaskIds = new Set(data.tasks.filter(t => 
@@ -1163,9 +1197,9 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false, outputFormat =
     const projectDashboardContent = 
       chalk.white.bold('Project Dashboard') + '\n' +
       `Tasks Progress: ${chalk.greenBright(taskProgressBar)} ${completionPercentage.toFixed(0)}%\n` +
-      `Done: ${chalk.green(doneCount)}  In Progress: ${chalk.blue(inProgressCount)}  Pending: ${chalk.yellow(pendingCount)}  Blocked: ${chalk.red(blockedCount)}  Deferred: ${chalk.gray(deferredCount)}\n\n` +
+      `Done: ${chalk.green(doneCount)}  In Progress: ${chalk.blue(inProgressCount)}  Pending: ${chalk.yellow(pendingCount)}  Blocked: ${chalk.red(blockedCount)}  Deferred: ${chalk.gray(deferredCount)}  Cancelled: ${chalk.gray(cancelledCount)}\n\n` +
       `Subtasks Progress: ${chalk.cyan(subtaskProgressBar)} ${subtaskCompletionPercentage.toFixed(0)}%\n` +
-      `Completed: ${chalk.green(completedSubtasks)}/${totalSubtasks}  Remaining: ${chalk.yellow(totalSubtasks - completedSubtasks)}\n\n` +
+      `Completed: ${chalk.green(completedSubtasks)}/${totalSubtasks}  In Progress: ${chalk.blue(inProgressSubtasks)}  Pending: ${chalk.yellow(pendingSubtasks)}  Blocked: ${chalk.red(blockedSubtasks)}  Deferred: ${chalk.gray(deferredSubtasks)}  Cancelled: ${chalk.gray(cancelledSubtasks)}\n\n` +
       chalk.cyan.bold('Priority Breakdown:') + '\n' +
       `${chalk.red('•')} ${chalk.white('High priority:')} ${data.tasks.filter(t => t.priority === 'high').length}\n` +
       `${chalk.yellow('•')} ${chalk.white('Medium priority:')} ${data.tasks.filter(t => t.priority === 'medium').length}\n` +
@@ -1454,7 +1488,8 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false, outputFormat =
             'pending': chalk.yellow,
             'in-progress': chalk.blue,
             'deferred': chalk.gray,
-            'blocked': chalk.red
+            'blocked': chalk.red,
+            'cancelled': chalk.gray
           };
           const statusColor = statusColors[status.toLowerCase()] || chalk.white;
           return `${chalk.cyan(`${nextTask.id}.${subtask.id}`)} [${statusColor(status)}] ${subtask.title}`;

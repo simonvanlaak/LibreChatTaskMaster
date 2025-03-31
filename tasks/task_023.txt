@@ -983,7 +983,7 @@ Analyze and refactor the project root handling mechanism to ensure consistent fi
 ### Details:
 
 
-## 44. Implement init MCP command [done]
+## 44. Implement init MCP command [deferred]
 ### Dependencies: None
 ### Description: Create MCP tool implementation for the init command
 ### Details:

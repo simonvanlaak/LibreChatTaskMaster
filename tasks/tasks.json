@@ -1759,7 +1759,7 @@
           "title": "Implement init MCP command",
           "description": "Create MCP tool implementation for the init command",
           "details": "",
-          "status": "done",
+          "status": "deferred",
           "dependencies": [],
           "parentTaskId": 23
         }
