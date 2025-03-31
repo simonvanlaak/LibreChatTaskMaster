@@ -604,7 +604,7 @@ Following MCP implementation standards:
    - Unit test for expandTaskDirect.js
    - Integration test for MCP tool
 
-## 25. Implement add-task MCP command [pending]
+## 25. Implement add-task MCP command [in-progress]
 ### Dependencies: None
 ### Description: Create direct function wrapper and MCP tool for adding new tasks.
 ### Details:

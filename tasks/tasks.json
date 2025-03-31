@@ -1573,7 +1573,7 @@
           "title": "Implement add-task MCP command",
           "description": "Create direct function wrapper and MCP tool for adding new tasks.",
           "details": "Following MCP implementation standards:\n\n1. Create addTaskDirect.js in mcp-server/src/core/direct-functions/:\n   - Import addTask from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: prompt, priority, dependencies\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n\n2. Export from task-master-core.js:\n   - Import the function from its file\n   - Add to directFunctions map\n\n3. Create add-task.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import addTaskDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerAddTaskTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n4. Register in tools/index.js with tool name 'add_task'\n\n5. Add to .cursor/mcp.json with appropriate schema\n\n6. Write tests following testing guidelines:\n   - Unit test for addTaskDirect.js\n   - Integration test for MCP tool",
-          "status": "pending",
+          "status": "in-progress",
           "dependencies": [],
           "parentTaskId": 23
         },
