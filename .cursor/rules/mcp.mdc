@@ -41,6 +41,165 @@ The MCP server acts as a bridge between external tools (like Cursor) and the cor
     - Cache statistics can be monitored using the `cacheStats` MCP tool (implemented via `getCacheStatsDirect`).
     - **Caching should generally be applied to read-only operations** that don't modify the `tasks.json` state. Commands like `set-status`, `add-task`, `update-task`, `parse-prd`, `add-dependency` should *not* be cached as they change the underlying data.
 
+## Resources and Resource Templates
+
+Resources and resource templates are an important part of the FastMCP architecture that allow for exposing data to LLM clients without needing to execute tools.
+
+### Resource Implementation
+
+- **Purpose**: Resources provide LLMs with static or dynamic data that can be referenced directly without executing a tool.
+- **Current Implementation**: In [`mcp-server/src/index.js`](mdc:mcp-server/src/index.js), resources are currently initialized as empty objects:
+  ```javascript
+  this.server.addResource({});
+  this.server.addResourceTemplate({});
+  ```
+
+- **Proper Implementation**: Resources should be implemented using the `@mcp.resource()` decorator pattern in a dedicated directory (e.g., `mcp-server/src/core/resources/`).
+
+- **Resource Types for Task Master**:
+  - **Task Templates**: Predefined task structures that can be used as starting points
+  - **Workflow Definitions**: Reusable workflow patterns for common task sequences
+  - **Project Metadata**: Information about active projects and their attributes
+  - **User Preferences**: Stored user settings for task management
+
+- **Resource Implementation Example**:
+  ```javascript
+  // mcp-server/src/core/resources/task-templates.js
+  import { taskTemplates } from '../data/templates.js';
+
+  export function registerTaskTemplateResources(server) {
+    server.addResource({
+      name: "tasks://templates/{templateId}",
+      description: "Access predefined task templates",
+      parameters: {
+        templateId: {
+          type: "string",
+          description: "ID of the task template"
+        }
+      },
+      execute: async ({ templateId }) => {
+        const template = taskTemplates[templateId];
+        if (!template) {
+          return { 
+            status: 404,
+            content: { error: `Template ${templateId} not found` }
+          };
+        }
+        return {
+          status: 200,
+          content: template
+        };
+      }
+    });
+
+    // Register all templates as a collection resource
+    server.addResource({
+      name: "tasks://templates",
+      description: "List all available task templates",
+      execute: async () => {
+        return {
+          status: 200,
+          content: Object.keys(taskTemplates).map(id => ({
+            id,
+            name: taskTemplates[id].name,
+            description: taskTemplates[id].description
+          }))
+        };
+      }
+    });
+  }
+  ```
+
+### Resource Templates Implementation
+
+- **Purpose**: Resource templates allow for dynamic generation of resources based on patterns.
+- **Implementation Example**:
+  ```javascript
+  // mcp-server/src/core/resources/task-templates.js
+  export function registerTaskTemplateResourceTemplates(server) {
+    server.addResourceTemplate({
+      pattern: "tasks://create/{taskType}",
+      description: "Generate a task creation template based on task type",
+      parameters: {
+        taskType: {
+          type: "string",
+          description: "Type of task to create (e.g., 'feature', 'bug', 'docs')"
+        }
+      },
+      execute: async ({ taskType }) => {
+        // Generate a dynamic template based on taskType
+        const template = generateTemplateForTaskType(taskType);
+        
+        if (!template) {
+          return { 
+            status: 404,
+            content: { error: `No template available for task type: ${taskType}` }
+          };
+        }
+        
+        return {
+          status: 200,
+          content: template
+        };
+      }
+    });
+  }
+  ```
+
+### Resource Registration in Server Initialization
+
+Resources and resource templates should be registered during server initialization:
+
+```javascript
+// mcp-server/src/index.js
+import { registerTaskTemplateResources, registerTaskTemplateResourceTemplates } from './core/resources/task-templates.js';
+import { registerWorkflowResources } from './core/resources/workflow-definitions.js';
+import { registerProjectMetadataResources } from './core/resources/project-metadata.js';
+
+class TaskMasterMCPServer {
+  constructor() {
+    // ... existing constructor code ...
+    
+    this.server = new FastMCP(this.options);
+    this.initialized = false;
+    
+    // Resource registration will be done in init()
+    
+    // ... rest of constructor ...
+  }
+  
+  async init() {
+    if (this.initialized) return;
+    
+    // Register resources before tools
+    registerTaskTemplateResources(this.server);
+    registerTaskTemplateResourceTemplates(this.server);
+    registerWorkflowResources(this.server);
+    registerProjectMetadataResources(this.server);
+    
+    // Register Task Master tools
+    registerTaskMasterTools(this.server);
+    
+    this.initialized = true;
+    return this;
+  }
+  
+  // ... rest of class ...
+}
+```
+
+### Best Practices for Resources
+
+1. **Organization**: Create a dedicated `resources` directory with separate modules for each resource category.
+2. **Validation**: Validate input parameters and return appropriate error responses.
+3. **Caching**: Consider caching resource responses if they are expensive to generate.
+4. **Documentation**: Include clear descriptions for all resources and their parameters.
+5. **URI Structure**: Use consistent URI patterns (`resource-type://path/to/resource`) for all resources.
+6. **Error Handling**: Return standard HTTP-like status codes (200, 404, etc.) for resource responses.
+7. **Resource Registration**: Register resources before tools during server initialization.
+
+Resources enable LLMs to access contextual information without needing to execute tools, which can significantly improve performance and user experience. Properly implemented resources complement tools to create a comprehensive MCP server.
+
 ## Implementing MCP Support for a Command
 
 Follow these steps to add MCP support for an existing Task Master command (see [`new_features.mdc`](mdc:.cursor/rules/new_features.mdc) for more detail):

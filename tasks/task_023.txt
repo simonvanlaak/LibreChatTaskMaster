@@ -331,6 +331,76 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false, outputFormat =
 7. Add validation for tool inputs using FastMCP's built-in validation
 8. Create comprehensive tests for tool registration and resource access
 
+<info added on 2025-03-31T18:35:21.513Z>
+Here is additional information to enhance the subtask regarding resources and resource templates in FastMCP:
+
+Resources in FastMCP are used to expose static or dynamic data to LLM clients. For the Task Master MCP server, we should implement resources to provide:
+
+1. Task templates: Predefined task structures that can be used as starting points
+2. Workflow definitions: Reusable workflow patterns for common task sequences
+3. User preferences: Stored user settings for task management
+4. Project metadata: Information about active projects and their attributes
+
+Resource implementation should follow this structure:
+
+```python
+@mcp.resource("tasks://templates/{template_id}")
+def get_task_template(template_id: str) -> dict:
+    # Fetch and return the specified task template
+    ...
+
+@mcp.resource("workflows://definitions/{workflow_id}")
+def get_workflow_definition(workflow_id: str) -> dict:
+    # Fetch and return the specified workflow definition
+    ...
+
+@mcp.resource("users://{user_id}/preferences")
+def get_user_preferences(user_id: str) -> dict:
+    # Fetch and return user preferences
+    ...
+
+@mcp.resource("projects://metadata")
+def get_project_metadata() -> List[dict]:
+    # Fetch and return metadata for all active projects
+    ...
+```
+
+Resource templates in FastMCP allow for dynamic generation of resources based on patterns. For Task Master, we can implement:
+
+1. Dynamic task creation templates
+2. Customizable workflow templates
+3. User-specific resource views
+
+Example implementation:
+
+```python
+@mcp.resource("tasks://create/{task_type}")
+def get_task_creation_template(task_type: str) -> dict:
+    # Generate and return a task creation template based on task_type
+    ...
+
+@mcp.resource("workflows://custom/{user_id}/{workflow_name}")
+def get_custom_workflow_template(user_id: str, workflow_name: str) -> dict:
+    # Generate and return a custom workflow template for the user
+    ...
+
+@mcp.resource("users://{user_id}/dashboard")
+def get_user_dashboard(user_id: str) -> dict:
+    # Generate and return a personalized dashboard view for the user
+    ...
+```
+
+Best practices for integrating resources with Task Master functionality:
+
+1. Use resources to provide context and data for tools
+2. Implement caching for frequently accessed resources
+3. Ensure proper error handling and not-found cases for all resources
+4. Use resource templates to generate dynamic, personalized views of data
+5. Implement access control to ensure users only access authorized resources
+
+By properly implementing these resources and resource templates, we can provide rich, contextual data to LLM clients, enhancing the Task Master's capabilities and user experience.
+</info added on 2025-03-31T18:35:21.513Z>
+
 ## 11. Implement Comprehensive Error Handling [deferred]
 ### Dependencies: 23.1, 23.3
 ### Description: Implement robust error handling using FastMCP's MCPError, including custom error types for different categories and standardized error responses.
