@@ -438,7 +438,7 @@ Following MCP implementation standards:
    - Unit test for updateSubtaskByIdDirect.js
    - Integration test for MCP tool
 
-## 20. Implement generate MCP command [pending]
+## 20. Implement generate MCP command [done]
 ### Dependencies: None
 ### Description: Create direct function wrapper and MCP tool for generating task files from tasks.json.
 ### Details:

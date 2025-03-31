@@ -11,6 +11,7 @@ import { parsePRDDirect } from './direct-functions/parse-prd.js';
 import { updateTasksDirect } from './direct-functions/update-tasks.js';
 import { updateTaskByIdDirect } from './direct-functions/update-task-by-id.js';
 import { updateSubtaskByIdDirect } from './direct-functions/update-subtask-by-id.js';
+import { generateTaskFilesDirect } from './direct-functions/generate-task-files.js';
 
 // Re-export utility functions
 export { findTasksJsonPath } from './utils/path-utils.js';
@@ -23,6 +24,7 @@ export {
   updateTasksDirect,
   updateTaskByIdDirect,
   updateSubtaskByIdDirect,
+  generateTaskFilesDirect,
 };
 
 /**
@@ -36,5 +38,6 @@ export const directFunctions = {
   update: updateTasksDirect,
   updateTask: updateTaskByIdDirect,
   updateSubtask: updateSubtaskByIdDirect,
+  generate: generateTaskFilesDirect,
   // Add more functions as we implement them
 }; 
