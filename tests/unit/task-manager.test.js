@@ -25,6 +25,7 @@ const mockIsTaskDependentOn = jest.fn().mockReturnValue(false);
 const mockCreate = jest.fn(); // Mock for Anthropic messages.create
 const mockChatCompletionsCreate = jest.fn(); // Mock for Perplexity chat.completions.create
 const mockGetAvailableAIModel = jest.fn(); // <<<<< Added mock function
+const mockPromptYesNo = jest.fn(); // Mock for confirmation prompt
 
 // Mock fs module
 jest.mock('fs', () => ({
@@ -76,6 +77,7 @@ jest.mock('../../scripts/modules/utils.js', () => ({
   readComplexityReport: jest.fn(), // <<<<< Added mock
   findTaskInComplexityReport: jest.fn(), // <<<<< Added mock
   truncate: jest.fn((str, len) => str.slice(0, len)), // <<<<< Added mock
+  promptYesNo: mockPromptYesNo, // Added mock for confirmation prompt
 }));
 
 // Mock AI services - Update this mock
@@ -129,6 +131,19 @@ jest.mock('../../scripts/modules/task-manager.js', () => {
 // Create a simplified version of parsePRD for testing
 const testParsePRD = async (prdPath, outputPath, numTasks) => {
   try {
+    // Check if the output file already exists
+    if (mockExistsSync(outputPath)) {
+      const confirmOverwrite = await mockPromptYesNo(
+        `Warning: ${outputPath} already exists. Overwrite?`,
+        false
+      );
+      
+      if (!confirmOverwrite) {
+        console.log(`Operation cancelled. ${outputPath} was not modified.`);
+        return null;
+      }
+    }
+    
     const prdContent = mockReadFileSync(prdPath, 'utf8');
     const tasks = await mockCallClaude(prdContent, prdPath, numTasks);
     const dir = mockDirname(outputPath);
@@ -563,6 +578,7 @@ describe('Task Manager Module', () => {
       mockDirname.mockReturnValue('tasks');
       mockCallClaude.mockResolvedValue(sampleClaudeResponse);
       mockGenerateTaskFiles.mockResolvedValue(undefined);
+      mockPromptYesNo.mockResolvedValue(true); // Default to "yes" for confirmation
     });
     
     test('should parse a PRD file and generate tasks', async () => {
@@ -586,8 +602,13 @@ describe('Task Manager Module', () => {
     });
     
     test('should create the tasks directory if it does not exist', async () => {
-      // Mock existsSync to return false to simulate directory doesn't exist
-      mockExistsSync.mockReturnValueOnce(false);
+      // Mock existsSync to return false specifically for the directory check
+      // but true for the output file check (so we don't trigger confirmation path)
+      mockExistsSync.mockImplementation((path) => {
+        if (path === 'tasks/tasks.json') return false; // Output file doesn't exist
+        if (path === 'tasks') return false; // Directory doesn't exist
+        return true; // Default for other paths
+      });
       
       // Call the function
       await testParsePRD('path/to/prd.txt', 'tasks/tasks.json', 3);
@@ -623,6 +644,83 @@ describe('Task Manager Module', () => {
       
       // Verify generateTaskFiles was called
       expect(mockGenerateTaskFiles).toHaveBeenCalledWith('tasks/tasks.json', 'tasks');
+    });
+    
+    test('should prompt for confirmation when tasks.json already exists', async () => {
+      // Setup mocks to simulate tasks.json already exists
+      mockExistsSync.mockImplementation((path) => {
+        if (path === 'tasks/tasks.json') return true; // Output file exists
+        if (path === 'tasks') return true; // Directory exists
+        return false;
+      });
+      
+      // Call the function
+      await testParsePRD('path/to/prd.txt', 'tasks/tasks.json', 3);
+      
+      // Verify prompt was called with expected message
+      expect(mockPromptYesNo).toHaveBeenCalledWith(
+        'Warning: tasks/tasks.json already exists. Overwrite?',
+        false
+      );
+      
+      // Verify the file was written after confirmation
+      expect(mockWriteJSON).toHaveBeenCalledWith('tasks/tasks.json', sampleClaudeResponse);
+    });
+    
+    test('should not overwrite tasks.json when user declines confirmation', async () => {
+      // Setup mocks to simulate tasks.json already exists
+      mockExistsSync.mockImplementation((path) => {
+        if (path === 'tasks/tasks.json') return true; // Output file exists
+        if (path === 'tasks') return true; // Directory exists
+        return false;
+      });
+      
+      // Mock user declining the confirmation
+      mockPromptYesNo.mockResolvedValueOnce(false);
+      
+      // Mock console.log to capture output
+      const mockConsoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
+      
+      // Call the function
+      const result = await testParsePRD('path/to/prd.txt', 'tasks/tasks.json', 3);
+      
+      // Verify prompt was called
+      expect(mockPromptYesNo).toHaveBeenCalledWith(
+        'Warning: tasks/tasks.json already exists. Overwrite?',
+        false
+      );
+      
+      // Verify the file was NOT written
+      expect(mockWriteJSON).not.toHaveBeenCalled();
+      
+      // Verify appropriate message was logged
+      expect(mockConsoleLog).toHaveBeenCalledWith(
+        'Operation cancelled. tasks/tasks.json was not modified.'
+      );
+      
+      // Verify result is null when operation is cancelled
+      expect(result).toBeNull();
+      
+      // Restore console.log
+      mockConsoleLog.mockRestore();
+    });
+    
+    test('should not prompt for confirmation when tasks.json does not exist', async () => {
+      // Setup mocks to simulate tasks.json does not exist
+      mockExistsSync.mockImplementation((path) => {
+        if (path === 'tasks/tasks.json') return false; // Output file doesn't exist
+        if (path === 'tasks') return true; // Directory exists
+        return false;
+      });
+      
+      // Call the function
+      await testParsePRD('path/to/prd.txt', 'tasks/tasks.json', 3);
+      
+      // Verify prompt was NOT called
+      expect(mockPromptYesNo).not.toHaveBeenCalled();
+      
+      // Verify the file was written without confirmation
+      expect(mockWriteJSON).toHaveBeenCalledWith('tasks/tasks.json', sampleClaudeResponse);
     });
   });
   
