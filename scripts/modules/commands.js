@@ -41,7 +41,8 @@ import {
   displayNextTask,
   displayTaskById,
   displayComplexityReport,
-  getStatusWithColor
+  getStatusWithColor,
+  confirmTaskOverwrite
 } from './ui.js';
 
 /**
@@ -70,17 +71,34 @@ function registerCommands(programInstance) {
     .option('-i, --input <file>', 'Path to the PRD file (alternative to positional argument)')
     .option('-o, --output <file>', 'Output file path', 'tasks/tasks.json')
     .option('-n, --num-tasks <number>', 'Number of tasks to generate', '10')
+    .option('-f, --force', 'Skip confirmation when overwriting existing tasks')
     .action(async (file, options) => {
       // Use input option if file argument not provided
       const inputFile = file || options.input;
       const defaultPrdPath = 'scripts/prd.txt';
+      const numTasks = parseInt(options.numTasks, 10);
+      const outputPath = options.output;
+      const force = options.force || false;
+      
+      // Helper function to check if tasks.json exists and confirm overwrite
+      async function confirmOverwriteIfNeeded() {
+        if (fs.existsSync(outputPath) && !force) {
+          const shouldContinue = await confirmTaskOverwrite(outputPath);
+          if (!shouldContinue) {
+            console.log(chalk.yellow('Operation cancelled by user.'));
+            return false;
+          }
+        }
+        return true;
+      }
       
       // If no input file specified, check for default PRD location
       if (!inputFile) {
         if (fs.existsSync(defaultPrdPath)) {
           console.log(chalk.blue(`Using default PRD file: ${defaultPrdPath}`));
-          const numTasks = parseInt(options.numTasks, 10);
-          const outputPath = options.output;
+          
+          // Check for existing tasks.json before proceeding
+          if (!await confirmOverwriteIfNeeded()) return;
           
           console.log(chalk.blue(`Generating ${numTasks} tasks...`));
           await parsePRD(defaultPrdPath, outputPath, numTasks);
@@ -95,10 +113,12 @@ function registerCommands(programInstance) {
           chalk.cyan('Options:') + '\n' +
           '  -i, --input <file>       Path to the PRD file (alternative to positional argument)\n' +
           '  -o, --output <file>      Output file path (default: "tasks/tasks.json")\n' +
-          '  -n, --num-tasks <number> Number of tasks to generate (default: 10)\n\n' +
+          '  -n, --num-tasks <number> Number of tasks to generate (default: 10)\n' +
+          '  -f, --force              Skip confirmation when overwriting existing tasks\n\n' +
           chalk.cyan('Example:') + '\n' +
           '  task-master parse-prd requirements.txt --num-tasks 15\n' +
-          '  task-master parse-prd --input=requirements.txt\n\n' +
+          '  task-master parse-prd --input=requirements.txt\n' +
+          '  task-master parse-prd --force\n\n' +
           chalk.yellow('Note: This command will:') + '\n' +
           '  1. Look for a PRD file at scripts/prd.txt by default\n' +
           '  2. Use the file specified by --input or positional argument if provided\n' +
@@ -108,8 +128,8 @@ function registerCommands(programInstance) {
         return;
       }
       
-      const numTasks = parseInt(options.numTasks, 10);
-      const outputPath = options.output;
+      // Check for existing tasks.json before proceeding with specified input file
+      if (!await confirmOverwriteIfNeeded()) return;
       
       console.log(chalk.blue(`Parsing PRD file: ${inputFile}`));
       console.log(chalk.blue(`Generating ${numTasks} tasks...`));

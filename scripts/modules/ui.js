@@ -1061,6 +1061,33 @@ async function displayComplexityReport(reportPath) {
   ));
 }
 
+/**
+ * Confirm overwriting existing tasks.json file
+ * @param {string} tasksPath - Path to the tasks.json file
+ * @returns {Promise<boolean>} - Promise resolving to true if user confirms, false otherwise
+ */
+async function confirmTaskOverwrite(tasksPath) {
+  console.log(boxen(
+    chalk.yellow('It looks like you\'ve already generated tasks for this project.\n') +
+    chalk.yellow('Executing this command will overwrite any existing tasks.'),
+    { padding: 1, borderColor: 'yellow', borderStyle: 'round', margin: { top: 1 } }
+  ));
+  
+  // Use dynamic import to get the readline module
+  const readline = await import('readline');
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+  
+  const answer = await new Promise(resolve => {
+    rl.question(chalk.cyan('Are you sure you wish to continue? (y/N): '), resolve);
+  });
+  rl.close();
+  
+  return answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes';
+}
+
 // Export UI functions
 export {
   displayBanner,
@@ -1074,4 +1101,5 @@ export {
   displayNextTask,
   displayTaskById,
   displayComplexityReport,
+  confirmTaskOverwrite
 }; 
