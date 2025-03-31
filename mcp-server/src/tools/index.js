@@ -19,6 +19,7 @@ import { registerAddSubtaskTool } from "./add-subtask.js";
 import { registerRemoveSubtaskTool } from "./remove-subtask.js";
 import { registerAnalyzeTool } from "./analyze.js";
 import { registerClearSubtasksTool } from "./clear-subtasks.js";
+import { registerExpandAllTool } from "./expand-all.js";
 
 /**
  * Register all Task Master tools with the MCP server
@@ -40,6 +41,7 @@ export function registerTaskMasterTools(server) {
   registerRemoveSubtaskTool(server);
   registerAnalyzeTool(server);
   registerClearSubtasksTool(server);
+  registerExpandAllTool(server);
   
   logger.info("Registered all Task Master tools with MCP server");
 }

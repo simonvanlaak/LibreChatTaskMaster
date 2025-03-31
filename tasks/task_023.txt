@@ -769,7 +769,7 @@ Following MCP implementation standards:
    - Unit test for clearSubtasksDirect.js
    - Integration test for MCP tool
 
-## 30. Implement expand-all MCP command [pending]
+## 30. Implement expand-all MCP command [done]
 ### Dependencies: None
 ### Description: Create direct function wrapper and MCP tool for expanding all tasks into subtasks.
 ### Details:
