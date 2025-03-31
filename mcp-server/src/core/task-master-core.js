@@ -15,6 +15,7 @@ import { generateTaskFilesDirect } from './direct-functions/generate-task-files.
 import { setTaskStatusDirect } from './direct-functions/set-task-status.js';
 import { showTaskDirect } from './direct-functions/show-task.js';
 import { nextTaskDirect } from './direct-functions/next-task.js';
+import { expandTaskDirect } from './direct-functions/expand-task.js';
 
 // Re-export utility functions
 export { findTasksJsonPath } from './utils/path-utils.js';
@@ -31,6 +32,7 @@ export {
   setTaskStatusDirect,
   showTaskDirect,
   nextTaskDirect,
+  expandTaskDirect,
 };
 
 /**
@@ -48,5 +50,6 @@ export const directFunctions = {
   setStatus: setTaskStatusDirect,
   showTask: showTaskDirect,
   nextTask: nextTaskDirect,
+  expandTask: expandTaskDirect,
   // Add more functions as we implement them
 }; 

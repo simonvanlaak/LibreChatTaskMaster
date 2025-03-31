@@ -13,6 +13,7 @@ import { registerUpdateSubtaskTool } from "./update-subtask.js";
 import { registerGenerateTool } from "./generate.js";
 import { registerShowTaskTool } from "./show-task.js";
 import { registerNextTaskTool } from "./next-task.js";
+import { registerExpandTaskTool } from "./expand-task.js";
 
 /**
  * Register all Task Master tools with the MCP server
@@ -28,6 +29,7 @@ export function registerTaskMasterTools(server) {
   registerGenerateTool(server);
   registerShowTaskTool(server);
   registerNextTaskTool(server);
+  registerExpandTaskTool(server);
 }
 
 export default {
