@@ -346,7 +346,7 @@ function listTasks(tasksPath, statusFilter, withSubtasks = false, outputFormat =
 ### Details:
 1. Research and implement SSE protocol for the MCP server\n2. Create dedicated SSE endpoints for event streaming\n3. Implement event emitter pattern for internal event management\n4. Add support for different event types (task status, logs, errors)\n5. Implement client connection management with proper keep-alive handling\n6. Add filtering capabilities to allow subscribing to specific event types\n7. Create in-memory event buffer for clients reconnecting\n8. Document SSE endpoint usage and client implementation examples\n9. Add robust error handling for dropped connections\n10. Implement rate limiting and backpressure mechanisms\n11. Add authentication for SSE connections
 
-## 16. Implement parse-prd MCP command [pending]
+## 16. Implement parse-prd MCP command [in-progress]
 ### Dependencies: None
 ### Description: Create direct function wrapper and MCP tool for parsing PRD documents to generate tasks.
 ### Details:

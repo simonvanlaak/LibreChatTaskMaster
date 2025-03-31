@@ -18,6 +18,7 @@ const __dirname = dirname(__filename);
 // Import Task Master modules
 import { 
   listTasks,
+  parsePRD,
   // We'll import more functions as we continue implementation
 } from '../../../scripts/modules/task-manager.js';
 
@@ -158,10 +159,71 @@ export async function getCacheStatsDirect(args, log) {
 }
 
 /**
+ * Direct function wrapper for parsePRD with error handling.
+ *
+ * @param {Object} args - Command arguments (input file path, output path, numTasks).
+ * @param {Object} log - Logger object.
+ * @returns {Promise<Object>} - Result object { success: boolean, data?: any, error?: { code: string, message: string }, fromCache: boolean }.
+ */
+export async function parsePRDDirect(args, log) {
+  try {
+    // Normalize paths based on projectRoot
+    const projectRoot = args.projectRoot || process.cwd();
+    
+    // Get the input file path (PRD file)
+    const inputPath = args.input 
+      ? path.resolve(projectRoot, args.input) 
+      : path.resolve(projectRoot, 'sample-prd.txt');
+    
+    log.info(`Using PRD file: ${inputPath}`);
+    
+    // Determine tasks output path
+    let tasksPath;
+    try {
+      // Try to find existing tasks.json first
+      tasksPath = findTasksJsonPath(args, log);
+    } catch (error) {
+      // If not found, use default path
+      tasksPath = path.resolve(projectRoot, 'tasks', 'tasks.json');
+      log.info(`No existing tasks.json found, will create at: ${tasksPath}`);
+    }
+    
+    // Get number of tasks to generate
+    const numTasks = args.numTasks ? parseInt(args.numTasks, 10) : undefined;
+    
+    log.info(`Parsing PRD file ${inputPath} to generate tasks in ${tasksPath}`);
+    
+    // Call the core parsePRD function
+    await parsePRD(inputPath, tasksPath, numTasks);
+    
+    return { 
+      success: true, 
+      data: { 
+        message: `Successfully parsed PRD and generated tasks in ${tasksPath}`,
+        inputFile: inputPath,
+        outputFile: tasksPath
+      },
+      fromCache: false // PRD parsing is never cached
+    };
+  } catch (error) {
+    log.error(`Error parsing PRD: ${error.message}`);
+    return { 
+      success: false, 
+      error: { 
+        code: 'PARSE_PRD_ERROR', 
+        message: error.message 
+      }, 
+      fromCache: false 
+    };
+  }
+}
+
+/**
  * Maps Task Master functions to their direct implementation
  */
 export const directFunctions = {
   list: listTasksDirect,
   cacheStats: getCacheStatsDirect,
+  parsePRD: parsePRDDirect,
   // Add more functions as we implement them
 }; 

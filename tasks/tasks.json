@@ -1492,7 +1492,7 @@
           "title": "Implement parse-prd MCP command",
           "description": "Create direct function wrapper and MCP tool for parsing PRD documents to generate tasks.",
           "details": "Following MCP implementation standards:\\n\\n1. Create parsePRDDirect function in task-master-core.js:\\n   - Import parsePRD from task-manager.js\\n   - Handle file paths using findTasksJsonPath utility\\n   - Process arguments: input file, output path, numTasks\\n   - Validate inputs and handle errors with try/catch\\n   - Return standardized { success, data/error } object\\n   - Add to directFunctions map\\n\\n2. Create parse-prd.js MCP tool in mcp-server/src/tools/:\\n   - Import z from zod for parameter schema\\n   - Import executeMCPToolAction from ./utils.js\\n   - Import parsePRDDirect from task-master-core.js\\n   - Define parameters matching CLI options using zod schema\\n   - Implement registerParsePRDTool(server) with server.addTool\\n   - Use executeMCPToolAction in execute method\\n\\n3. Register in tools/index.js\\n\\n4. Add to .cursor/mcp.json with appropriate schema\\n\\n5. Write tests following testing guidelines:\\n   - Unit test for parsePRDDirect\\n   - Integration test for MCP tool",
-          "status": "pending",
+          "status": "in-progress",
           "dependencies": [],
           "parentTaskId": 23
         },
