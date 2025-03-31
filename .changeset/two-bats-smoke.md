@@ -14,4 +14,5 @@
 - Implement add-subtask MCP command for adding subtasks to existing tasks
 - Implement remove-subtask MCP command for removing subtasks from parent tasks
 - Implement analyze-complexity MCP command for analyzing task complexity and generating recommendations
+- Implement clear-subtasks MCP command for clearing subtasks from parent tasks
 - Document MCP server naming conventions in architecture.mdc and mcp.mdc files (file names use kebab-case, direct functions use camelCase with Direct suffix, tool registration functions use camelCase with Tool suffix, and MCP tool names use snake_case)

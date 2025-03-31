@@ -736,7 +736,7 @@ Following MCP implementation standards:
    - Unit test for analyzeTaskComplexityDirect.js
    - Integration test for MCP tool
 
-## 29. Implement clear-subtasks MCP command [pending]
+## 29. Implement clear-subtasks MCP command [done]
 ### Dependencies: None
 ### Description: Create direct function wrapper and MCP tool for clearing subtasks from a parent task.
 ### Details:
