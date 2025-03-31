@@ -34,7 +34,7 @@
     "context"
   ],
   "author": "Eyal Toledano",
-  "license": "MIT",
+  "license": "MIT WITH Commons-Clause",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@model-context-protocol/sdk": "^1.20.5",
