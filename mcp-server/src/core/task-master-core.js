@@ -18,6 +18,7 @@ import { nextTaskDirect } from './direct-functions/next-task.js';
 import { expandTaskDirect } from './direct-functions/expand-task.js';
 import { addTaskDirect } from './direct-functions/add-task.js';
 import { addSubtaskDirect } from './direct-functions/add-subtask.js';
+import { removeSubtaskDirect } from './direct-functions/remove-subtask.js';
 
 // Re-export utility functions
 export { findTasksJsonPath } from './utils/path-utils.js';
@@ -36,7 +37,8 @@ export const directFunctions = new Map([
   ['nextTaskDirect', nextTaskDirect],
   ['expandTaskDirect', expandTaskDirect],
   ['addTaskDirect', addTaskDirect],
-  ['addSubtaskDirect', addSubtaskDirect]
+  ['addSubtaskDirect', addSubtaskDirect],
+  ['removeSubtaskDirect', removeSubtaskDirect]
 ]);
 
 // Re-export all direct function implementations
@@ -53,5 +55,6 @@ export {
   nextTaskDirect,
   expandTaskDirect,
   addTaskDirect,
-  addSubtaskDirect
+  addSubtaskDirect,
+  removeSubtaskDirect
 }; 

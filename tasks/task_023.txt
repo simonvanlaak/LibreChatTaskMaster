@@ -670,7 +670,7 @@ Following MCP implementation standards:
    - Unit test for addSubtaskDirect.js
    - Integration test for MCP tool
 
-## 27. Implement remove-subtask MCP command [pending]
+## 27. Implement remove-subtask MCP command [done]
 ### Dependencies: None
 ### Description: Create direct function wrapper and MCP tool for removing subtasks from tasks.
 ### Details:
