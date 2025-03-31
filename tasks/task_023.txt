@@ -703,7 +703,7 @@ Following MCP implementation standards:
    - Unit test for removeSubtaskDirect.js
    - Integration test for MCP tool
 
-## 28. Implement analyze MCP command [pending]
+## 28. Implement analyze MCP command [done]
 ### Dependencies: None
 ### Description: Create direct function wrapper and MCP tool for analyzing task complexity.
 ### Details:

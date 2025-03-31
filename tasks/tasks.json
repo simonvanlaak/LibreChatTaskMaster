@@ -1600,7 +1600,7 @@
           "title": "Implement analyze MCP command",
           "description": "Create direct function wrapper and MCP tool for analyzing task complexity.",
           "details": "Following MCP implementation standards:\n\n1. Create analyzeTaskComplexityDirect.js in mcp-server/src/core/direct-functions/:\n   - Import analyzeTaskComplexity from task-manager.js\n   - Handle file paths using findTasksJsonPath utility\n   - Process arguments: taskId\n   - Validate inputs and handle errors with try/catch\n   - Return standardized { success, data/error } object\n\n2. Export from task-master-core.js:\n   - Import the function from its file\n   - Add to directFunctions map\n\n3. Create analyze.js MCP tool in mcp-server/src/tools/:\n   - Import z from zod for parameter schema\n   - Import executeMCPToolAction from ./utils.js\n   - Import analyzeTaskComplexityDirect from task-master-core.js\n   - Define parameters matching CLI options using zod schema\n   - Implement registerAnalyzeTool(server) with server.addTool\n   - Use executeMCPToolAction in execute method\n\n4. Register in tools/index.js with tool name 'analyze'\n\n5. Add to .cursor/mcp.json with appropriate schema\n\n6. Write tests following testing guidelines:\n   - Unit test for analyzeTaskComplexityDirect.js\n   - Integration test for MCP tool",
-          "status": "pending",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 23
         },
