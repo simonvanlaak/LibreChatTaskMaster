@@ -105,14 +105,18 @@ alwaysApply: false
     - **Purpose**: Provides an MCP (Model Context Protocol) interface for Task Master, allowing integration with external tools like Cursor. Uses FastMCP framework.
     - **Responsibilities** (See also: [`mcp.mdc`](mdc:.cursor/rules/mcp.mdc)):
       - Registers Task Master functionalities as tools consumable via MCP.
-      - Handles MCP requests and translates them into calls to the Task Master core logic.
-      - Prefers direct function calls to core modules via [`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js) for performance.
-      - Uses CLI execution via `executeTaskMasterCommand` as a fallback.
-      - **Implements Caching**: Utilizes a caching layer (`ContextManager` with `lru-cache`) invoked via `getCachedOrExecute` within direct function wrappers ([`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js)) to optimize performance for specific read operations (e.g., listing tasks).
-      - Standardizes response formatting for MCP clients using utilities in [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js).
+      - Handles MCP requests via tool `execute` methods defined in `mcp-server/src/tools/*.js`.
+      - Tool `execute` methods call corresponding direct function wrappers in [`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js) for core logic execution.
+      - Direct function wrappers (`*Direct` functions) contain the main logic, including path resolution and optional caching.
+      - Tool `execute` methods use `handleApiResult` from [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js) to process the result from the direct function and format the final MCP response.
+      - Uses CLI execution via `executeTaskMasterCommand` as a fallback only when necessary.
+      - **Implements Caching**: Utilizes a caching layer (`ContextManager` with `lru-cache`). Caching logic is invoked *within* the direct function wrappers ([`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js)) using the `getCachedOrExecute` utility for performance-sensitive read operations (e.g., `listTasks`).
+      - Standardizes response formatting and data filtering using utilities in [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js).
     - **Key Components**:
       - `mcp-server/src/server.js`: Main server setup and initialization.
-      - `mcp-server/src/tools/`: Directory containing individual tool definitions, each registering a specific Task Master command for MCP.
+      - `mcp-server/src/tools/`: Directory containing individual tool definitions. Each tool's `execute` method orchestrates the call to core logic and handles the response.
+      - `mcp-server/src/core/task-master-core.js`: Contains direct function wrappers (`*Direct`) that encapsulate core logic calls and caching.
+      - `mcp-server/src/tools/utils.js`: Provides utilities like `handleApiResult`, `processMCPResponseData`, and `getCachedOrExecute`.
 
 - **Data Flow and Module Dependencies**:
 
