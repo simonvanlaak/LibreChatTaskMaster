@@ -1665,7 +1665,7 @@
           "title": "Review commands.js to ensure all commands are available via MCP",
           "description": "Verify that all CLI commands have corresponding MCP implementations",
           "details": "Compare the commands defined in scripts/modules/commands.js with the MCP tools implemented in mcp-server/src/tools/. Create a list of any commands missing MCP implementations and ensure all command options are properly represented in the MCP parameter schemas.",
-          "status": "pending",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 23
         },
@@ -1674,7 +1674,7 @@
           "title": "Finish setting up addResearch in index.js",
           "description": "Complete the implementation of addResearch functionality in the MCP server",
           "details": "Implement the addResearch function in the MCP server's index.js file to enable research-backed functionality. This should include proper integration with Perplexity AI and ensure that all MCP tools requiring research capabilities have access to this functionality.",
-          "status": "pending",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 23
         },
@@ -1683,7 +1683,7 @@
           "title": "Finish setting up addTemplates in index.js",
           "description": "Complete the implementation of addTemplates functionality in the MCP server",
           "details": "Implement the addTemplates function in the MCP server's index.js file to enable template-based generation. Configure proper loading of templates from the appropriate directory and ensure they're accessible to all MCP tools that need to generate formatted content.",
-          "status": "pending",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 23
         },
@@ -1693,6 +1693,73 @@
           "description": "Create a consistent approach for handling project root paths across MCP tools",
           "details": "Analyze and refactor the project root handling mechanism to ensure consistent file path resolution across all MCP direct functions. This should properly handle relative and absolute paths, respect the projectRoot parameter when provided, and have appropriate fallbacks when not specified. Document the approach in a comment within path-utils.js for future maintainers.",
           "status": "pending",
+          "dependencies": [],
+          "parentTaskId": 23
+        },
+        {
+          "id": 39,
+          "title": "Implement add-dependency MCP command",
+          "description": "Create MCP tool implementation for the add-dependency command",
+          "details": "",
+          "status": "pending",
+          "dependencies": [
+            "23.31"
+          ],
+          "parentTaskId": 23
+        },
+        {
+          "id": 40,
+          "title": "Implement remove-dependency MCP command",
+          "description": "Create MCP tool implementation for the remove-dependency command",
+          "details": "",
+          "status": "pending",
+          "dependencies": [
+            "23.31"
+          ],
+          "parentTaskId": 23
+        },
+        {
+          "id": 41,
+          "title": "Implement validate-dependencies MCP command",
+          "description": "Create MCP tool implementation for the validate-dependencies command",
+          "details": "",
+          "status": "pending",
+          "dependencies": [
+            "23.31",
+            "23.39",
+            "23.40"
+          ],
+          "parentTaskId": 23
+        },
+        {
+          "id": 42,
+          "title": "Implement fix-dependencies MCP command",
+          "description": "Create MCP tool implementation for the fix-dependencies command",
+          "details": "",
+          "status": "pending",
+          "dependencies": [
+            "23.31",
+            "23.41"
+          ],
+          "parentTaskId": 23
+        },
+        {
+          "id": 43,
+          "title": "Implement complexity-report MCP command",
+          "description": "Create MCP tool implementation for the complexity-report command",
+          "details": "",
+          "status": "pending",
+          "dependencies": [
+            "23.31"
+          ],
+          "parentTaskId": 23
+        },
+        {
+          "id": 44,
+          "title": "Implement init MCP command",
+          "description": "Create MCP tool implementation for the init command",
+          "details": "",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 23
         }
