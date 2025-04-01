@@ -694,8 +694,8 @@ function setupMCPConfiguration(targetDir, projectName) {
     "task-master-ai": {
       "command": "npx",
       "args": [
-        "task-master-ai",
-        "mcp-server"
+        "-y",
+        "task-master-mcp-server"
       ]
     }
   };
