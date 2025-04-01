@@ -923,7 +923,7 @@ Following MCP implementation standards:
 8. Update tests to reflect the new naming conventions
 9. Create a linting rule to enforce naming conventions in future development
 
-## 34. Review functionality of all MCP direct functions [pending]
+## 34. Review functionality of all MCP direct functions [in-progress]
 ### Dependencies: None
 ### Description: Verify that all implemented MCP direct functions work correctly with edge cases
 ### Details:
@@ -947,11 +947,158 @@ Implement the addResearch function in the MCP server's index.js file to enable r
 ### Details:
 Implement the addTemplates function in the MCP server's index.js file to enable template-based generation. Configure proper loading of templates from the appropriate directory and ensure they're accessible to all MCP tools that need to generate formatted content.
 
-## 38. Implement robust project root handling for file paths [pending]
+## 38. Implement robust project root handling for file paths [in-progress]
 ### Dependencies: None
 ### Description: Create a consistent approach for handling project root paths across MCP tools
 ### Details:
 Analyze and refactor the project root handling mechanism to ensure consistent file path resolution across all MCP direct functions. This should properly handle relative and absolute paths, respect the projectRoot parameter when provided, and have appropriate fallbacks when not specified. Document the approach in a comment within path-utils.js for future maintainers.
+
+<info added on 2025-04-01T02:21:57.137Z>
+Here's additional information addressing the request for research on npm package path handling:
+
+## Path Handling Best Practices for npm Packages
+
+### Distinguishing Package and Project Paths
+
+1. **Package Installation Path**: 
+   - Use `require.resolve()` to find paths relative to your package
+   - For global installs, use `process.execPath` to locate the Node.js executable
+
+2. **Project Path**:
+   - Use `process.cwd()` as a starting point
+   - Search upwards for `package.json` or `.git` to find project root
+   - Consider using packages like `find-up` or `pkg-dir` for robust root detection
+
+### Standard Approaches
+
+1. **Detecting Project Root**:
+   - Recursive search for `package.json` or `.git` directory
+   - Use `path.resolve()` to handle relative paths
+   - Fall back to `process.cwd()` if no root markers found
+
+2. **Accessing Package Files**:
+   - Use `__dirname` for paths relative to current script
+   - For files in `node_modules`, use `require.resolve('package-name/path/to/file')`
+
+3. **Separating Package and Project Files**:
+   - Store package-specific files in a dedicated directory (e.g., `.task-master`)
+   - Use environment variables to override default paths
+
+### Cross-Platform Compatibility
+
+1. Use `path.join()` and `path.resolve()` for cross-platform path handling
+2. Avoid hardcoded forward/backslashes in paths
+3. Use `os.homedir()` for user home directory references
+
+### Best Practices for Path Resolution
+
+1. **Absolute vs Relative Paths**:
+   - Always convert relative paths to absolute using `path.resolve()`
+   - Use `path.isAbsolute()` to check if a path is already absolute
+
+2. **Handling Different Installation Scenarios**:
+   - Local dev: Use `process.cwd()` as fallback project root
+   - Local dependency: Resolve paths relative to consuming project
+   - Global install: Use `process.execPath` to locate global `node_modules`
+
+3. **Configuration Options**:
+   - Allow users to specify custom project root via CLI option or config file
+   - Implement a clear precedence order for path resolution (e.g., CLI option > config file > auto-detection)
+
+4. **Error Handling**:
+   - Provide clear error messages when critical paths cannot be resolved
+   - Implement retry logic with alternative methods if primary path detection fails
+
+5. **Documentation**:
+   - Clearly document path handling behavior in README and inline comments
+   - Provide examples for common scenarios and edge cases
+
+By implementing these practices, the MCP tools can achieve consistent and robust path handling across various npm installation and usage scenarios.
+</info added on 2025-04-01T02:21:57.137Z>
+
+<info added on 2025-04-01T02:25:01.463Z>
+Here's additional information addressing the request for clarification on path handling challenges for npm packages:
+
+## Advanced Path Handling Challenges and Solutions
+
+### Challenges to Avoid
+
+1. **Relying solely on process.cwd()**:
+   - Global installs: process.cwd() could be any directory
+   - Local installs as dependency: points to parent project's root
+   - Users may run commands from subdirectories
+
+2. **Dual Path Requirements**:
+   - Package Path: Where task-master code is installed
+   - Project Path: Where user's tasks.json resides
+
+3. **Specific Edge Cases**:
+   - Non-project directory execution
+   - Deeply nested project structures
+   - Yarn/pnpm workspaces
+   - Monorepos with multiple tasks.json files
+   - Commands invoked from scripts in different directories
+
+### Advanced Solutions
+
+1. **Project Marker Detection**:
+   - Implement recursive search for package.json or .git
+   - Use `find-up` package for efficient directory traversal
+   ```javascript
+   const findUp = require('find-up');
+   const projectRoot = await findUp(dir => findUp.sync('package.json', { cwd: dir }));
+   ```
+
+2. **Package Path Resolution**:
+   - Leverage `import.meta.url` with `fileURLToPath`:
+   ```javascript
+   import { fileURLToPath } from 'url';
+   import path from 'path';
+   
+   const __filename = fileURLToPath(import.meta.url);
+   const __dirname = path.dirname(__filename);
+   const packageRoot = path.resolve(__dirname, '..');
+   ```
+
+3. **Workspace-Aware Resolution**:
+   - Detect Yarn/pnpm workspaces:
+   ```javascript
+   const findWorkspaceRoot = require('find-yarn-workspace-root');
+   const workspaceRoot = findWorkspaceRoot(process.cwd());
+   ```
+
+4. **Monorepo Handling**:
+   - Implement cascading configuration search
+   - Allow multiple tasks.json files with clear precedence rules
+
+5. **CLI Tool Inspiration**:
+   - ESLint: Uses `eslint-find-rule-files` for config discovery
+   - Jest: Implements `jest-resolve` for custom module resolution
+   - Next.js: Uses `find-up` to locate project directories
+
+6. **Robust Path Resolution Algorithm**:
+   ```javascript
+   function resolveProjectRoot(startDir) {
+     const projectMarkers = ['package.json', '.git', 'tasks.json'];
+     let currentDir = startDir;
+     while (currentDir !== path.parse(currentDir).root) {
+       if (projectMarkers.some(marker => fs.existsSync(path.join(currentDir, marker)))) {
+         return currentDir;
+       }
+       currentDir = path.dirname(currentDir);
+     }
+     return startDir; // Fallback to original directory
+   }
+   ```
+
+7. **Environment Variable Overrides**:
+   - Allow users to explicitly set paths:
+   ```javascript
+   const projectRoot = process.env.TASK_MASTER_PROJECT_ROOT || resolveProjectRoot(process.cwd());
+   ```
+
+By implementing these advanced techniques, task-master can achieve robust path handling across various npm scenarios without requiring manual specification.
+</info added on 2025-04-01T02:25:01.463Z>
 
 ## 39. Implement add-dependency MCP command [done]
 ### Dependencies: 23.31
@@ -988,4 +1135,69 @@ Analyze and refactor the project root handling mechanism to ensure consistent fi
 ### Description: Create MCP tool implementation for the init command
 ### Details:
 
+
+## 45. Support setting env variables through mcp server [pending]
+### Dependencies: None
+### Description: currently we need to access the env variables through the env file present in the project (that we either create or find and append to). we could abstract this by allowing users to define the env vars in the mcp.json directly as folks currently do. mcp.json should then be in gitignore if thats the case. but for this i think in fastmcp all we need is to access ENV in a specific way. we need to find that way and then implement it
+### Details:
+
+
+<info added on 2025-04-01T01:57:24.160Z>
+To access environment variables defined in the mcp.json config file when using FastMCP, you can utilize the `Config` class from the `fastmcp` module. Here's how to implement this:
+
+1. Import the necessary module:
+```python
+from fastmcp import Config
+```
+
+2. Access environment variables:
+```python
+config = Config()
+env_var = config.env.get("VARIABLE_NAME")
+```
+
+This approach allows you to retrieve environment variables defined in the mcp.json file directly in your code. The `Config` class automatically loads the configuration, including environment variables, from the mcp.json file.
+
+For security, ensure that sensitive information in mcp.json is not committed to version control. You can add mcp.json to your .gitignore file to prevent accidental commits.
+
+If you need to access multiple environment variables, you can do so like this:
+```python
+db_url = config.env.get("DATABASE_URL")
+api_key = config.env.get("API_KEY")
+debug_mode = config.env.get("DEBUG_MODE", False)  # With a default value
+```
+
+This method provides a clean and consistent way to access environment variables defined in the mcp.json configuration file within your FastMCP project.
+</info added on 2025-04-01T01:57:24.160Z>
+
+<info added on 2025-04-01T01:57:49.848Z>
+To access environment variables defined in the mcp.json config file when using FastMCP in a JavaScript environment, you can use the `fastmcp` npm package. Here's how to implement this:
+
+1. Install the `fastmcp` package:
+```bash
+npm install fastmcp
+```
+
+2. Import the necessary module:
+```javascript
+const { Config } = require('fastmcp');
+```
+
+3. Access environment variables:
+```javascript
+const config = new Config();
+const envVar = config.env.get('VARIABLE_NAME');
+```
+
+This approach allows you to retrieve environment variables defined in the mcp.json file directly in your JavaScript code. The `Config` class automatically loads the configuration, including environment variables, from the mcp.json file.
+
+You can access multiple environment variables like this:
+```javascript
+const dbUrl = config.env.get('DATABASE_URL');
+const apiKey = config.env.get('API_KEY');
+const debugMode = config.env.get('DEBUG_MODE', false); // With a default value
+```
+
+This method provides a consistent way to access environment variables defined in the mcp.json configuration file within your FastMCP project in a JavaScript environment.
+</info added on 2025-04-01T01:57:49.848Z>
 

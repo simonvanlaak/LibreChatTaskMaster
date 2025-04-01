@@ -6,6 +6,10 @@
 import { spawnSync } from "child_process";
 import path from "path";
 import { contextManager } from '../core/context-manager.js'; // Import the singleton
+import fs from 'fs';
+
+// Import path utilities to ensure consistent path resolution
+import { lastFoundProjectRoot, getPackagePath, PROJECT_MARKERS } from '../core/utils/path-utils.js';
 
 /**
  * Get normalized project root path 
@@ -14,16 +18,53 @@ import { contextManager } from '../core/context-manager.js'; // Import the singl
  * @returns {string} - Normalized absolute path to project root
  */
 export function getProjectRoot(projectRootRaw, log) {
-  // Make sure projectRoot is set
-  const rootPath = projectRootRaw || process.cwd();
+  // PRECEDENCE ORDER:
+  // 1. Environment variable override
+  // 2. Explicitly provided projectRoot in args
+  // 3. Previously found/cached project root
+  // 4. Current directory if it has project markers
+  // 5. Current directory with warning
   
-  // Ensure projectRoot is absolute
-  const projectRoot = path.isAbsolute(rootPath) 
-    ? rootPath 
-    : path.resolve(process.cwd(), rootPath);
+  // 1. Check for environment variable override
+  if (process.env.TASK_MASTER_PROJECT_ROOT) {
+    const envRoot = process.env.TASK_MASTER_PROJECT_ROOT;
+    const absolutePath = path.isAbsolute(envRoot) 
+      ? envRoot 
+      : path.resolve(process.cwd(), envRoot);
+    log.info(`Using project root from TASK_MASTER_PROJECT_ROOT environment variable: ${absolutePath}`);
+    return absolutePath;
+  }
+
+  // 2. If project root is explicitly provided, use it
+  if (projectRootRaw) {
+    const absolutePath = path.isAbsolute(projectRootRaw) 
+      ? projectRootRaw 
+      : path.resolve(process.cwd(), projectRootRaw);
+    
+    log.info(`Using explicitly provided project root: ${absolutePath}`);
+    return absolutePath;
+  }
   
-  log.info(`Using project root: ${projectRoot}`);
-  return projectRoot;
+  // 3. If we have a last found project root from a tasks.json search, use that for consistency
+  if (lastFoundProjectRoot) {
+    log.info(`Using last known project root where tasks.json was found: ${lastFoundProjectRoot}`);
+    return lastFoundProjectRoot;
+  }
+  
+  // 4. Check if the current directory has any indicators of being a task-master project
+  const currentDir = process.cwd();
+  if (PROJECT_MARKERS.some(marker => {
+    const markerPath = path.join(currentDir, marker);
+    return fs.existsSync(markerPath);
+  })) {
+    log.info(`Using current directory as project root (found project markers): ${currentDir}`);
+    return currentDir;
+  }
+  
+  // 5. Default to current working directory but warn the user
+  log.warn(`No task-master project detected in current directory. Using ${currentDir} as project root.`);
+  log.warn('Consider using --project-root to specify the correct project location or set TASK_MASTER_PROJECT_ROOT environment variable.');
+  return currentDir;
 }
 
 /**

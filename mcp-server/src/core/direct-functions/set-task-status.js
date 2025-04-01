@@ -41,12 +41,17 @@ export async function setTaskStatusDirect(args, log) {
     // Get tasks file path
     let tasksPath;
     try {
+      // The enhanced findTasksJsonPath will now search in parent directories if needed
       tasksPath = findTasksJsonPath(args, log);
+      log.info(`Found tasks file at: ${tasksPath}`);
     } catch (error) {
       log.error(`Error finding tasks file: ${error.message}`);
       return { 
         success: false, 
-        error: { code: 'TASKS_FILE_ERROR', message: error.message },
+        error: { 
+          code: 'TASKS_FILE_ERROR', 
+          message: `${error.message}\n\nPlease ensure you are in a Task Master project directory or use the --project-root parameter to specify the path to your project.`
+        },
         fromCache: false 
       };
     }

@@ -2,6 +2,28 @@
 "task-master-ai": patch
 ---
 
+- Implement robust project root detection with a hierarchical precedence system:
+  - Environment variable override (TASK_MASTER_PROJECT_ROOT)
+  - Explicitly provided project root (--project-root parameter)
+  - Cached project root from previous successful operations
+  - Current directory with project markers
+  - Parent directory traversal to find tasks.json
+  - Package directory as fallback
+
+- Add comprehensive PROJECT_MARKERS array for detecting common project files:
+  - Task Master specific files (tasks.json, tasks/tasks.json)
+  - Version control markers (.git, .svn)
+  - Package files (package.json, pyproject.toml, etc.)
+  - IDE/editor folders (.cursor, .vscode, .idea)
+  - Dependency directories (node_modules, venv)
+  - Configuration files (.env, tsconfig.json, etc.)
+  - CI/CD files (.github/workflows, etc.)
+
+- Improved error messages with specific troubleshooting guidance
+- Enhanced logging to indicate the source of project root selection
+- DRY refactoring by centralizing path utilities in core/utils/path-utils.js
+- Add caching of lastFoundProjectRoot for improved performance
+
 - Split monolithic task-master-core.js into separate function files within direct-functions directory
 - Implement update-task MCP command for updating a single task by ID
 - Implement update-subtask MCP command for appending information to specific subtasks

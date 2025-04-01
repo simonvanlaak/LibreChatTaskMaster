@@ -30,7 +30,7 @@ export function registerSetTaskStatusTool(server) {
         .string()
         .optional()
         .describe(
-          "Root directory of the project (default: current working directory)"
+          "Root directory of the project (default: automatically detected)"
         ),
     }),
     execute: async (args, { log }) => {

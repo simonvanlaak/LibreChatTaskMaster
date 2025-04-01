@@ -1656,7 +1656,7 @@
           "title": "Review functionality of all MCP direct functions",
           "description": "Verify that all implemented MCP direct functions work correctly with edge cases",
           "details": "Perform comprehensive testing of all MCP direct function implementations to ensure they handle various input scenarios correctly and return appropriate responses. Check edge cases, error handling, and parameter validation.",
-          "status": "pending",
+          "status": "in-progress",
           "dependencies": [],
           "parentTaskId": 23
         },
@@ -1691,8 +1691,8 @@
           "id": 38,
           "title": "Implement robust project root handling for file paths",
           "description": "Create a consistent approach for handling project root paths across MCP tools",
-          "details": "Analyze and refactor the project root handling mechanism to ensure consistent file path resolution across all MCP direct functions. This should properly handle relative and absolute paths, respect the projectRoot parameter when provided, and have appropriate fallbacks when not specified. Document the approach in a comment within path-utils.js for future maintainers.",
-          "status": "pending",
+          "details": "Analyze and refactor the project root handling mechanism to ensure consistent file path resolution across all MCP direct functions. This should properly handle relative and absolute paths, respect the projectRoot parameter when provided, and have appropriate fallbacks when not specified. Document the approach in a comment within path-utils.js for future maintainers.\n\n<info added on 2025-04-01T02:21:57.137Z>\nHere's additional information addressing the request for research on npm package path handling:\n\n## Path Handling Best Practices for npm Packages\n\n### Distinguishing Package and Project Paths\n\n1. **Package Installation Path**: \n   - Use `require.resolve()` to find paths relative to your package\n   - For global installs, use `process.execPath` to locate the Node.js executable\n\n2. **Project Path**:\n   - Use `process.cwd()` as a starting point\n   - Search upwards for `package.json` or `.git` to find project root\n   - Consider using packages like `find-up` or `pkg-dir` for robust root detection\n\n### Standard Approaches\n\n1. **Detecting Project Root**:\n   - Recursive search for `package.json` or `.git` directory\n   - Use `path.resolve()` to handle relative paths\n   - Fall back to `process.cwd()` if no root markers found\n\n2. **Accessing Package Files**:\n   - Use `__dirname` for paths relative to current script\n   - For files in `node_modules`, use `require.resolve('package-name/path/to/file')`\n\n3. **Separating Package and Project Files**:\n   - Store package-specific files in a dedicated directory (e.g., `.task-master`)\n   - Use environment variables to override default paths\n\n### Cross-Platform Compatibility\n\n1. Use `path.join()` and `path.resolve()` for cross-platform path handling\n2. Avoid hardcoded forward/backslashes in paths\n3. Use `os.homedir()` for user home directory references\n\n### Best Practices for Path Resolution\n\n1. **Absolute vs Relative Paths**:\n   - Always convert relative paths to absolute using `path.resolve()`\n   - Use `path.isAbsolute()` to check if a path is already absolute\n\n2. **Handling Different Installation Scenarios**:\n   - Local dev: Use `process.cwd()` as fallback project root\n   - Local dependency: Resolve paths relative to consuming project\n   - Global install: Use `process.execPath` to locate global `node_modules`\n\n3. **Configuration Options**:\n   - Allow users to specify custom project root via CLI option or config file\n   - Implement a clear precedence order for path resolution (e.g., CLI option > config file > auto-detection)\n\n4. **Error Handling**:\n   - Provide clear error messages when critical paths cannot be resolved\n   - Implement retry logic with alternative methods if primary path detection fails\n\n5. **Documentation**:\n   - Clearly document path handling behavior in README and inline comments\n   - Provide examples for common scenarios and edge cases\n\nBy implementing these practices, the MCP tools can achieve consistent and robust path handling across various npm installation and usage scenarios.\n</info added on 2025-04-01T02:21:57.137Z>\n\n<info added on 2025-04-01T02:25:01.463Z>\nHere's additional information addressing the request for clarification on path handling challenges for npm packages:\n\n## Advanced Path Handling Challenges and Solutions\n\n### Challenges to Avoid\n\n1. **Relying solely on process.cwd()**:\n   - Global installs: process.cwd() could be any directory\n   - Local installs as dependency: points to parent project's root\n   - Users may run commands from subdirectories\n\n2. **Dual Path Requirements**:\n   - Package Path: Where task-master code is installed\n   - Project Path: Where user's tasks.json resides\n\n3. **Specific Edge Cases**:\n   - Non-project directory execution\n   - Deeply nested project structures\n   - Yarn/pnpm workspaces\n   - Monorepos with multiple tasks.json files\n   - Commands invoked from scripts in different directories\n\n### Advanced Solutions\n\n1. **Project Marker Detection**:\n   - Implement recursive search for package.json or .git\n   - Use `find-up` package for efficient directory traversal\n   ```javascript\n   const findUp = require('find-up');\n   const projectRoot = await findUp(dir => findUp.sync('package.json', { cwd: dir }));\n   ```\n\n2. **Package Path Resolution**:\n   - Leverage `import.meta.url` with `fileURLToPath`:\n   ```javascript\n   import { fileURLToPath } from 'url';\n   import path from 'path';\n   \n   const __filename = fileURLToPath(import.meta.url);\n   const __dirname = path.dirname(__filename);\n   const packageRoot = path.resolve(__dirname, '..');\n   ```\n\n3. **Workspace-Aware Resolution**:\n   - Detect Yarn/pnpm workspaces:\n   ```javascript\n   const findWorkspaceRoot = require('find-yarn-workspace-root');\n   const workspaceRoot = findWorkspaceRoot(process.cwd());\n   ```\n\n4. **Monorepo Handling**:\n   - Implement cascading configuration search\n   - Allow multiple tasks.json files with clear precedence rules\n\n5. **CLI Tool Inspiration**:\n   - ESLint: Uses `eslint-find-rule-files` for config discovery\n   - Jest: Implements `jest-resolve` for custom module resolution\n   - Next.js: Uses `find-up` to locate project directories\n\n6. **Robust Path Resolution Algorithm**:\n   ```javascript\n   function resolveProjectRoot(startDir) {\n     const projectMarkers = ['package.json', '.git', 'tasks.json'];\n     let currentDir = startDir;\n     while (currentDir !== path.parse(currentDir).root) {\n       if (projectMarkers.some(marker => fs.existsSync(path.join(currentDir, marker)))) {\n         return currentDir;\n       }\n       currentDir = path.dirname(currentDir);\n     }\n     return startDir; // Fallback to original directory\n   }\n   ```\n\n7. **Environment Variable Overrides**:\n   - Allow users to explicitly set paths:\n   ```javascript\n   const projectRoot = process.env.TASK_MASTER_PROJECT_ROOT || resolveProjectRoot(process.cwd());\n   ```\n\nBy implementing these advanced techniques, task-master can achieve robust path handling across various npm scenarios without requiring manual specification.\n</info added on 2025-04-01T02:25:01.463Z>",
+          "status": "in-progress",
           "dependencies": [],
           "parentTaskId": 23
         },
@@ -1760,6 +1760,15 @@
           "description": "Create MCP tool implementation for the init command",
           "details": "",
           "status": "deferred",
+          "dependencies": [],
+          "parentTaskId": 23
+        },
+        {
+          "id": 45,
+          "title": "Support setting env variables through mcp server",
+          "description": "currently we need to access the env variables through the env file present in the project (that we either create or find and append to). we could abstract this by allowing users to define the env vars in the mcp.json directly as folks currently do. mcp.json should then be in gitignore if thats the case. but for this i think in fastmcp all we need is to access ENV in a specific way. we need to find that way and then implement it",
+          "details": "\n\n<info added on 2025-04-01T01:57:24.160Z>\nTo access environment variables defined in the mcp.json config file when using FastMCP, you can utilize the `Config` class from the `fastmcp` module. Here's how to implement this:\n\n1. Import the necessary module:\n```python\nfrom fastmcp import Config\n```\n\n2. Access environment variables:\n```python\nconfig = Config()\nenv_var = config.env.get(\"VARIABLE_NAME\")\n```\n\nThis approach allows you to retrieve environment variables defined in the mcp.json file directly in your code. The `Config` class automatically loads the configuration, including environment variables, from the mcp.json file.\n\nFor security, ensure that sensitive information in mcp.json is not committed to version control. You can add mcp.json to your .gitignore file to prevent accidental commits.\n\nIf you need to access multiple environment variables, you can do so like this:\n```python\ndb_url = config.env.get(\"DATABASE_URL\")\napi_key = config.env.get(\"API_KEY\")\ndebug_mode = config.env.get(\"DEBUG_MODE\", False)  # With a default value\n```\n\nThis method provides a clean and consistent way to access environment variables defined in the mcp.json configuration file within your FastMCP project.\n</info added on 2025-04-01T01:57:24.160Z>\n\n<info added on 2025-04-01T01:57:49.848Z>\nTo access environment variables defined in the mcp.json config file when using FastMCP in a JavaScript environment, you can use the `fastmcp` npm package. Here's how to implement this:\n\n1. Install the `fastmcp` package:\n```bash\nnpm install fastmcp\n```\n\n2. Import the necessary module:\n```javascript\nconst { Config } = require('fastmcp');\n```\n\n3. Access environment variables:\n```javascript\nconst config = new Config();\nconst envVar = config.env.get('VARIABLE_NAME');\n```\n\nThis approach allows you to retrieve environment variables defined in the mcp.json file directly in your JavaScript code. The `Config` class automatically loads the configuration, including environment variables, from the mcp.json file.\n\nYou can access multiple environment variables like this:\n```javascript\nconst dbUrl = config.env.get('DATABASE_URL');\nconst apiKey = config.env.get('API_KEY');\nconst debugMode = config.env.get('DEBUG_MODE', false); // With a default value\n```\n\nThis method provides a consistent way to access environment variables defined in the mcp.json configuration file within your FastMCP project in a JavaScript environment.\n</info added on 2025-04-01T01:57:49.848Z>",
+          "status": "pending",
           "dependencies": [],
           "parentTaskId": 23
         }
@@ -2352,91 +2361,13 @@
     },
     {
       "id": 40,
-      "title": "Implement Project Funding Documentation and Support Infrastructure",
-      "description": "Create FUNDING.yml for GitHub Sponsors integration that outlines all financial support options for the Task Master project.",
-      "status": "in-progress",
-      "dependencies": [],
-      "priority": "medium",
-      "details": "This task involves creating a FUNDING.yml file to enable and manage funding options for the Task Master project:\n\n**FUNDING.yml file**:\n   - Create a .github/FUNDING.yml file following GitHub's specifications\n   - Include configuration for multiple funding platforms:\n     - GitHub Sponsors (primary if available)\n     - Open Collective\n     - Patreon\n     - Ko-fi\n     - Liberapay\n     - Custom funding URLs (project website donation page)\n   - Research and reference successful implementation patterns from Vue.js, React, and TypeScript projects\n   - Ensure the FUNDING.yml contains sufficient information to guide users on how to support the project\n   - Include comments within the YAML file to provide context for each funding option\n\nThe implementation should maintain consistent branding and messaging with the rest of the Task Master project. Research at least 5 successful open source projects to identify best practices in funding configuration.",
-      "testStrategy": "Testing should verify the technical implementation of the FUNDING.yml file:\n\n1. **FUNDING.yml validation**:\n   - Verify the file is correctly placed in the .github directory\n   - Validate YAML syntax using a linter\n   - Test that GitHub correctly displays funding options on the repository page\n   - Verify all links to external funding platforms are functional\n\n2. **User experience testing**:\n   - Test the complete funding workflow from a potential supporter's perspective\n   - Verify the process is intuitive and barriers to contribution are minimized\n   - Check that the Sponsor button appears correctly on GitHub\n   - Ensure all funding platform links resolve to the correct destinations\n   - Gather feedback from 2-3 potential users on clarity and ease of use",
-      "subtasks": [
-        {
-          "id": 1,
-          "title": "Research and Create FUNDING.yml File",
-          "description": "Research successful funding configurations and create the .github/FUNDING.yml file for GitHub Sponsors integration and other funding platforms.",
-          "dependencies": [],
-          "details": "Implementation steps:\n1. Create the .github directory at the project root if it doesn't exist\n2. Research funding configurations from 5 successful open source projects (Vue.js, React, TypeScript, etc.)\n3. Document the patterns and approaches used in these projects\n4. Create the FUNDING.yml file with the following platforms:\n   - GitHub Sponsors (primary)\n   - Open Collective\n   - Patreon\n   - Ko-fi\n   - Liberapay\n   - Custom donation URL for the project website\n5. Validate the YAML syntax using a linter\n6. Test the file by pushing to a test branch and verifying the Sponsor button appears correctly on GitHub\n\nTesting approach:\n- Validate YAML syntax using yamllint or similar tool\n- Test on GitHub by checking if the Sponsor button appears in the repository\n- Verify each funding link resolves to the correct destination",
-          "status": "done",
-          "parentTaskId": 40
-        },
-        {
-          "id": 4,
-          "title": "Add Documentation Comments to FUNDING.yml",
-          "description": "Add comprehensive comments within the FUNDING.yml file to provide context and guidance for each funding option.",
-          "dependencies": [
-            1
-          ],
-          "details": "Implementation steps:\n1. Add a header comment explaining the purpose of the file\n2. For each funding platform entry, add comments that explain:\n   - What the platform is\n   - How funds are processed on this platform\n   - Any specific benefits of using this platform\n   - Brief instructions for potential sponsors\n3. Include a comment about how sponsors will be acknowledged\n4. Add information about fund allocation (maintenance, new features, infrastructure)\n5. Ensure comments follow YAML comment syntax and don't break the file structure\n\nTesting approach:\n- Validate that the YAML file still passes linting with comments added\n- Verify the file still functions correctly on GitHub\n- Have at least one team member review the comments for clarity and completeness",
-          "status": "pending",
-          "parentTaskId": 40
-        },
-        {
-          "id": 5,
-          "title": "Integrate Funding Information in Project README",
-          "description": "Add a section to the project README that highlights the funding options and directs users to the Sponsor button.",
-          "dependencies": [
-            1,
-            4
-          ],
-          "details": "Implementation steps:\n1. Create a 'Support the Project' or 'Sponsorship' section in the README.md\n2. Explain briefly why financial support matters for the project\n3. Direct users to the GitHub Sponsor button\n4. Mention the alternative funding platforms available\n5. Include a brief note on how funds will be used\n6. Add any relevant funding badges (e.g., Open Collective, GitHub Sponsors)\n\nTesting approach:\n- Review the README section for clarity and conciseness\n- Verify all links work correctly\n- Ensure the section is appropriately visible but doesn't overshadow project information\n- Check that badges render correctly",
-          "status": "pending",
-          "parentTaskId": 40
-        }
-      ]
-    },
-    {
-      "id": 41,
-      "title": "Implement GitHub Actions CI Workflow for Cross-Platform Testing",
-      "description": "Create a CI workflow file (ci.yml) that tests the codebase across multiple Node.js versions and operating systems using GitHub Actions.",
+      "title": "Implement 'plan' Command for Task Implementation Planning",
+      "description": "Create a new 'plan' command that appends a structured implementation plan to tasks or subtasks, generating step-by-step instructions for execution based on the task content.",
       "status": "pending",
       "dependencies": [],
-      "priority": "high",
-      "details": "Create a GitHub Actions workflow file at `.github/workflows/ci.yml` with the following specifications:\n\n1. Configure the workflow to trigger on:\n   - Push events to any branch\n   - Pull request events targeting any branch\n\n2. Implement a matrix strategy that tests across:\n   - Node.js versions: 18.x, 20.x, and 22.x\n   - Operating systems: Ubuntu-latest and Windows-latest\n\n3. Include proper Git configuration steps:\n   - Set Git user name to 'GitHub Actions'\n   - Set Git email to 'github-actions@github.com'\n\n4. Configure workflow steps to:\n   - Checkout the repository using actions/checkout@v3\n   - Set up Node.js using actions/setup-node@v3 with the matrix version\n   - Use npm for package management (not pnpm)\n   - Install dependencies with 'npm ci'\n   - Run linting with 'npm run lint' (if available)\n   - Run tests with 'npm test'\n   - Run build process with 'npm run build'\n\n5. Implement concurrency controls to:\n   - Cancel in-progress workflows when new commits are pushed to the same PR\n   - Use a concurrency group based on the GitHub ref and workflow name\n\n6. Add proper caching for npm dependencies to speed up workflow runs\n\n7. Ensure the workflow includes appropriate timeouts to prevent hung jobs",
-      "testStrategy": "To verify correct implementation of the GitHub Actions CI workflow:\n\n1. Manual verification:\n   - Check that the file is correctly placed at `.github/workflows/ci.yml`\n   - Verify the YAML syntax is valid using a YAML linter\n   - Confirm all required configurations (triggers, matrix, steps) are present\n\n2. Functional testing:\n   - Push a commit to a feature branch to confirm the workflow triggers\n   - Create a PR to verify the workflow runs on pull requests\n   - Verify the workflow successfully runs on both Ubuntu and Windows\n   - Confirm tests run against all three Node.js versions (18, 20, 22)\n   - Test concurrency by pushing multiple commits to the same PR rapidly\n\n3. Edge case testing:\n   - Introduce a failing test and verify the workflow reports failure\n   - Test with a large dependency tree to verify caching works correctly\n   - Verify the workflow handles non-ASCII characters in file paths correctly (particularly on Windows)\n\n4. Check workflow logs to ensure:\n   - Git configuration is applied correctly\n   - Dependencies are installed with npm (not pnpm)\n   - All matrix combinations run independently\n   - Concurrency controls cancel redundant workflow runs",
-      "subtasks": [
-        {
-          "id": 1,
-          "title": "Create Basic GitHub Actions Workflow Structure",
-          "description": "Set up the foundational GitHub Actions workflow file with triggers, checkout, and Node.js setup using matrix strategy",
-          "dependencies": [],
-          "details": "1. Create `.github/workflows/` directory if it doesn't exist\n2. Create a new file `ci.yml` inside this directory\n3. Define the workflow name at the top of the file\n4. Configure triggers for push events to any branch and pull request events targeting any branch\n5. Set up the matrix strategy for Node.js versions (18.x, 20.x, 22.x) and operating systems (Ubuntu-latest, Windows-latest)\n6. Configure the job to checkout the repository using actions/checkout@v3\n7. Set up Node.js using actions/setup-node@v3 with the matrix version\n8. Add proper caching for npm dependencies\n9. Test the workflow by pushing the file to a test branch and verifying it triggers correctly\n10. Verify that the matrix builds are running on all specified Node versions and operating systems",
-          "status": "pending",
-          "parentTaskId": 41
-        },
-        {
-          "id": 2,
-          "title": "Implement Build and Test Steps with Git Configuration",
-          "description": "Add the core build and test steps to the workflow, including Git configuration, dependency installation, and execution of lint, test, and build commands",
-          "dependencies": [
-            1
-          ],
-          "details": "1. Add Git configuration steps to set user name to 'GitHub Actions' and email to 'github-actions@github.com'\n2. Add step to install dependencies with 'npm ci'\n3. Add conditional step to run linting with 'npm run lint' if available\n4. Add step to run tests with 'npm test'\n5. Add step to run build process with 'npm run build'\n6. Ensure each step has appropriate names for clear visibility in GitHub Actions UI\n7. Add appropriate error handling and continue-on-error settings where needed\n8. Test the workflow by pushing a change and verifying all build steps execute correctly\n9. Verify that the workflow correctly runs on both Ubuntu and Windows environments\n10. Ensure that all commands use the correct syntax for cross-platform compatibility",
-          "status": "pending",
-          "parentTaskId": 41
-        },
-        {
-          "id": 3,
-          "title": "Add Workflow Optimization Features",
-          "description": "Implement concurrency controls, timeouts, and other optimization features to improve workflow efficiency and reliability",
-          "dependencies": [
-            1,
-            2
-          ],
-          "details": "1. Implement concurrency controls to cancel in-progress workflows when new commits are pushed to the same PR\n2. Define a concurrency group based on the GitHub ref and workflow name\n3. Add appropriate timeouts to prevent hung jobs (typically 30-60 minutes depending on project complexity)\n4. Add status badges to the README.md file to show build status\n5. Optimize the workflow by adding appropriate 'if' conditions to skip unnecessary steps\n6. Add job summary outputs to provide clear information about the build results\n7. Test the concurrency feature by pushing multiple commits in quick succession to a PR\n8. Verify that old workflow runs are canceled when new commits are pushed\n9. Test timeout functionality by temporarily adding a long-running step\n10. Document the CI workflow in project documentation, explaining what it does and how to troubleshoot common issues",
-          "status": "pending",
-          "parentTaskId": 41
-        }
-      ]
+      "priority": "medium",
+      "details": "Implement a new 'plan' command that will append a structured implementation plan to existing tasks or subtasks. The implementation should:\n\n1. Accept an '--id' parameter that can reference either a task or subtask ID\n2. Determine whether the ID refers to a task or subtask and retrieve the appropriate content from tasks.json and/or individual task files\n3. Generate a step-by-step implementation plan using AI (Claude by default)\n4. Support a '--research' flag to use Perplexity instead of Claude when needed\n5. Format the generated plan within XML tags like `<implementation_plan as of timestamp>...</implementation_plan>`\n6. Append this plan to the implementation details section of the task/subtask\n7. Display a confirmation card indicating the implementation plan was successfully created\n\nThe implementation plan should be detailed and actionable, containing specific steps such as searching for files, creating new files, modifying existing files, etc. The goal is to frontload planning work into the task/subtask so execution can begin immediately.\n\nReference the existing 'update-subtask' command implementation as a starting point, as it uses a similar approach for appending content to tasks. Ensure proper error handling for cases where the specified ID doesn't exist or when API calls fail.",
+      "testStrategy": "Testing should verify:\n\n1. Command correctly identifies and retrieves content for both task and subtask IDs\n2. Implementation plans are properly generated and formatted with XML tags and timestamps\n3. Plans are correctly appended to the implementation details section without overwriting existing content\n4. The '--research' flag successfully switches the backend from Claude to Perplexity\n5. Appropriate error messages are displayed for invalid IDs or API failures\n6. Confirmation card is displayed after successful plan creation\n\nTest cases should include:\n- Running 'plan --id 123' on an existing task\n- Running 'plan --id 123.1' on an existing subtask\n- Running 'plan --id 123 --research' to test the Perplexity integration\n- Running 'plan --id 999' with a non-existent ID to verify error handling\n- Running the command on tasks with existing implementation plans to ensure proper appending\n\nManually review the quality of generated plans to ensure they provide actionable, step-by-step guidance that accurately reflects the task requirements."
     }
   ]
 }

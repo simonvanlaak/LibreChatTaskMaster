@@ -27,9 +27,9 @@ export function registerListTasksTool(server) {
       file: z.string().optional().describe("Path to the tasks file"),
       projectRoot: z
         .string()
-        // .optional()
+        .optional()
         .describe(
-          "Root directory of the project (default: current working directory)"
+          "Root directory of the project (default: automatically detected)"
         ),
     }),
     execute: async (args, { log }) => {
