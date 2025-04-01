@@ -3,7 +3,7 @@
  * Export all Task Master CLI tools for MCP server
  */
 
-import { registerListTasksTool } from "./list-tasks.js";
+import { registerListTasksTool } from "./get-tasks.js";
 import logger from "../logger.js";
 import { registerSetTaskStatusTool } from "./set-task-status.js";
 import { registerParsePRDTool } from "./parse-prd.js";
@@ -11,7 +11,7 @@ import { registerUpdateTool } from "./update.js";
 import { registerUpdateTaskTool } from "./update-task.js";
 import { registerUpdateSubtaskTool } from "./update-subtask.js";
 import { registerGenerateTool } from "./generate.js";
-import { registerShowTaskTool } from "./show-task.js";
+import { registerShowTaskTool } from "./get-task.js";
 import { registerNextTaskTool } from "./next-task.js";
 import { registerExpandTaskTool } from "./expand-task.js";
 import { registerAddTaskTool } from "./add-task.js";

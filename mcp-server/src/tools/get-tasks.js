@@ -1,6 +1,6 @@
 /**
- * tools/listTasks.js
- * Tool to list all tasks from Task Master
+ * tools/get-tasks.js
+ * Tool to get all tasks from Task Master
  */
 
 import { z } from "zod";
@@ -11,13 +11,13 @@ import {
 import { listTasksDirect } from "../core/task-master-core.js";
 
 /**
- * Register the listTasks tool with the MCP server
+ * Register the getTasks tool with the MCP server
  * @param {Object} server - FastMCP server instance
  */
 export function registerListTasksTool(server) {
   server.addTool({
-    name: "list-tasks",
-    description: "List all tasks from Task Master",
+    name: "get-tasks",
+    description: "Get all tasks from Task Master",
     parameters: z.object({
       status: z.string().optional().describe("Filter tasks by status"),
       withSubtasks: z
@@ -34,16 +34,16 @@ export function registerListTasksTool(server) {
     }),
     execute: async (args, { log }) => {
       try {
-        log.info(`Listing tasks with filters: ${JSON.stringify(args)}`);
+        log.info(`Getting tasks with filters: ${JSON.stringify(args)}`);
         
         // Call core function - args contains projectRoot which is handled internally
         const result = await listTasksDirect(args, log);
         
         // Log result and use handleApiResult utility
         log.info(`Retrieved ${result.success ? (result.data?.tasks?.length || 0) : 0} tasks`);
-        return handleApiResult(result, log, 'Error listing tasks');
+        return handleApiResult(result, log, 'Error getting tasks');
       } catch (error) {
-        log.error(`Error listing tasks: ${error.message}`);
+        log.error(`Error getting tasks: ${error.message}`);
         return createErrorResponse(error.message);
       }
     },

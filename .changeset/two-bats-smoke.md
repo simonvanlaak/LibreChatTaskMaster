@@ -4,6 +4,10 @@
 
 - Adjusts the MCP server invokation in the mcp.json we ship with `task-master init`. Fully functional now.
 
+- Rename MCP tools to better align with API conventions and natural language in client chat:
+  - Rename `list-tasks` to `get-tasks` for more intuitive client requests like "get my tasks"
+  - Rename `show-task` to `get-task` for consistency with GET-based API naming conventions
+
 - Implement robust project root detection with a hierarchical precedence system:
   - Environment variable override (TASK_MASTER_PROJECT_ROOT)
   - Explicitly provided project root (--project-root parameter)
@@ -31,7 +35,7 @@
 - Implement update-subtask MCP command for appending information to specific subtasks
 - Implement generate MCP command for creating individual task files from tasks.json
 - Implement set-status MCP command for updating task status
-- Implement show-task MCP command for displaying detailed task information
+- Implement get-task MCP command for displaying detailed task information (renamed from show-task)
 - Implement next-task MCP command for finding the next task to work on
 - Implement expand-task MCP command for breaking down tasks into subtasks
 - Implement add-task MCP command for creating new tasks using AI assistance
@@ -45,7 +49,9 @@
 - Implement fix-dependencies MCP command for automatically fixing invalid dependencies
 - Implement complexity-report MCP command for displaying task complexity analysis reports
 - Implement add-dependency MCP command for creating dependency relationships between tasks
+- Implement get-tasks MCP command for listing all tasks (renamed from list-tasks)
 - Document MCP server naming conventions in architecture.mdc and mcp.mdc files (file names use kebab-case, direct functions use camelCase with Direct suffix, tool registration functions use camelCase with Tool suffix, and MCP tool names use snake_case)
+- Update MCP tool naming to follow more intuitive conventions that better align with natural language requests in client chat applications
 - Enhance task show view with a color-coded progress bar for visualizing subtask completion percentage
 - Add "cancelled" status to UI module status configurations for marking tasks as cancelled without deletion
 - Improve MCP server resource documentation with comprehensive implementation examples and best practices
