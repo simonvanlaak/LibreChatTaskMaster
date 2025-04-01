@@ -55,6 +55,19 @@
 - Implement complexity-report MCP command for displaying task complexity analysis reports
 - Implement add-dependency MCP command for creating dependency relationships between tasks
 - Implement get-tasks MCP command for listing all tasks (renamed from list-tasks)
+
+- Enhance documentation and tool descriptions:
+  - Create new `taskmaster.mdc` Cursor rule for comprehensive MCP tool and CLI command reference
+  - Bundle taskmaster.mdc with npm package and include in project initialization
+  - Add detailed descriptions for each tool's purpose, parameters, and common use cases
+  - Include natural language patterns and keywords for better intent recognition
+  - Document parameter descriptions with clear examples and default values
+  - Add usage examples and context for each command/tool
+  - Improve clarity around project root auto-detection in tool documentation
+  - Update tool descriptions to better reflect their actual behavior and capabilities
+  - Add cross-references between related tools and commands
+  - Include troubleshooting guidance in tool descriptions
+
 - Document MCP server naming conventions in architecture.mdc and mcp.mdc files (file names use kebab-case, direct functions use camelCase with Direct suffix, tool registration functions use camelCase with Tool suffix, and MCP tool names use snake_case)
 - Update MCP tool naming to follow more intuitive conventions that better align with natural language requests in client chat applications
 - Enhance task show view with a color-coded progress bar for visualizing subtask completion percentage

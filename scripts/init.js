@@ -212,6 +212,9 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
     case 'dev_workflow.mdc':
       sourcePath = path.join(__dirname, '..', '.cursor', 'rules', 'dev_workflow.mdc');
       break;
+    case 'taskmaster.mdc':
+      sourcePath = path.join(__dirname, '..', '.cursor', 'rules', 'taskmaster.mdc');
+      break;
     case 'cursor_rules.mdc':
       sourcePath = path.join(__dirname, '..', '.cursor', 'rules', 'cursor_rules.mdc');
       break;
@@ -584,6 +587,9 @@ function createProjectStructure(projectName, projectDescription, projectVersion,
   
   // Copy dev_workflow.mdc
   copyTemplateFile('dev_workflow.mdc', path.join(targetDir, '.cursor', 'rules', 'dev_workflow.mdc'));
+
+  // Copy taskmaster.mdc
+  copyTemplateFile('taskmaster.mdc', path.join(targetDir, '.cursor', 'rules', 'taskmaster.mdc'));
   
   // Copy cursor_rules.mdc
   copyTemplateFile('cursor_rules.mdc', path.join(targetDir, '.cursor', 'rules', 'cursor_rules.mdc'));

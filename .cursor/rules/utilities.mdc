@@ -44,6 +44,12 @@ alwaysApply: false
   }
   ```
 
+- **Location**:
+    - **Core CLI Utilities**: Place utilities used primarily by the core `task-master` CLI logic and command modules (`scripts/modules/*`) into [`scripts/modules/utils.js`](mdc:scripts/modules/utils.js).
+    - **MCP Server Utilities**: Place utilities specifically designed to support the MCP server implementation into the appropriate subdirectories within `mcp-server/src/`. 
+        - Path/Core Logic Helpers: [`mcp-server/src/core/utils/`](mdc:mcp-server/src/core/utils/) (e.g., `path-utils.js`).
+        - Tool Execution/Response Helpers: [`mcp-server/src/tools/utils.js`](mdc:mcp-server/src/tools/utils.js).
+
 ## Documentation Standards
 
 - **JSDoc Format**:
@@ -73,7 +79,7 @@ alwaysApply: false
   }
   ```
 
-## Configuration Management
+## Configuration Management (in `scripts/modules/utils.js`)
 
 - **Environment Variables**:
   - ✅ DO: Provide default values for all configuration
@@ -84,19 +90,19 @@ alwaysApply: false
   ```javascript
   // ✅ DO: Set up configuration with defaults and environment overrides
   const CONFIG = {
-    model: process.env.MODEL || 'claude-3-7-sonnet-20250219',
+    model: process.env.MODEL || 'claude-3-opus-20240229', // Updated default model
     maxTokens: parseInt(process.env.MAX_TOKENS || '4000'),
     temperature: parseFloat(process.env.TEMPERATURE || '0.7'),
     debug: process.env.DEBUG === "true",
     logLevel: process.env.LOG_LEVEL || "info",
     defaultSubtasks: parseInt(process.env.DEFAULT_SUBTASKS || "3"),
     defaultPriority: process.env.DEFAULT_PRIORITY || "medium",
-    projectName: process.env.PROJECT_NAME || "Task Master",
-    projectVersion: "1.5.0" // Version should be hardcoded
+    projectName: process.env.PROJECT_NAME || "Task Master Project", // Generic project name
+    projectVersion: "1.5.0" // Version should be updated via release process
   };
   ```
 
-## Logging Utilities
+## Logging Utilities (in `scripts/modules/utils.js`)
 
 - **Log Levels**:
   - ✅ DO: Support multiple log levels (debug, info, warn, error)
@@ -129,18 +135,23 @@ alwaysApply: false
   }
   ```
 
-## File Operations
+## File Operations (in `scripts/modules/utils.js`)
 
 - **Error Handling**:
   - ✅ DO: Use try/catch blocks for all file operations
   - ✅ DO: Return null or a default value on failure
-  - ✅ DO: Log detailed error information
-  - ❌ DON'T: Allow exceptions to propagate unhandled
+  - ✅ DO: Log detailed error information using the `log` utility
+  - ❌ DON'T: Allow exceptions to propagate unhandled from simple file reads/writes
 
   ```javascript
-  // ✅ DO: Handle file operation errors properly
+  // ✅ DO: Handle file operation errors properly in core utils
   function writeJSON(filepath, data) {
     try {
+      // Ensure directory exists (example)
+      const dir = path.dirname(filepath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
       fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
     } catch (error) {
       log('error', `Error writing JSON file ${filepath}:`, error.message);
@@ -151,7 +162,7 @@ alwaysApply: false
   }
   ```
 
-## Task-Specific Utilities
+## Task-Specific Utilities (in `scripts/modules/utils.js`)
 
 - **Task ID Formatting**:
   - ✅ DO: Create utilities for consistent ID handling
@@ -224,7 +235,7 @@ alwaysApply: false
   }
   ```
 
-## Cycle Detection
+## Cycle Detection (in `scripts/modules/utils.js`)
 
 - **Graph Algorithms**:
   - ✅ DO: Implement cycle detection using graph traversal
@@ -273,101 +284,110 @@ alwaysApply: false
   }
   ```
 
-## MCP Server Utilities (`mcp-server/src/tools/utils.js`)
+## MCP Server Core Utilities (`mcp-server/src/core/utils/`)
 
-- **Purpose**: These utilities specifically support the MCP server tools, handling communication patterns and data formatting for MCP clients. Refer to [`mcp.mdc`](mdc:.cursor/rules/mcp.mdc) for usage patterns.
+### Project Root and Task File Path Detection (`path-utils.js`)
 
--(See also: [`tests.mdc`](mdc:.cursor/rules/tests.mdc) for testing these utilities)
+- **Purpose**: This module (`mcp-server/src/core/utils/path-utils.js`) provides the **primary mechanism for locating the user's project root and `tasks.json` file**, specifically for the MCP server context.
+- **`findTasksJsonPath(args, log)`**:
+    - ✅ **DO**: Call this function from within **direct function wrappers** (e.g., `listTasksDirect` in `mcp-server/src/core/direct-functions/`) to get the absolute path to the relevant `tasks.json`.
+    - Pass the *entire `args` object* received by the MCP tool and the `log` object.
+    - Implements a **hierarchical precedence system** for finding the project:
+        1.  `TASK_MASTER_PROJECT_ROOT` environment variable.
+        2.  Explicit `projectRoot` passed in `args`.
+        3.  Cached `lastFoundProjectRoot` from a previous successful search.
+        4.  Search upwards from `process.cwd()` for `tasks.json` or project markers (like `.git`, `package.json`).
+        5.  Fallback to checking the Taskmaster package directory (for development).
+    - Throws a specific error if the `tasks.json` file cannot be located.
+    - Updates the `lastFoundProjectRoot` cache on success.
+- **`PROJECT_MARKERS`**: An exported array of common file/directory names used to identify a likely project root during the search.
+- **`getPackagePath()`**: Utility to find the installation path of the `task-master-ai` package itself.
+
+## MCP Server Tool Utilities (`mcp-server/src/tools/utils.js`)
+
+- **Purpose**: These utilities specifically support the MCP server tools (`mcp-server/src/tools/*.js`), handling MCP communication patterns, response formatting, caching integration, and the CLI fallback mechanism.
+- **Refer to [`mcp.mdc`](mdc:.cursor/rules/mcp.mdc)** for detailed usage patterns within the MCP tool `execute` methods and direct function wrappers.
 
 - **`getProjectRoot(projectRootRaw, log)`**:
-  - Normalizes a potentially relative project root path into an absolute path.
-  - Defaults to `process.cwd()` if `projectRootRaw` is not provided.
-  - Can be used within `*Direct` functions if needed, although often the `projectRoot` argument is passed through.
+    - Primarily a helper for `executeTaskMasterCommand` or other specific cases where only the root is needed, *not* the full `tasks.json` path.
+    - Normalizes a potentially relative path and applies defaults.
+    - ❌ **DON'T**: Use this as the primary way to find `tasks.json`. Use `findTasksJsonPath` from `path-utils.js` for that purpose within direct functions.
 
 - **`handleApiResult(result, log, errorPrefix, processFunction)`**:
-  - ✅ **DO**: Call this from the MCP tool's `execute` method after receiving the result from the `*Direct` function wrapper.
-  - Takes the standard `{ success, data/error, fromCache }` object returned by direct function wrappers.
-  - Checks the `success` flag.
-  - If successful, processes the `result.data` using the provided `processFunction` (defaults to `processMCPResponseData` for filtering).
-  - Includes the `result.fromCache` flag in the final payload.
-  - Returns a formatted MCP response object using `createContentResponse` or `createErrorResponse`.
+    - ✅ **DO**: Call this from the MCP tool's `execute` method after receiving the result from the `*Direct` function wrapper.
+    - Takes the standard `{ success, data/error, fromCache }` object.
+    - Formats the standard MCP success or error response, including the `fromCache` flag.
+    - Uses `processMCPResponseData` by default to filter response data.
 
 - **`executeTaskMasterCommand(command, log, args, projectRootRaw)`**:
-  - Executes a Task Master command using `child_process.spawnSync`.
-  - Tries the global `task-master` command first, then falls back to `node scripts/dev.js`.
-  - Handles project root normalization internally.
-  - Returns `{ success, stdout, stderr }` or `{ success: false, error }`.
-  - ❌ **DON'T**: Use this as the primary method for MCP tools. Prefer direct function calls via `*Direct` wrappers. Use only as a fallback.
+    - Executes a Task Master CLI command as a child process.
+    - Handles fallback between global `task-master` and local `node scripts/dev.js`.
+    - ❌ **DON'T**: Use this as the primary method for MCP tools. Prefer direct function calls via `*Direct` wrappers.
 
-- **`processMCPResponseData(taskOrData, fieldsToRemove = ['details', 'testStrategy'])`**:
-  - Filters task data before sending it to the MCP client. Called by `handleApiResult` by default.
-  - By default, removes the `details` and `testStrategy` fields from task objects and their subtasks to reduce payload size.
-  - Can handle single task objects or data structures containing tasks.
+- **`processMCPResponseData(taskOrData, fieldsToRemove)`**:
+    - Filters task data (e.g., removing `details`, `testStrategy`) before sending to the MCP client. Called by `handleApiResult`.
 
-- **`createContentResponse(content)`**:
-  - Used by `handleApiResult` to format successful MCP responses.
-  - Wraps the `content` (which includes the `fromCache` flag and processed `data`) in the standard FastMCP `{ content: [{ type: "text", text: ... }] }` structure, stringifying the payload object.
-
-- **`createErrorResponse(errorMessage)`**:
-  - Used by `handleApiResult` or directly in the tool's `execute` catch block to format error responses for MCP.
-  - Wraps the `errorMessage` in the standard FastMCP error structure.
+- **`createContentResponse(content)` / `createErrorResponse(errorMessage)`**:
+    - Formatters for standard MCP success/error responses.
 
 - **`getCachedOrExecute({ cacheKey, actionFn, log })`**:
-  - ✅ **DO**: Use this utility *inside direct function wrappers* (like `listTasksDirect` in `task-master-core.js`) to implement caching for MCP operations.
-  - **Use Case**: Primarily for read-only operations (e.g., `list`, `show`, `next`). Avoid for operations modifying data.
-  - Checks the `ContextManager` cache using `cacheKey`.
-  - If HIT: returns the cached result directly (which should be `{ success, data/error }`), adding `fromCache: true`.
-  - If MISS: executes the provided `actionFn` (an async function returning `{ success, data/error }`).
-  - If `actionFn` succeeds, its result is stored in the cache.
-  - Returns the result (cached or fresh) wrapped in the standard structure `{ success, data/error, fromCache: boolean }`.
+    - ✅ **DO**: Use this utility *inside direct function wrappers* to implement caching.
+    - Checks cache, executes `actionFn` on miss, stores result.
+    - Returns standard `{ success, data/error, fromCache: boolean }`.
 
 ## Export Organization
 
 - **Grouping Related Functions**:
-  - ✅ DO: Keep utilities relevant to their location (e.g., core utils in `scripts/modules/utils.js`, MCP utils in `mcp-server/src/tools/utils.js`).
+  - ✅ DO: Keep utilities relevant to their location (e.g., core CLI utils in `scripts/modules/utils.js`, MCP path utils in `mcp-server/src/core/utils/path-utils.js`, MCP tool utils in `mcp-server/src/tools/utils.js`).
   - ✅ DO: Export all utility functions in a single statement per file.
   - ✅ DO: Group related exports together.
-  - ✅ DO: Export configuration constants.
+  - ✅ DO: Export configuration constants (from `scripts/modules/utils.js`).
   - ❌ DON'T: Use default exports.
-  - ❌ DON'T: Create circular dependencies between utility files or between utilities and the modules that use them (See [`architecture.mdc`](mdc:.cursor/rules/architecture.mdc)).
+  - ❌ DON'T: Create circular dependencies (See [`architecture.mdc`](mdc:.cursor/rules/architecture.mdc)).
 
-  ```javascript
-  // ✅ DO: Organize exports logically
-  export {
-    // Configuration
-    CONFIG,
-    LOG_LEVELS,
-    
-    // Logging
-    log,
-    
-    // File operations
-    readJSON,
-    writeJSON,
-    
-    // String manipulation
-    sanitizePrompt,
-    truncate,
-    
-    // Task utilities
-    readComplexityReport,
-    findTaskInComplexityReport,
-    taskExists,
-    formatTaskId,
-    findTaskById,
-    
-    // Graph algorithms
-    findCycles,
-  };
-  ```
+```javascript
+// Example export from scripts/modules/utils.js
+export {
+  // Configuration
+  CONFIG,
+  LOG_LEVELS,
+  
+  // Logging
+  log,
+  
+  // File operations
+  readJSON,
+  writeJSON,
+  
+  // String manipulation
+  sanitizePrompt,
+  truncate,
+  
+  // Task utilities
+  // ... (taskExists, formatTaskId, findTaskById, etc.)
+  
+  // Graph algorithms
+  findCycles,
+};
 
-Refer to [`utils.js`](mdc:scripts/modules/utils.js) for implementation examples and [`new_features.mdc`](mdc:.cursor/rules/new_features.mdc) for integration guidelines. Use [`commands.mdc`](mdc:.cursor/rules/commands.mdc) for CLI integration details.
+// Example export from mcp-server/src/core/utils/path-utils.js
+export {
+  findTasksJsonPath,
+  getPackagePath,
+  PROJECT_MARKERS,
+  lastFoundProjectRoot // Exporting for potential direct use/reset if needed
+};
 
-## MCP Server Utilities Structure
+// Example export from mcp-server/src/tools/utils.js
+export {
+  getProjectRoot,
+  handleApiResult,
+  executeTaskMasterCommand,
+  processMCPResponseData,
+  createContentResponse,
+  createErrorResponse,
+  getCachedOrExecute
+};
+```
 
-- **Core Utilities** (`mcp-server/src/core/utils/path-utils.js`):
-  - Contains path-related utilities like `findTasksJsonPath` that are used by direct function implementations.
-  - These are imported by direct function files in the `direct-functions/` directory.
-
-- **MCP Tool Utilities** (`mcp-server/src/tools/utils.js`):
-  - Contains utilities related to MCP response handling and caching. 
+Refer to [`mcp.mdc`](mdc:.cursor/rules/mcp.mdc) and [`architecture.mdc`](mdc:.cursor/rules/architecture.mdc) for more context on MCP server architecture and integration. 

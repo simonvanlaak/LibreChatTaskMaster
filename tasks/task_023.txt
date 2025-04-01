@@ -1201,7 +1201,7 @@ const debugMode = config.env.get('DEBUG_MODE', false); // With a default value
 This method provides a consistent way to access environment variables defined in the mcp.json configuration file within your FastMCP project in a JavaScript environment.
 </info added on 2025-04-01T01:57:49.848Z>
 
-## 46. adjust rules so it prioritizes mcp commands over script [pending]
+## 46. adjust rules so it prioritizes mcp commands over script [done]
 ### Dependencies: None
 ### Description: 
 ### Details:

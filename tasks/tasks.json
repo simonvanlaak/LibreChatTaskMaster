@@ -1777,7 +1777,7 @@
           "title": "adjust rules so it prioritizes mcp commands over script",
           "description": "",
           "details": "",
-          "status": "pending",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 23
         }

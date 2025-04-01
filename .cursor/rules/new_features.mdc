@@ -320,51 +320,60 @@ Integrating Task Master commands with the MCP server (for use by tools like Curs
 **MCP Integration Workflow**:
 
 1.  **Core Logic**: Ensure the command's core logic exists and is exported from the appropriate module (e.g., [`task-manager.js`](mdc:scripts/modules/task-manager.js)).
-2.  **Direct Function Wrapper (`task-master-core.js`)**:
-    - Create an `async function yourCommandDirect(args, log)` in [`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js).
-    - This function imports and calls the core logic function.
-    - It handles argument parsing, path resolution (e.g., using `findTasksJsonPath`), and validation specific to the direct call.
+2.  **Direct Function Wrapper (`mcp-server/src/core/direct-functions/`)**:
+    - Create a new file (e.g., `your-command.js`) in `mcp-server/src/core/direct-functions/` using **kebab-case** naming.
+    - Import the core logic function and necessary MCP utilities like **`findTasksJsonPath` from `../utils/path-utils.js`** and potentially `getCachedOrExecute` from `../../tools/utils.js`.
+    - Implement an `async function yourCommandDirect(args, log)` using **camelCase** with `Direct` suffix.
+    - **Path Finding**: Inside this function, obtain the `tasksPath` by calling `const tasksPath = findTasksJsonPath(args, log);`. Pass the *entire `args` object* received by the tool and the `log` object.
+    - Perform validation on other arguments received in `args`.
     - **Implement Caching (if applicable)**:
-        - **Use Case**: Apply caching primarily for read-only operations that benefit from repeated calls (e.g., `listTasks`, `showTask`, `nextTask`). Avoid caching for operations that modify state (`setTaskStatus`, `addTask`, `parsePRD`, `updateTask`, `addDependency`, etc.).
-        - **Implementation**: Inside the `yourCommandDirect` function, use the `getCachedOrExecute` utility (imported from `../tools/utils.js`).
+        - **Use Case**: Apply caching primarily for read-only operations that benefit from repeated calls (e.g., `get_tasks`, `get_task`, `next_task`). Avoid caching for operations that modify state (`set_task_status`, `add_task`, `parse_prd`, `update_task`, `add_dependency`, etc.).
+        - **Implementation**: Use the `getCachedOrExecute` utility (imported from `../../tools/utils.js`).
             - Generate a unique `cacheKey` based on relevant arguments (e.g., file path, filters).
             - Define an `async` function `coreActionFn` that wraps the actual call to the core logic and returns `{ success: true/false, data/error }`.
             - Call `await getCachedOrExecute({ cacheKey, actionFn: coreActionFn, log });`.
-    - The `yourCommandDirect` function must return a standard object: `{ success: true/false, data/error, fromCache: boolean }`. For non-cached operations, `fromCache` should be `false`.
-    - Export the function and add it to the `directFunctions` map in `task-master-core.js`.
-3.  **MCP Tool File (`mcp-server/src/tools/`)**:
-    - Create a new file (e.g., `yourCommand.js`).
+    - **If Not Caching**: Directly call the core logic function within a try/catch block.
+    - Handle errors and return a standard object: `{ success: true/false, data/error, fromCache: boolean }`. (For non-cached operations, `fromCache` is `false`).
+    - Export the function.
+3.  **Export from `task-master-core.js`**: Import your new `*Direct` function into [`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js), re-export it, and add it to the `directFunctions` map.
+4.  **MCP Tool File (`mcp-server/src/tools/`)**:
+    - Create a new file (e.g., `your-command.js`) using **kebab-case** naming.
     - Import `zod` (for schema), `handleApiResult`, `createErrorResponse` from `./utils.js`, and your `yourCommandDirect` function from `../core/task-master-core.js`.
-    - Implement `registerYourCommandTool(server)` which calls `server.addTool`.
-    - Define the tool's `name`, `description`, and `parameters` using `zod`.
-    - Define the `async execute(args, log)` method. **This is the standard pattern**:
+    - Implement `registerYourCommandTool(server)` using **camelCase** with `Tool` suffix, which calls `server.addTool`.
+    - Define the tool's `name` using **snake_case** (e.g., `your_command`), `description`, and `parameters` using `zod`. **Crucially, define `projectRoot` as optional**: `projectRoot: z.string().optional().describe(...)`. Include `file: z.string().optional().describe(...)` if applicable.
+    - Define the standard `async execute(args, log)` method:
       ```javascript
-      // In mcp-server/src/tools/yourCommand.js
+      // In mcp-server/src/tools/your-command.js
       import { z } from "zod";
       import { handleApiResult, createErrorResponse } from "./utils.js";
-      import { yourCommandDirect } from "../core/task-master-core.js";
+      import { yourCommandDirect } from "../core/task-master-core.js"; // Adjust path as needed
       
       export function registerYourCommandTool(server) {
         server.addTool({
-          name: "yourCommand",
+          name: "your_command", // snake_case
           description: "Description of your command.",
-          parameters: z.object({ /* zod schema, include projectRoot, file if needed */ }),
+          parameters: z.object({
+            /* zod schema */
+            projectRoot: z.string().optional().describe("Optional project root path"),
+            file: z.string().optional().describe("Optional tasks file path relative to project root"),
+            /* other parameters */
+          }),
           async execute(args, log) {
             try {
-              log.info(`Executing Your Command with args: ${JSON.stringify(args)}`);
+              log.info(`Executing your_command with args: ${JSON.stringify(args)}`);
               // 1. Call the direct function wrapper
               const result = await yourCommandDirect(args, log);
               
               // 2. Pass the result to handleApiResult for formatting
-              return handleApiResult(result, log, 'Error during Your Command');
+              return handleApiResult(result, log, 'Error executing your_command'); // Provide a default error message
             } catch (error) {
-              // Catch unexpected errors from the direct call itself
-              log.error(`Unexpected error in tool execute: ${error.message}`);
+              // Catch unexpected errors from the direct call or handleApiResult itself
+              log.error(`Unexpected error in your_command tool execute: ${error.message}`);
               return createErrorResponse(`Tool execution failed: ${error.message}`); 
             }
           }
         });
       }
       ```
-4.  **Register in Tool Index**: Import and call `registerYourCommandTool` in [`mcp-server/src/tools/index.js`](mdc:mcp-server/src/tools/index.js).
-5.  **Update `mcp.json`**: Add the tool definition to `.cursor/mcp.json`.
+5.  **Register in Tool Index**: Import and call `registerYourCommandTool` in [`mcp-server/src/tools/index.js`](mdc:mcp-server/src/tools/index.js).
+6.  **Update `mcp.json`**: Add the tool definition (name, description, parameters) to `.cursor/mcp.json`.
