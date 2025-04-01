@@ -2,6 +2,8 @@
 "task-master-ai": patch
 ---
 
+- Adjusts the MCP server invokation in the mcp.json we ship with `task-master init`. Fully functional now.
+
 - Implement robust project root detection with a hierarchical precedence system:
   - Environment variable override (TASK_MASTER_PROJECT_ROOT)
   - Explicitly provided project root (--project-root parameter)
