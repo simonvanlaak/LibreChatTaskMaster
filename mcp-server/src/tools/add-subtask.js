@@ -28,7 +28,7 @@ export function registerAddSubtaskTool(server) {
       dependencies: z.string().optional().describe("Comma-separated list of dependency IDs for the new subtask"),
       file: z.string().optional().describe("Path to the tasks file (default: tasks/tasks.json)"),
       skipGenerate: z.boolean().optional().describe("Skip regenerating task files"),
-      projectRoot: z.string().describe("Root directory of the project (default: current working directory)")
+      projectRoot: z.string().optional().describe("Root directory of the project (default: current working directory)")
     }),
     execute: async (args, { log }) => {
       try {

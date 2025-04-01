@@ -47,7 +47,7 @@ export async function addSubtaskDirect(args, log) {
     }
 
     // Find the tasks.json path
-    const tasksPath = findTasksJsonPath(args.file, args.projectRoot);
+    const tasksPath = findTasksJsonPath(args, log);
     
     // Parse dependencies if provided
     let dependencies = [];

@@ -24,7 +24,7 @@ export function registerExpandAllTool(server) {
       prompt: z.string().optional().describe("Additional context to guide subtask generation"),
       force: z.boolean().optional().describe("Force regeneration of subtasks for tasks that already have them"),
       file: z.string().optional().describe("Path to the tasks file (default: tasks/tasks.json)"),
-      projectRoot: z.string().describe("Root directory of the project (default: current working directory)")
+      projectRoot: z.string().optional().describe("Root directory of the project (default: current working directory)")
     }),
     execute: async (args, { log }) => {
       try {

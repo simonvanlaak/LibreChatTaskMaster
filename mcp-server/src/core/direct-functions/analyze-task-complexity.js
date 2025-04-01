@@ -24,7 +24,7 @@ export async function analyzeTaskComplexityDirect(args, log) {
     log.info(`Analyzing task complexity with args: ${JSON.stringify(args)}`);
     
     // Find the tasks.json path
-    const tasksPath = findTasksJsonPath(args.file, args.projectRoot);
+    const tasksPath = findTasksJsonPath(args, log);
     
     // Determine output path
     let outputPath = args.output || 'scripts/task-complexity-report.json';

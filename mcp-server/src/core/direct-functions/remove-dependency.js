@@ -41,7 +41,7 @@ export async function removeDependencyDirect(args, log) {
     }
     
     // Find the tasks.json path
-    const tasksPath = findTasksJsonPath(args.file, args.projectRoot);
+    const tasksPath = findTasksJsonPath(args, log);
     
     // Format IDs for the core function
     const taskId = args.id.includes && args.id.includes('.') ? args.id : parseInt(args.id, 10);

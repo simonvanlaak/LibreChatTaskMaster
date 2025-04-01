@@ -1780,15 +1780,6 @@
           "status": "pending",
           "dependencies": [],
           "parentTaskId": 23
-        },
-        {
-          "id": 47,
-          "title": "adjust rules so it prioritizes mcp commands over script",
-          "description": "",
-          "details": "",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 23
         }
       ]
     },

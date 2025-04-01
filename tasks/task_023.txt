@@ -1207,9 +1207,3 @@ This method provides a consistent way to access environment variables defined in
 ### Details:
 
 
-## 47. adjust rules so it prioritizes mcp commands over script [pending]
-### Dependencies: None
-### Description: 
-### Details:
-
-

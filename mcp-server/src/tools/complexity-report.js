@@ -20,7 +20,7 @@ export function registerComplexityReportTool(server) {
     description: "Display the complexity analysis report in a readable format",
     parameters: z.object({
       file: z.string().optional().describe("Path to the report file (default: scripts/task-complexity-report.json)"),
-      projectRoot: z.string().describe("Root directory of the project (default: current working directory)")
+      projectRoot: z.string().optional().describe("Root directory of the project (default: current working directory)")
     }),
     execute: async (args, { log }) => {
       try {

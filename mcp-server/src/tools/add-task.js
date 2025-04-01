@@ -23,7 +23,7 @@ export function registerAddTaskTool(server) {
       dependencies: z.string().optional().describe("Comma-separated list of task IDs this task depends on"),
       priority: z.string().optional().describe("Task priority (high, medium, low)"),
       file: z.string().optional().describe("Path to the tasks file"),
-      projectRoot: z.string().describe("Root directory of the project (default: current working directory)")
+      projectRoot: z.string().optional().describe("Root directory of the project (default: current working directory)")
     }),
     execute: async ({ prompt, dependencies, priority, file, projectRoot }, log) => {
       try {

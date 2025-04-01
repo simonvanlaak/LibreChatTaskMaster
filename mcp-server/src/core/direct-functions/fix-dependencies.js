@@ -18,8 +18,8 @@ export async function fixDependenciesDirect(args, log) {
   try {
     log.info(`Fixing invalid dependencies in tasks...`);
     
-    // Determine the tasks file path
-    const tasksPath = args.file || await findTasksJsonPath(args.projectRoot);
+    // Find the tasks.json path
+    const tasksPath = findTasksJsonPath(args, log);
     
     // Verify the file exists
     if (!fs.existsSync(tasksPath)) {

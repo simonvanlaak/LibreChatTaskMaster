@@ -20,8 +20,8 @@ import { findTasksJsonPath } from '../utils/path-utils.js';
  */
 export async function addTaskDirect(args, log) {
   try {
-    // Resolve the tasks file path
-    const tasksPath = findTasksJsonPath(args.file, args.projectRoot);
+    // Find the tasks.json path
+    const tasksPath = findTasksJsonPath(args, log);
     
     // Check required parameters
     if (!args.prompt) {

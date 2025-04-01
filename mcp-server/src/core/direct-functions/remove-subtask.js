@@ -42,7 +42,7 @@ export async function removeSubtaskDirect(args, log) {
     }
 
     // Find the tasks.json path
-    const tasksPath = findTasksJsonPath(args.file, args.projectRoot);
+    const tasksPath = findTasksJsonPath(args, log);
     
     // Convert convertToTask to a boolean
     const convertToTask = args.convert === true;

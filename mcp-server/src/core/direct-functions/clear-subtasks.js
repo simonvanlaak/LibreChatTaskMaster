@@ -32,7 +32,7 @@ export async function clearSubtasksDirect(args, log) {
     }
 
     // Find the tasks.json path
-    const tasksPath = findTasksJsonPath(args.file, args.projectRoot);
+    const tasksPath = findTasksJsonPath(args, log);
     
     // Check if tasks.json exists
     if (!fs.existsSync(tasksPath)) {

@@ -23,7 +23,7 @@ export function registerRemoveSubtaskTool(server) {
       convert: z.boolean().optional().describe("Convert the subtask to a standalone task instead of deleting it"),
       file: z.string().optional().describe("Path to the tasks file (default: tasks/tasks.json)"),
       skipGenerate: z.boolean().optional().describe("Skip regenerating task files"),
-      projectRoot: z.string().describe("Root directory of the project (default: current working directory)")
+      projectRoot: z.string().optional().describe("Root directory of the project (default: current working directory)")
     }),
     execute: async (args, { log }) => {
       try {

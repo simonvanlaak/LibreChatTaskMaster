@@ -22,7 +22,7 @@ export async function expandAllTasksDirect(args, log) {
     log.info(`Expanding all tasks with args: ${JSON.stringify(args)}`);
     
     // Find the tasks.json path
-    const tasksPath = findTasksJsonPath(args.file, args.projectRoot);
+    const tasksPath = findTasksJsonPath(args, log);
     
     // Parse parameters
     const numSubtasks = args.num ? parseInt(args.num, 10) : undefined;

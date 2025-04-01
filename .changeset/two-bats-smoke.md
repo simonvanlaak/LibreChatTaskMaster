@@ -16,6 +16,11 @@
   - Parent directory traversal to find tasks.json
   - Package directory as fallback
 
+- Updated all MCP tools to work without explicitly requiring project root:
+  - Changed all tool definitions from `projectRoot: z.string().describe(...)` to `projectRoot: z.string().optional().describe(...)`
+  - Updated all direct function implementations from `findTasksJsonPath(args.file, args.projectRoot)` to use the proper `findTasksJsonPath(args, log)` pattern
+  - These changes allow MCP tools to work properly without requiring the projectRoot parameter, using smart detection to automatically determine the project root
+
 - Add comprehensive PROJECT_MARKERS array for detecting common project files:
   - Task Master specific files (tasks.json, tasks/tasks.json)
   - Version control markers (.git, .svn)
