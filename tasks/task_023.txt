@@ -947,7 +947,7 @@ Implement the addResearch function in the MCP server's index.js file to enable r
 ### Details:
 Implement the addTemplates function in the MCP server's index.js file to enable template-based generation. Configure proper loading of templates from the appropriate directory and ensure they're accessible to all MCP tools that need to generate formatted content.
 
-## 38. Implement robust project root handling for file paths [in-progress]
+## 38. Implement robust project root handling for file paths [done]
 ### Dependencies: None
 ### Description: Create a consistent approach for handling project root paths across MCP tools
 ### Details:
@@ -1200,4 +1200,16 @@ const debugMode = config.env.get('DEBUG_MODE', false); // With a default value
 
 This method provides a consistent way to access environment variables defined in the mcp.json configuration file within your FastMCP project in a JavaScript environment.
 </info added on 2025-04-01T01:57:49.848Z>
+
+## 46. adjust rules so it prioritizes mcp commands over script [pending]
+### Dependencies: None
+### Description: 
+### Details:
+
+
+## 47. adjust rules so it prioritizes mcp commands over script [pending]
+### Dependencies: None
+### Description: 
+### Details:
+
 
