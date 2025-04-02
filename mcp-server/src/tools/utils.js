@@ -7,6 +7,7 @@ import { spawnSync } from "child_process";
 import path from "path";
 import { contextManager } from '../core/context-manager.js'; // Import the singleton
 import fs from 'fs';
+import { decodeURIComponent } from 'querystring'; // Added for URI decoding
 
 // Import path utilities to ensure consistent path resolution
 import { lastFoundProjectRoot, getPackagePath, PROJECT_MARKERS } from '../core/utils/path-utils.js';
@@ -65,6 +66,36 @@ export function getProjectRoot(projectRootRaw, log) {
   log.warn(`No task-master project detected in current directory. Using ${currentDir} as project root.`);
   log.warn('Consider using --project-root to specify the correct project location or set TASK_MASTER_PROJECT_ROOT environment variable.');
   return currentDir;
+}
+
+/**
+ * Extracts the project root path from the FastMCP session object.
+ * @param {Object} session - The FastMCP session object.
+ * @param {Object} log - Logger object.
+ * @returns {string|null} - The absolute path to the project root, or null if not found.
+ */
+export function getProjectRootFromSession(session, log) {
+  if (session && session.roots && session.roots.length > 0) {
+    const firstRoot = session.roots[0];
+    if (firstRoot && firstRoot.uri) {
+      try {
+        const rootUri = firstRoot.uri;
+        const rootPath = rootUri.startsWith('file://')
+          ? decodeURIComponent(rootUri.slice(7)) // Remove 'file://' and decode
+          : rootUri; // Assume it's a path if no scheme
+        log.info(`Extracted project root from session: ${rootPath}`);
+        return rootPath;
+      } catch (e) {
+        log.error(`Error decoding project root URI from session: ${firstRoot.uri}`, e);
+        return null;
+      }
+    } else {
+      log.info('Session exists, but first root or its URI is missing.');
+    }
+  } else {
+    log.info('No session or session roots found to extract project root.');
+  }
+  return null;
 }
 
 /**
@@ -317,3 +348,13 @@ export function createErrorResponse(errorMessage) {
     isError: true
   };
 }
+
+// Ensure all functions are exported
+export {
+  handleApiResult,
+  executeTaskMasterCommand,
+  getCachedOrExecute,
+  processMCPResponseData,
+  createContentResponse,
+  createErrorResponse
+};

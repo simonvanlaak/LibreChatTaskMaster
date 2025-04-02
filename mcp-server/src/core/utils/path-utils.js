@@ -13,7 +13,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import os from 'os';
 
-// Store last found project root to improve performance on subsequent calls
+// Store last found project root to improve performance on subsequent calls (primarily for CLI)
 export let lastFoundProjectRoot = null;
 
 // Project marker files that indicate a potential project root
@@ -59,6 +59,7 @@ export const PROJECT_MARKERS = [
 
 /**
  * Gets the path to the task-master package installation directory
+ * NOTE: This might become unnecessary if CLI fallback in MCP utils is removed.
  * @returns {string} - Absolute path to the package installation directory
  */
 export function getPackagePath() {
@@ -81,67 +82,45 @@ export function getPackagePath() {
  * @throws {Error} - If tasks.json cannot be found.
  */
 export function findTasksJsonPath(args, log) {
-  // PRECEDENCE ORDER:
-  // 1. Environment variable override
-  // 2. Explicitly provided projectRoot in args
-  // 3. Previously found/cached project root
-  // 4. Current directory and parent traversal
-  // 5. Package directory (for development scenarios)
+  // PRECEDENCE ORDER for finding tasks.json:
+  // 1. Explicitly provided `projectRoot` in args (Highest priority, expected in MCP context)
+  // 2. Previously found/cached `lastFoundProjectRoot` (primarily for CLI performance)
+  // 3. Search upwards from current working directory (`process.cwd()`) - CLI usage
   
-  // 1. Check for environment variable override
-  if (process.env.TASK_MASTER_PROJECT_ROOT) {
-    const envProjectRoot = process.env.TASK_MASTER_PROJECT_ROOT;
-    log.info(`Using project root from TASK_MASTER_PROJECT_ROOT environment variable: ${envProjectRoot}`);
-    return findTasksJsonInDirectory(envProjectRoot, args.file, log);
-  }
-  
-  // 2. If project root is explicitly provided, use it directly
+  // 1. If project root is explicitly provided (e.g., from MCP session), use it directly
   if (args.projectRoot) {
     const projectRoot = args.projectRoot;
     log.info(`Using explicitly provided project root: ${projectRoot}`);
-    return findTasksJsonInDirectory(projectRoot, args.file, log);
+    // This will throw if tasks.json isn't found within this root
+    return findTasksJsonInDirectory(projectRoot, args.file, log); 
   }
   
-  // 3. If we have a last known project root that worked, try it first
+  // --- Fallback logic primarily for CLI or when projectRoot isn't passed --- 
+
+  // 2. If we have a last known project root that worked, try it first
   if (lastFoundProjectRoot) {
     log.info(`Trying last known project root: ${lastFoundProjectRoot}`);
     try {
-      const tasksPath = findTasksJsonInDirectory(lastFoundProjectRoot, args.file, log);
-      return tasksPath;
+      // Use the cached root
+      const tasksPath = findTasksJsonInDirectory(lastFoundProjectRoot, args.file, log); 
+      return tasksPath; // Return if found in cached root
     } catch (error) {
       log.info(`Task file not found in last known project root, continuing search.`);
-      // Continue with search if not found
+      // Continue with search if not found in cache
     }
   }
   
-  // 4. Start with current directory - this is likely the user's project directory
+  // 3. Start search from current directory (most common CLI scenario)
   const startDir = process.cwd();
   log.info(`Searching for tasks.json starting from current directory: ${startDir}`);
   
   // Try to find tasks.json by walking up the directory tree from cwd
   try {
-    return findTasksJsonWithParentSearch(startDir, args.file, log);
+    // This will throw if not found in the CWD tree
+    return findTasksJsonWithParentSearch(startDir, args.file, log); 
   } catch (error) {
-    // 5. If not found in cwd or parents, package might be installed via npm
-    // and the user could be in an unrelated directory
-    
-    // As a last resort, check if there's a tasks.json in the package directory itself
-    // (for development scenarios)
-    const packagePath = getPackagePath();
-    if (packagePath !== startDir) {
-      log.info(`Tasks file not found in current directory tree. Checking package directory: ${packagePath}`);
-      try {
-        return findTasksJsonInDirectory(packagePath, args.file, log);
-      } catch (packageError) {
-        // Fall through to throw the original error
-      }
-    }
-    
-    // If all attempts fail, throw the original error with guidance
-    error.message = `${error.message}\n\nPossible solutions:
-1. Run the command from your project directory containing tasks.json
-2. Use --project-root=/path/to/project to specify the project location
-3. Set TASK_MASTER_PROJECT_ROOT environment variable to your project path`;
+    // If all attempts fail, augment and throw the original error from CWD search
+    error.message = `${error.message}\n\nPossible solutions:\n1. Run the command from your project directory containing tasks.json\n2. Use --project-root=/path/to/project to specify the project location (if using CLI)\n3. Ensure the project root is correctly passed from the client (if using MCP)`;
     throw error;
   }
 }
@@ -243,6 +222,8 @@ function findTasksJsonWithParentSearch(startDir, explicitFilePath, log) {
   throw error;
 }
 
+// Note: findTasksWithNpmConsideration is not used by findTasksJsonPath and might be legacy or used elsewhere.
+// If confirmed unused, it could potentially be removed in a separate cleanup.
 function findTasksWithNpmConsideration(startDir, log) {
   // First try our recursive parent search from cwd
   try {
