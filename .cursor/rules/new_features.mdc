@@ -324,7 +324,7 @@ Integrating Task Master commands with the MCP server (for use by tools like Curs
     - Create a new file (e.g., `your-command.js`) in `mcp-server/src/core/direct-functions/` using **kebab-case** naming.
     - Import the core logic function and necessary MCP utilities like **`findTasksJsonPath` from `../utils/path-utils.js`** and potentially `getCachedOrExecute` from `../../tools/utils.js`.
     - Implement an `async function yourCommandDirect(args, log)` using **camelCase** with `Direct` suffix.
-    - **Path Finding**: Inside this function, obtain the `tasksPath` by calling `const tasksPath = findTasksJsonPath(args, log);`. Pass the *entire `args` object* received by the tool and the `log` object.
+    - **Path Finding**: Inside this function, obtain the `tasksPath` by calling `const tasksPath = findTasksJsonPath(args, log);`. This relies on `args.projectRoot` (derived from the session) being passed correctly.
     - Perform validation on other arguments received in `args`.
     - **Implement Caching (if applicable)**:
         - **Use Case**: Apply caching primarily for read-only operations that benefit from repeated calls (e.g., `get_tasks`, `get_task`, `next_task`). Avoid caching for operations that modify state (`set_task_status`, `add_task`, `parse_prd`, `update_task`, `add_dependency`, etc.).
@@ -338,14 +338,14 @@ Integrating Task Master commands with the MCP server (for use by tools like Curs
 3.  **Export from `task-master-core.js`**: Import your new `*Direct` function into [`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js), re-export it, and add it to the `directFunctions` map.
 4.  **MCP Tool File (`mcp-server/src/tools/`)**:
     - Create a new file (e.g., `your-command.js`) using **kebab-case** naming.
-    - Import `zod` (for schema), `handleApiResult`, `createErrorResponse` from `./utils.js`, and your `yourCommandDirect` function from `../core/task-master-core.js`.
+    - Import `zod` (for schema), `handleApiResult`, `createErrorResponse`, **`getProjectRootFromSession`** from `./utils.js`, and your `yourCommandDirect` function from `../core/task-master-core.js`.
     - Implement `registerYourCommandTool(server)` using **camelCase** with `Tool` suffix, which calls `server.addTool`.
     - Define the tool's `name` using **snake_case** (e.g., `your_command`), `description`, and `parameters` using `zod`. **Crucially, define `projectRoot` as optional**: `projectRoot: z.string().optional().describe(...)`. Include `file: z.string().optional().describe(...)` if applicable.
-    - Define the standard `async execute(args, log)` method:
+    - Define the standard `async execute(args, { log, reportProgress, session })` method:
       ```javascript
       // In mcp-server/src/tools/your-command.js
       import { z } from "zod";
-      import { handleApiResult, createErrorResponse } from "./utils.js";
+      import { handleApiResult, createErrorResponse, getProjectRootFromSession } from "./utils.js";
       import { yourCommandDirect } from "../core/task-master-core.js"; // Adjust path as needed
       
       export function registerYourCommandTool(server) {
@@ -358,14 +358,25 @@ Integrating Task Master commands with the MCP server (for use by tools like Curs
             file: z.string().optional().describe("Optional tasks file path relative to project root"),
             /* other parameters */
           }),
-          async execute(args, log) {
+          execute: async (args, { log, reportProgress, session }) => { // Destructure context
             try {
               log.info(`Executing your_command with args: ${JSON.stringify(args)}`);
-              // 1. Call the direct function wrapper
-              const result = await yourCommandDirect(args, log);
               
-              // 2. Pass the result to handleApiResult for formatting
-              return handleApiResult(result, log, 'Error executing your_command'); // Provide a default error message
+              // 1. Get project root from session (or args fallback)
+              let rootFolder = getProjectRootFromSession(session, log);
+              if (!rootFolder && args.projectRoot) {
+                 rootFolder = args.projectRoot;
+                 log.info(`Using project root from args as fallback: ${rootFolder}`);
+              }
+
+              // 2. Call the direct function wrapper, passing the resolved root
+              const result = await yourCommandDirect({
+                ...args, 
+                projectRoot: rootFolder // Pass the resolved root
+              }, log);
+              
+              // 3. Pass the result to handleApiResult for formatting
+              return handleApiResult(result, log, 'Error executing your_command'); // Provide default error
             } catch (error) {
               // Catch unexpected errors from the direct call or handleApiResult itself
               log.error(`Unexpected error in your_command tool execute: ${error.message}`);

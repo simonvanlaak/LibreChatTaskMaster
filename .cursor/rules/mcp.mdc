@@ -31,7 +31,7 @@ server.addTool({
     param2: z.number().optional().describe("Optional parameter description"),
     // IMPORTANT: For file operations, always include these optional parameters
     file: z.string().optional().describe("Path to the tasks file"),
-    projectRoot: z.string().optional().describe("Root directory of the project")
+    projectRoot: z.string().optional().describe("Root directory of the project (typically derived from session)")
   }),
 
   // The execute function is the core of the tool implementation
@@ -44,7 +44,7 @@ server.addTool({
 
 ### Execute Function Signature
 
-The `execute` function should follow this exact pattern:
+The `execute` function receives validated arguments and the FastMCP context:
 
 ```javascript
 execute: async (args, context) => {
@@ -52,419 +52,117 @@ execute: async (args, context) => {
 }
 ```
 
-- **args**: The first parameter contains all the validated parameters defined in the tool's schema
-  - You can destructure specific parameters: `const { param1, param2, file, projectRoot } = args;`
-  - Always pass the full `args` object to direct functions: `await yourDirectFunction(args, context.log);`
-
-- **context**: The second parameter is an object with specific properties provided by FastMCP
-  - Contains `{ log, reportProgress, session }` - **always destructure these from the context object**
+- **args**: The first parameter contains all the validated parameters defined in the tool's schema.
+- **context**: The second parameter is an object containing `{ log, reportProgress, session }` provided by FastMCP.
   - ✅ **DO**: `execute: async (args, { log, reportProgress, session }) => {}`
-  - ❌ **DON'T**: `execute: async (args, log) => {}`
+
+### Standard Tool Execution Pattern
+
+The `execute` method within each MCP tool (in `mcp-server/src/tools/*.js`) should follow this standard pattern:
+
+1.  **Log Entry**: Log the start of the tool execution with relevant arguments.
+2.  **Get Project Root**: Use the `getProjectRootFromSession(session, log)` utility (from [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js)) to extract the project root path from the client session. Fall back to `args.projectRoot` if the session doesn't provide a root.
+3.  **Call Direct Function**: Invoke the corresponding `*Direct` function wrapper (e.g., `listTasksDirect` from [`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js)), passing an updated `args` object that includes the resolved `projectRoot`, along with the `log` object: `await someDirectFunction({ ...args, projectRoot: resolvedRootFolder }, log);`
+4.  **Handle Result**: Receive the result object (`{ success, data/error, fromCache }`) from the `*Direct` function.
+5.  **Format Response**: Pass this result object to the `handleApiResult` utility (from [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js)) for standardized MCP response formatting and error handling.
+6.  **Return**: Return the formatted response object provided by `handleApiResult`.
+
+```javascript
+// Example execute method structure
+import { getProjectRootFromSession, handleApiResult, createErrorResponse } from './utils.js';
+import { someDirectFunction } from '../core/task-master-core.js';
+
+// ... inside server.addTool({...})
+execute: async (args, { log, reportProgress, session }) => {
+  try {
+    log.info(`Starting tool execution with args: ${JSON.stringify(args)}`);
+
+    // 1. Get Project Root
+    let rootFolder = getProjectRootFromSession(session, log);
+    if (!rootFolder && args.projectRoot) { // Fallback if needed
+      rootFolder = args.projectRoot;
+      log.info(`Using project root from args as fallback: ${rootFolder}`);
+    }
+
+    // 2. Call Direct Function (passing resolved root)
+    const result = await someDirectFunction({
+      ...args,
+      projectRoot: rootFolder // Ensure projectRoot is explicitly passed
+    }, log);
+
+    // 3. Handle and Format Response
+    return handleApiResult(result, log);
+
+  } catch (error) {
+    log.error(`Error during tool execution: ${error.message}`);
+    return createErrorResponse(error.message);
+  }
+}
+```
 
 ### Logging Convention
 
-The `log` object provides standardized logging methods:
+The `log` object (destructured from `context`) provides standardized logging methods. Use it within both the `execute` method and the `*Direct` functions.
 
 ```javascript
-// Proper logging usage within a tool's execute method
-execute: async (args, { log, reportProgress, session }) => {
-  try {
-    // Log the start of execution with key parameters (but sanitize sensitive data)
-    log.info(`Starting ${toolName} with parameters: ${JSON.stringify(args, null, 2)}`);
-    
-    // For debugging information
-    log.debug("Detailed operation information", { additionalContext: "value" });
-    
-    // For warnings that don't prevent execution
-    log.warn("Warning: potential issue detected", { details: "..." });
-    
-    // Call the direct function and handle the result
-    const result = await someDirectFunction(args, log);
-    
-    // Log successful completion
-    log.info(`Successfully completed ${toolName}`, { 
-      resultSummary: "brief summary without sensitive data" 
-    });
-    
-    return handleApiResult(result, log);
-  } catch (error) {
-    // Log errors with full context
-    log.error(`Error in ${toolName}: ${error.message}`, { 
-      errorDetails: error.stack 
-    });
-    
-    return createErrorResponse(error.message, "ERROR_CODE");
-  }
-}
+// Proper logging usage
+log.info(`Starting ${toolName} with parameters: ${JSON.stringify(sanitizedArgs)}`);
+log.debug("Detailed operation info", { data });
+log.warn("Potential issue detected");
+log.error(`Error occurred: ${error.message}`, { stack: error.stack });
 ```
 
 ### Progress Reporting Convention
 
-Use `reportProgress` for long-running operations to provide feedback to the client:
+Use `reportProgress` (destructured from `context`) for long-running operations. It expects an object `{ progress: number, total?: number }`.
 
 ```javascript
-execute: async (args, { log, reportProgress, session }) => {
-  // Initialize progress at the start
-  await reportProgress({ progress: 0, total: 100 });
-  
-  // For known progress stages, update with specific percentages
-  for (let i = 0; i < stages.length; i++) {
-    // Do some work...
-    
-    // Report intermediate progress
-    await reportProgress({ 
-      progress: Math.floor((i + 1) / stages.length * 100), 
-      total: 100 
-    });
-  }
-  
-  // For indeterminate progress (no known total)
-  await reportProgress({ progress: 1 }); // Just increment without total
-  
-  // When complete
-  await reportProgress({ progress: 100, total: 100 });
-  
-  // Return the result
-  return result;
-}
+await reportProgress({ progress: 0 }); // Start
+// ... work ...
+await reportProgress({ progress: 50 }); // Intermediate (total optional)
+// ... more work ...
+await reportProgress({ progress: 100 }); // Complete
 ```
-
-FYI reportProgress object is not arbitrary. It must be { progress: number, total: number }.
 
 ### Session Usage Convention
 
-The `session` object contains authenticated session data and can be used for:
+The `session` object (destructured from `context`) contains authenticated session data and client information.
 
-1. **Authentication information**: Access user-specific data that was set during authentication
-2. **Environment variables**: Access environment variables without direct process.env references (if implemented)
-3. **User context**: Check user permissions or preferences
+- **Authentication**: Access user-specific data (`session.userId`, etc.) if authentication is implemented.
+- **Project Root**: The primary use in Task Master is accessing `session.roots` to determine the client's project root directory via the `getProjectRootFromSession` utility (from [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js)). See the Standard Tool Execution Pattern above.
+- **Capabilities**: Can be used to check client capabilities (`session.clientCapabilities`).
 
-```javascript
-execute: async (args, { log, reportProgress, session }) => {
-  // Check if session exists (user is authenticated)
-  if (!session) {
-    log.warn("No session data available, operating in anonymous mode");
-  } else {
-    // Access authenticated user information
-    log.info(`Operation requested by user: ${session.userId}`);
-    
-    // Access environment variables or configuration via session
-    const apiKey = session.env?.API_KEY;
-    
-    // Check user-specific permissions
-    if (session.permissions?.canUpdateTasks) {
-      // Perform privileged operation
-    }
-  }
-  
-  // Continue with implementation...
-}
-```
+## Direct Function Wrappers (`*Direct`)
 
-### Accessing Project Roots through Session
+These functions, located in `mcp-server/src/core/direct-functions/`, form the core logic execution layer for MCP tools.
 
-The `session` object in FastMCP provides access to filesystem roots via the `session.roots` array, which can be used to get the client's project root directory. This can help bypass some of the path resolution logic in `path-utils.js` when the client explicitly provides its project root.
-
-#### What are Session Roots?
-
-- The `roots` array contains filesystem root objects provided by the FastMCP client (e.g., Cursor).
-- Each root object typically represents a mounted filesystem or workspace that the client (IDE) has access to.
-- For tools like Cursor, the first root is usually the current project or workspace root.
-
-#### Roots Structure
-
-Based on the FastMCP core implementation, the roots structure looks like:
-
-```javascript
-// Root type from FastMCP
-type Root = {
-  uri: string;       // URI of the root, e.g., "file:///Users/username/project"
-  name: string;      // Display name of the root
-  capabilities?: {   // Optional capabilities this root supports
-    // Root-specific capabilities
-  }
-};
-```
-
-#### Accessing Project Root from Session
-
-To properly access and use the project root from the session:
-
-```javascript
-execute: async (args, { log, reportProgress, session }) => {
-  try {
-    // Try to get the project root from session
-    let rootFolder = null;
-    
-    if (session && session.roots && session.roots.length > 0) {
-      // The first root is typically the main project workspace in clients like Cursor
-      const firstRoot = session.roots[0];
-      
-      if (firstRoot && firstRoot.uri) {
-        // Convert the URI to a file path (strip the file:// prefix if present)
-        const rootUri = firstRoot.uri;
-        rootFolder = rootUri.startsWith('file://') 
-          ? decodeURIComponent(rootUri.slice(7)) // Remove 'file://' and decode URI components
-          : rootUri;
-          
-        log.info(`Using project root from session: ${rootFolder}`);
-      }
-    }
-    
-    // Use rootFolder if available, otherwise let path-utils.js handle the detection
-    const result = await yourDirectFunction({
-      projectRoot: rootFolder, 
-      ...args
-    }, log);
-    
-    return handleApiResult(result, log);
-  } catch (error) {
-    log.error(`Error in tool: ${error.message}`);
-    return createErrorResponse(error.message);
-  }
-}
-```
-
-#### Integration with path-utils.js
-
-The `rootFolder` extracted from the session should be passed to the direct function as the `projectRoot` parameter. This integrates with `findTasksJsonPath` in `path-utils.js`, which uses a precedence order for finding the project root:
-
-1. **TASK_MASTER_PROJECT_ROOT** environment variable
-2. **Explicitly provided `projectRoot`** (from session.roots or args)
-3. Previously found/cached project root
-4. Search from current directory upwards
-5. Package directory fallback
-
-By providing the rootFolder from session.roots as the projectRoot parameter, we're using the second option in this hierarchy, allowing the client to explicitly tell us where the project is located rather than having to search for it.
-
-#### Example Implementation
-
-Here's a complete example for a tool that properly uses session roots:
-
-```javascript
-execute: async (args, { log, reportProgress, session }) => {
-  try {
-    log.info(`Starting tool with args: ${JSON.stringify(args)}`);
-    
-    // Extract project root from session if available
-    let rootFolder = null;
-    if (session && session.roots && session.roots.length > 0) {
-      const firstRoot = session.roots[0];
-      if (firstRoot && firstRoot.uri) {
-        rootFolder = firstRoot.uri.startsWith('file://') 
-          ? decodeURIComponent(firstRoot.uri.slice(7))
-          : firstRoot.uri;
-        log.info(`Using project root from session: ${rootFolder}`);
-      }
-    }
-    
-    // If we couldn't get a root from session but args has projectRoot, use that
-    if (!rootFolder && args.projectRoot) {
-      rootFolder = args.projectRoot;
-      log.info(`Using project root from args: ${rootFolder}`);
-    }
-    
-    // Call the direct function with the rootFolder
-    const result = await someDirectFunction({
-      projectRoot: rootFolder, 
-      ...args
-    }, log);
-    
-    log.info(`Completed tool successfully`);
-    return handleApiResult(result, log);
-  } catch (error) {
-    log.error(`Error in tool: ${error.message}`);
-    return createErrorResponse(error.message);
-  }
-}
-```
+- **Purpose**: Bridge MCP tools and core Task Master modules (`scripts/modules/*`).
+- **Responsibilities**:
+  - Receive `args` (including the `projectRoot` determined by the tool) and `log` object.
+  - **Find `tasks.json`**: Use `findTasksJsonPath(args, log)` from [`core/utils/path-utils.js`](mdc:mcp-server/src/core/utils/path-utils.js). This function prioritizes the provided `args.projectRoot`.
+  - Validate arguments specific to the core logic.
+  - **Implement Caching**: Use `getCachedOrExecute` from [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js) for read operations.
+  - Call the underlying function from the core Task Master modules.
+  - Handle errors gracefully.
+  - Return a standardized result object: `{ success: boolean, data?: any, error?: { code: string, message: string }, fromCache: boolean }`.
 
 ## Key Principles
 
-- **Prefer Direct Function Calls**: For optimal performance and error handling, MCP tools should utilize direct function wrappers (exported via [`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js), implemented in [`mcp-server/src/core/direct-functions/`](mdc:mcp-server/src/core/direct-functions/)). These wrappers call the underlying logic from the core modules (e.g., [`task-manager.js`](mdc:scripts/modules/task-manager.js)).
-- **Standard Tool Execution Pattern**:
-    - The `execute` method within each MCP tool (in `mcp-server/src/tools/*.js`) should:
-        1.  Call the corresponding `*Direct` function wrapper (e.g., `listTasksDirect`), passing the *entire* `args` object received from the tool invocation and the `log` object.
-        2.  Receive the result object (typically `{ success, data/error, fromCache }`) from the `*Direct` function.
-        3.  Pass this result object to the `handleApiResult` utility (from [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js)) for standardized response formatting and error handling.
-        4.  Return the formatted response object provided by `handleApiResult`.
-- **CLI Execution as Fallback**: The `executeTaskMasterCommand` utility in [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js) allows executing commands via the CLI (`task-master ...`). This should **only** be used as a fallback if a direct function wrapper is not yet implemented or if a specific command intrinsically requires CLI execution.
-- **Robust Project Root Handling**:
-    - **Tool Definition**: Any MCP tool that needs to locate the project's `tasks.json` *must* define the `projectRoot` parameter in its `zod` schema as **optional**: `projectRoot: z.string().optional().describe(...)`. This allows clients to optionally specify a root, but doesn't require it.
-    - **Path Resolution Utility**: The `findTasksJsonPath` utility (in [`core/utils/path-utils.js`](mdc:mcp-server/src/core/utils/path-utils.js)) handles the actual detection of the project root and `tasks.json` path using a hierarchical approach (env var, explicit arg, cache, cwd search, package fallback).
-    - **Direct Function Usage**: The `*Direct` function wrapper (in `mcp-server/src/core/direct-functions/`) is responsible for getting the correct path by calling `const tasksPath = findTasksJsonPath(args, log);`. It passes the *entire `args` object* received by the tool (which may or may not contain `projectRoot` or `file` properties) and the `log` object. `findTasksJsonPath` will use the values within `args` according to its precedence rules.
-- **Centralized Utilities** (See also: [`utilities.mdc`](mdc:.cursor/rules/utilities.mdc)):
-    - **Leverage MCP Utilities**: The file [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js) contains essential helpers for MCP tool implementation:
-        - `handleApiResult`: Takes the raw result from a `*Direct` function and formats it into a standard MCP success or error response, automatically handling data processing via `processMCPResponseData`. This is called by the tool's `execute` method.
-        - `createContentResponse`/`createErrorResponse`: Used by `handleApiResult` to format successful/error MCP responses.
-        - `processMCPResponseData`: Filters/cleans data (e.g., removing `details`, `testStrategy`) before it's sent in the MCP response. Called by `handleApiResult`.
-        - `getCachedOrExecute`: **Used inside `*Direct` functions** to implement caching logic.
-        - `executeTaskMasterCommand`: Fallback for executing CLI commands.
-- **Caching**: To improve performance for frequently called read operations (like `get_tasks`, `get_task`, `next_task`), a caching layer using `lru-cache` is implemented.
-    - **Caching logic resides *within* the direct function wrappers** using the `getCachedOrExecute` utility from [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js).
-    - Generate unique cache keys based on function arguments that define a distinct call (e.g., file path, filters).
-    - The `getCachedOrExecute` utility handles checking the cache, executing the core logic function on a cache miss, storing the result, and returning the data along with a `fromCache` flag.
-    - Cache statistics can be monitored using the `cache_stats` MCP tool.
-    - **Caching should generally be applied to read-only operations** that don't modify the `tasks.json` state. Commands like `set_task_status`, `add_task`, `update_task`, `parse_prd`, `add_dependency` should *not* be cached as they change the underlying data.
+- **Prefer Direct Function Calls**: MCP tools should always call `*Direct` wrappers instead of `executeTaskMasterCommand`.
+- **Standardized Execution Flow**: Follow the pattern: MCP Tool -> `getProjectRootFromSession` -> `*Direct` Function -> Core Logic.
+- **Path Resolution via Direct Functions**: The `*Direct` function is responsible for finding the exact `tasks.json` path using `findTasksJsonPath`, relying on the `projectRoot` passed in `args`.
+- **Centralized Utilities**: Use helpers from `mcp-server/src/tools/utils.js` (like `handleApiResult`, `getProjectRootFromSession`, `getCachedOrExecute`) and `mcp-server/src/core/utils/path-utils.js` (`findTasksJsonPath`). See [`utilities.mdc`](mdc:.cursor/rules/utilities.mdc).
+- **Caching in Direct Functions**: Caching logic resides *within* the `*Direct` functions using `getCachedOrExecute`.
 
 ## Resources and Resource Templates
 
-Resources and resource templates are an important part of the FastMCP architecture that allow for exposing data to LLM clients without needing to execute tools.
+Resources provide LLMs with static or dynamic data without executing tools.
 
-### Resource Implementation
+- **Implementation**: Use `@mcp.resource()` decorator pattern or `server.addResource`/`server.addResourceTemplate` in `mcp-server/src/core/resources/`.
+- **Registration**: Register resources during server initialization in [`mcp-server/src/index.js`](mdc:mcp-server/src/index.js).
+- **Best Practices**: Organize resources, validate parameters, use consistent URIs, handle errors. See [`fastmcp-core.txt`](docs/fastmcp-core.txt) for underlying SDK details.
 
-- **Purpose**: Resources provide LLMs with static or dynamic data that can be referenced directly without executing a tool.
-- **Current Implementation**: In [`mcp-server/src/index.js`](mdc:mcp-server/src/index.js), resources are currently initialized as empty objects:
-  ```javascript
-  this.server.addResource({});
-  this.server.addResourceTemplate({});
-  ```
-
-- **Proper Implementation**: Resources should be implemented using the `@mcp.resource()` decorator pattern in a dedicated directory (e.g., `mcp-server/src/core/resources/`).
-
-- **Resource Types for Task Master**:
-  - **Task Templates**: Predefined task structures that can be used as starting points
-  - **Workflow Definitions**: Reusable workflow patterns for common task sequences
-  - **Project Metadata**: Information about active projects and their attributes
-  - **User Preferences**: Stored user settings for task management
-
-- **Resource Implementation Example**:
-  ```javascript
-  // mcp-server/src/core/resources/task-templates.js
-  import { taskTemplates } from '../data/templates.js';
-
-  export function registerTaskTemplateResources(server) {
-    server.addResource({
-      name: "tasks://templates/{templateId}",
-      description: "Access predefined task templates",
-      parameters: {
-        templateId: {
-          type: "string",
-          description: "ID of the task template"
-        }
-      },
-      execute: async ({ templateId }) => {
-        const template = taskTemplates[templateId];
-        if (!template) {
-          return { 
-            status: 404,
-            content: { error: `Template ${templateId} not found` }
-          };
-        }
-        return {
-          status: 200,
-          content: template
-        };
-      }
-    });
-
-    // Register all templates as a collection resource
-    server.addResource({
-      name: "tasks://templates",
-      description: "List all available task templates",
-      execute: async () => {
-        return {
-          status: 200,
-          content: Object.keys(taskTemplates).map(id => ({
-            id,
-            name: taskTemplates[id].name,
-            description: taskTemplates[id].description
-          }))
-        };
-      }
-    });
-  }
-  ```
-
-### Resource Templates Implementation
-
-- **Purpose**: Resource templates allow for dynamic generation of resources based on patterns.
-- **Implementation Example**:
-  ```javascript
-  // mcp-server/src/core/resources/task-templates.js
-  export function registerTaskTemplateResourceTemplates(server) {
-    server.addResourceTemplate({
-      pattern: "tasks://create/{taskType}",
-      description: "Generate a task creation template based on task type",
-      parameters: {
-        taskType: {
-          type: "string",
-          description: "Type of task to create (e.g., 'feature', 'bug', 'docs')"
-        }
-      },
-      execute: async ({ taskType }) => {
-        // Generate a dynamic template based on taskType
-        const template = generateTemplateForTaskType(taskType);
-        
-        if (!template) {
-          return { 
-            status: 404,
-            content: { error: `No template available for task type: ${taskType}` }
-          };
-        }
-        
-        return {
-          status: 200,
-          content: template
-        };
-      }
-    });
-  }
-  ```
-
-### Resource Registration in Server Initialization
-
-Resources and resource templates should be registered during server initialization:
-
-```javascript
-// mcp-server/src/index.js
-import { registerTaskTemplateResources, registerTaskTemplateResourceTemplates } from './core/resources/task-templates.js';
-import { registerWorkflowResources } from './core/resources/workflow-definitions.js';
-import { registerProjectMetadataResources } from './core/resources/project-metadata.js';
-
-class TaskMasterMCPServer {
-  constructor() {
-    // ... existing constructor code ...
-    
-    this.server = new FastMCP(this.options);
-    this.initialized = false;
-    
-    // Resource registration will be done in init()
-    
-    // ... rest of constructor ...
-  }
-  
-  async init() {
-    if (this.initialized) return;
-    
-    // Register resources before tools
-    registerTaskTemplateResources(this.server);
-    registerTaskTemplateResourceTemplates(this.server);
-    registerWorkflowResources(this.server);
-    registerProjectMetadataResources(this.server);
-    
-    // Register Task Master tools
-    registerTaskMasterTools(this.server);
-    
-    this.initialized = true;
-    return this;
-  }
-  
-  // ... rest of class ...
-}
-```
-
-### Best Practices for Resources
-
-1. **Organization**: Create a dedicated `resources` directory with separate modules for each resource category.
-2. **Validation**: Validate input parameters and return appropriate error responses.
-3. **Caching**: Consider caching resource responses if they are expensive to generate.
-4. **Documentation**: Include clear descriptions for all resources and their parameters.
-5. **URI Structure**: Use consistent URI patterns (`resource-type://path/to/resource`) for all resources.
-6. **Error Handling**: Return standard HTTP-like status codes (200, 404, etc.) for resource responses.
-7. **Resource Registration**: Register resources before tools during server initialization.
-
-Resources enable LLMs to access contextual information without needing to execute tools, which can significantly improve performance and user experience. Properly implemented resources complement tools to create a comprehensive MCP server.
+*(Self-correction: Removed detailed Resource implementation examples as they were less relevant to the current user focus on tool execution flow and project roots. Kept the overview.)*
 
 ## Implementing MCP Support for a Command
 
@@ -472,14 +170,13 @@ Follow these steps to add MCP support for an existing Task Master command (see [
 
 1.  **Ensure Core Logic Exists**: Verify the core functionality is implemented and exported from the relevant module in `scripts/modules/`.
 
-2.  **Create Direct Function File in `mcp-server/src/core/direct-functions/`:
-    - Create a new file (e.g., `your-command.js`) in the `direct-functions` directory using **kebab-case** for file naming.
-    - Import necessary core functions from Task Master modules.
-    - Import utilities: **`findTasksJsonPath` from `../utils/path-utils.js`** and `getCachedOrExecute` from `../../tools/utils.js` if needed.
+2.  **Create Direct Function File in `mcp-server/src/core/direct-functions/`**:
+    - Create a new file (e.g., `your-command.js`) using **kebab-case** naming.
+    - Import necessary core functions and **`findTasksJsonPath` from `../utils/path-utils.js`**.
     - Implement `async function yourCommandDirect(args, log)` using **camelCase** with `Direct` suffix:
-        - **Path Resolution**: Obtain the tasks file path using `const tasksPath = findTasksJsonPath(args, log);`. This handles project root detection automatically.
+        - **Path Resolution**: Obtain the tasks file path using `const tasksPath = findTasksJsonPath(args, log);`. This handles project root detection automatically based on `args.projectRoot`.
         - Parse other `args` and perform necessary validation.
-        - **If Caching**: Implement caching using `getCachedOrExecute` as described above.
+        - **If Caching**: Implement caching using `getCachedOrExecute` from `../../tools/utils.js`.
         - **If Not Caching**: Directly call the core logic function within a try/catch block.
         - Format the return as `{ success: true/false, data/error, fromCache: boolean }`.
     - Export the wrapper function.
@@ -488,11 +185,14 @@ Follow these steps to add MCP support for an existing Task Master command (see [
 
 4.  **Create MCP Tool (`mcp-server/src/tools/`)**:
     - Create a new file (e.g., `your-command.js`) using **kebab-case**.
-    - Import `zod`, `handleApiResult`, `createErrorResponse`, and your `yourCommandDirect` function.
+    - Import `zod`, `handleApiResult`, `createErrorResponse`, **`getProjectRootFromSession`**, and your `yourCommandDirect` function.
     - Implement `registerYourCommandTool(server)`.
     - Define the tool `name` using **snake_case** (e.g., `your_command`).
-    - Define the `parameters` using `zod`. **Crucially, if the tool needs project context, include `projectRoot: z.string().optional().describe(...)` and potentially `file: z.string().optional().describe(...)`**. Make `projectRoot` optional.
-    - Implement the standard `async execute(args, { log, reportProgress, session })` method: call `yourCommandDirect(args, log)` and pass the result to `handleApiResult(result, log, 'Error Message')`.
+    - Define the `parameters` using `zod`. **Crucially, define `projectRoot` as optional**: `projectRoot: z.string().optional().describe(...)`. Include `file` if applicable.
+    - Implement the standard `async execute(args, { log, reportProgress, session })` method:
+      - Get `rootFolder` using `getProjectRootFromSession` (with fallback to `args.projectRoot`).
+      - Call `yourCommandDirect({ ...args, projectRoot: rootFolder }, log)`. 
+      - Pass the result to `handleApiResult(result, log, 'Error Message')`.
 
 5.  **Register Tool**: Import and call `registerYourCommandTool` in `mcp-server/src/tools/index.js`.
 

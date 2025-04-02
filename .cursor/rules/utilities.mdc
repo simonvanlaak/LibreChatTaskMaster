@@ -46,7 +46,7 @@ alwaysApply: false
 
 - **Location**:
     - **Core CLI Utilities**: Place utilities used primarily by the core `task-master` CLI logic and command modules (`scripts/modules/*`) into [`scripts/modules/utils.js`](mdc:scripts/modules/utils.js).
-    - **MCP Server Utilities**: Place utilities specifically designed to support the MCP server implementation into the appropriate subdirectories within `mcp-server/src/`. 
+    - **MCP Server Utilities**: Place utilities specifically designed to support the MCP server implementation into the appropriate subdirectories within `mcp-server/src/`.
         - Path/Core Logic Helpers: [`mcp-server/src/core/utils/`](mdc:mcp-server/src/core/utils/) (e.g., `path-utils.js`).
         - Tool Execution/Response Helpers: [`mcp-server/src/tools/utils.js`](mdc:mcp-server/src/tools/utils.js).
 
@@ -288,30 +288,29 @@ alwaysApply: false
 
 ### Project Root and Task File Path Detection (`path-utils.js`)
 
-- **Purpose**: This module (`mcp-server/src/core/utils/path-utils.js`) provides the **primary mechanism for locating the user's project root and `tasks.json` file**, specifically for the MCP server context.
+- **Purpose**: This module ([`mcp-server/src/core/utils/path-utils.js`](mdc:mcp-server/src/core/utils/path-utils.js)) provides the mechanism for locating the user's `tasks.json` file, used by direct functions.
 - **`findTasksJsonPath(args, log)`**:
     - ✅ **DO**: Call this function from within **direct function wrappers** (e.g., `listTasksDirect` in `mcp-server/src/core/direct-functions/`) to get the absolute path to the relevant `tasks.json`.
-    - Pass the *entire `args` object* received by the MCP tool and the `log` object.
-    - Implements a **hierarchical precedence system** for finding the project:
-        1.  `TASK_MASTER_PROJECT_ROOT` environment variable.
-        2.  Explicit `projectRoot` passed in `args`.
-        3.  Cached `lastFoundProjectRoot` from a previous successful search.
-        4.  Search upwards from `process.cwd()` for `tasks.json` or project markers (like `.git`, `package.json`).
-        5.  Fallback to checking the Taskmaster package directory (for development).
+    - Pass the *entire `args` object* received by the MCP tool (which should include `projectRoot` derived from the session) and the `log` object.
+    - Implements a **simplified precedence system** for finding the `tasks.json` path:
+        1.  Explicit `projectRoot` passed in `args` (Expected from MCP tools).
+        2.  Cached `lastFoundProjectRoot` (CLI fallback).
+        3.  Search upwards from `process.cwd()` (CLI fallback).
     - Throws a specific error if the `tasks.json` file cannot be located.
     - Updates the `lastFoundProjectRoot` cache on success.
-- **`PROJECT_MARKERS`**: An exported array of common file/directory names used to identify a likely project root during the search.
-- **`getPackagePath()`**: Utility to find the installation path of the `task-master-ai` package itself.
+- **`PROJECT_MARKERS`**: An exported array of common file/directory names used to identify a likely project root during the CLI fallback search.
+- **`getPackagePath()`**: Utility to find the installation path of the `task-master-ai` package itself (potentially removable).
 
 ## MCP Server Tool Utilities (`mcp-server/src/tools/utils.js`)
 
-- **Purpose**: These utilities specifically support the MCP server tools (`mcp-server/src/tools/*.js`), handling MCP communication patterns, response formatting, caching integration, and the CLI fallback mechanism.
+- **Purpose**: These utilities specifically support the MCP server tools ([`mcp-server/src/tools/*.js`](mdc:mcp-server/src/tools/*.js)), handling MCP communication patterns, response formatting, caching integration, and the CLI fallback mechanism.
 - **Refer to [`mcp.mdc`](mdc:.cursor/rules/mcp.mdc)** for detailed usage patterns within the MCP tool `execute` methods and direct function wrappers.
 
-- **`getProjectRoot(projectRootRaw, log)`**:
-    - Primarily a helper for `executeTaskMasterCommand` or other specific cases where only the root is needed, *not* the full `tasks.json` path.
-    - Normalizes a potentially relative path and applies defaults.
-    - ❌ **DON'T**: Use this as the primary way to find `tasks.json`. Use `findTasksJsonPath` from `path-utils.js` for that purpose within direct functions.
+- **`getProjectRootFromSession(session, log)`**: 
+    - ✅ **DO**: Call this utility **within the MCP tool's `execute` method** to extract the project root path from the `session` object.
+    - Decodes the `file://` URI and handles potential errors.
+    - Returns the project path string or `null`.
+    - The returned path should then be passed in the `args` object when calling the corresponding `*Direct` function (e.g., `yourDirectFunction({ ...args, projectRoot: rootFolder }, log)`).
 
 - **`handleApiResult(result, log, errorPrefix, processFunction)`**:
     - ✅ **DO**: Call this from the MCP tool's `execute` method after receiving the result from the `*Direct` function wrapper.
@@ -381,6 +380,7 @@ export {
 // Example export from mcp-server/src/tools/utils.js
 export {
   getProjectRoot,
+  getProjectRootFromSession,
   handleApiResult,
   executeTaskMasterCommand,
   processMCPResponseData,
