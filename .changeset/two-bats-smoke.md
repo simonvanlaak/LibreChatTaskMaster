@@ -70,6 +70,7 @@
 - Implement complexity-report MCP command for displaying task complexity analysis reports.
 - Implement add-dependency MCP command for creating dependency relationships between tasks.
 - Implement get-tasks MCP command for listing all tasks (renamed from list-tasks).
+- Implement `initialize_project` MCP tool to allow project setup via MCP client and radically improve and simplify onboarding by adding to mcp.json (e.g., Cursor).
 
 - Enhance documentation and tool descriptions:
   - Create new `taskmaster.mdc` Cursor rule for comprehensive MCP tool and CLI command reference.
