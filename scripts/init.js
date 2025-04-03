@@ -710,7 +710,8 @@ function setupMCPConfiguration(targetDir, projectName) {
       "command": "npx",
       "args": [
         "-y",
-        "task-master-mcp-server"
+        "task-master-ai",
+        "task-master-mcp"
       ],
       "env": {
           "ANTHROPIC_API_KEY": "%ANTHROPIC_API_KEY%",

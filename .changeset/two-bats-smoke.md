@@ -3,7 +3,7 @@
 ---
 
 - Adjusts the MCP server invokation in the mcp.json we ship with `task-master init`. Fully functional now.
-
+- Rename the npx -y command. It's now `npx -y task-master-ai task-master-mcp`
 - Rename MCP tools to better align with API conventions and natural language in client chat:
   - Rename `list-tasks` to `get-tasks` for more intuitive client requests like "get my tasks"
   - Rename `show-task` to `get-task` for consistency with GET-based API naming conventions
