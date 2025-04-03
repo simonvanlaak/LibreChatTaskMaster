@@ -1,5 +1,9 @@
 # Task Master
 
+[![CI](https://github.com/eyaltoledano/claude-task-master/actions/workflows/ci.yml/badge.svg)](https://github.com/eyaltoledano/claude-task-master/actions/workflows/ci.yml)
+[![License: MIT with Commons Clause](https://img.shields.io/badge/license-MIT%20with%20Commons%20Clause-blue.svg)](LICENSE)
+[![npm version](https://badge.fury.io/js/task-master-ai.svg)](https://badge.fury.io/js/task-master-ai)
+
 ### by [@eyaltoledano](https://x.com/eyaltoledano)
 
 A task management system for AI-driven development with Claude, designed to work seamlessly with Cursor AI.
