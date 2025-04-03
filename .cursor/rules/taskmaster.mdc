@@ -153,11 +153,23 @@ This document provides a detailed reference for interacting with Taskmaster, cov
     *   `file`: `Path to your Taskmaster 'tasks.json' file (default relies on auto-detection).` (CLI: `-f, --file <file>`)
 *   **Usage:** Mark progress as tasks move through the development cycle.
 
+### 12. Remove Task (`remove_task`)
+
+*   **MCP Tool:** `remove_task`
+*   **CLI Command:** `task-master remove-task [options]`
+*   **Description:** `Permanently remove a task or subtask from the Taskmaster tasks list.`
+*   **Key Parameters/Options:**
+    *   `id`: `Required. The ID of the Taskmaster task (e.g., '5') or subtask (e.g., '5.2') to permanently remove.` (CLI: `-i, --id <id>`)
+    *   `yes`: `Skip the confirmation prompt and immediately delete the task.` (CLI: `-y, --yes`)
+    *   `file`: `Path to your Taskmaster 'tasks.json' file (default relies on auto-detection).` (CLI: `-f, --file <file>`)
+*   **Usage:** Permanently delete tasks or subtasks that are no longer needed in the project.
+*   **Notes:** Use with caution as this operation cannot be undone. Consider using 'blocked', 'cancelled', or 'deferred' status instead if you just want to exclude a task from active planning but keep it for reference. The command automatically cleans up dependency references in other tasks.
+
 ---
 
 ## Task Structure & Breakdown
 
-### 12. Expand Task (`expand_task`)
+### 13. Expand Task (`expand_task`)
 
 *   **MCP Tool:** `expand_task`
 *   **CLI Command:** `task-master expand [options]`
@@ -171,7 +183,7 @@ This document provides a detailed reference for interacting with Taskmaster, cov
     *   `file`: `Path to your Taskmaster 'tasks.json' file (default relies on auto-detection).` (CLI: `-f, --file <file>`)
 *   **Usage:** Generate a detailed implementation plan for a complex task before starting coding.
 
-### 13. Expand All Tasks (`expand_all`)
+### 14. Expand All Tasks (`expand_all`)
 
 *   **MCP Tool:** `expand_all`
 *   **CLI Command:** `task-master expand --all [options]` (Note: CLI uses the `expand` command with the `--all` flag)
@@ -184,7 +196,7 @@ This document provides a detailed reference for interacting with Taskmaster, cov
     *   `file`: `Path to your Taskmaster 'tasks.json' file (default relies on auto-detection).` (CLI: `-f, --file <file>`)
 *   **Usage:** Useful after initial task generation or complexity analysis to break down multiple tasks at once.
 
-### 14. Clear Subtasks (`clear_subtasks`)
+### 15. Clear Subtasks (`clear_subtasks`)
 
 *   **MCP Tool:** `clear_subtasks`
 *   **CLI Command:** `task-master clear-subtasks [options]`
@@ -195,7 +207,7 @@ This document provides a detailed reference for interacting with Taskmaster, cov
     *   `file`: `Path to your Taskmaster 'tasks.json' file (default relies on auto-detection).` (CLI: `-f, --file <file>`)
 *   **Usage:** Used before regenerating subtasks with `expand_task` if the previous breakdown needs replacement.
 
-### 15. Remove Subtask (`remove_subtask`)
+### 16. Remove Subtask (`remove_subtask`)
 
 *   **MCP Tool:** `remove_subtask`
 *   **CLI Command:** `task-master remove-subtask [options]`
@@ -211,7 +223,7 @@ This document provides a detailed reference for interacting with Taskmaster, cov
 
 ## Dependency Management
 
-### 16. Add Dependency (`add_dependency`)
+### 17. Add Dependency (`add_dependency`)
 
 *   **MCP Tool:** `add_dependency`
 *   **CLI Command:** `task-master add-dependency [options]`
@@ -222,7 +234,7 @@ This document provides a detailed reference for interacting with Taskmaster, cov
     *   `file`: `Path to your Taskmaster 'tasks.json' file (default relies on auto-detection).` (CLI: `-f, --file <file>`)
 *   **Usage:** Establish the correct order of execution between tasks.
 
-### 17. Remove Dependency (`remove_dependency`)
+### 18. Remove Dependency (`remove_dependency`)
 
 *   **MCP Tool:** `remove_dependency`
 *   **CLI Command:** `task-master remove-dependency [options]`
@@ -233,7 +245,7 @@ This document provides a detailed reference for interacting with Taskmaster, cov
     *   `file`: `Path to your Taskmaster 'tasks.json' file (default relies on auto-detection).` (CLI: `-f, --file <file>`)
 *   **Usage:** Update task relationships when the order of execution changes.
 
-### 18. Validate Dependencies (`validate_dependencies`)
+### 19. Validate Dependencies (`validate_dependencies`)
 
 *   **MCP Tool:** `validate_dependencies`
 *   **CLI Command:** `task-master validate-dependencies [options]`
@@ -242,7 +254,7 @@ This document provides a detailed reference for interacting with Taskmaster, cov
     *   `file`: `Path to your Taskmaster 'tasks.json' file (default relies on auto-detection).` (CLI: `-f, --file <file>`)
 *   **Usage:** Audit the integrity of your task dependencies.
 
-### 19. Fix Dependencies (`fix_dependencies`)
+### 20. Fix Dependencies (`fix_dependencies`)
 
 *   **MCP Tool:** `fix_dependencies`
 *   **CLI Command:** `task-master fix-dependencies [options]`
@@ -255,7 +267,7 @@ This document provides a detailed reference for interacting with Taskmaster, cov
 
 ## Analysis & Reporting
 
-### 20. Analyze Complexity (`analyze_complexity`)
+### 21. Analyze Complexity (`analyze_complexity`)
 
 *   **MCP Tool:** `analyze_complexity`
 *   **CLI Command:** `task-master analyze-complexity [options]`
@@ -267,7 +279,7 @@ This document provides a detailed reference for interacting with Taskmaster, cov
     *   `file`: `Path to your Taskmaster 'tasks.json' file (default relies on auto-detection).` (CLI: `-f, --file <file>`)
 *   **Usage:** Identify which tasks are likely too large and need further breakdown before implementation.
 
-### 21. Complexity Report (`complexity_report`)
+### 22. Complexity Report (`complexity_report`)
 
 *   **MCP Tool:** `complexity_report`
 *   **CLI Command:** `task-master complexity-report [options]`
@@ -280,7 +292,7 @@ This document provides a detailed reference for interacting with Taskmaster, cov
 
 ## File Generation
 
-### 22. Generate Task Files (`generate`)
+### 23. Generate Task Files (`generate`)
 
 *   **MCP Tool:** `generate`
 *   **CLI Command:** `task-master generate [options]`
@@ -295,5 +307,5 @@ This document provides a detailed reference for interacting with Taskmaster, cov
 ## Configuration & Metadata
 
 -   **Environment Variables**: Taskmaster relies on environment variables for configuration (API keys, model preferences, default settings). See [`dev_workflow.mdc`](mdc:.cursor/rules/dev_workflow.mdc) or the project README for a list.
--   **`tasks.json`**: The core data file containing the array of tasks and their details. See [`tasks.mdc`](mdc:.cursor/rules/tasks.mdc).
+-   **`tasks.json`**: The core data file containing the array of tasks and their details. See [`tasks.mdc`](mdc:.cursor/rules/tasks.mdc) for details.
 -   **`task_xxx.md` files**: Individual markdown files generated by the `generate` command/tool, reflecting the content of `tasks.json`.

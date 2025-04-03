@@ -15,6 +15,80 @@ The MCP server acts as a bridge between external tools (like Cursor) and the cor
 - **Flow**: `External Tool (Cursor)` <-> `FastMCP Server` <-> `MCP Tools` (`mcp-server/src/tools/*.js`) <-> `Core Logic Wrappers` (`mcp-server/src/core/direct-functions/*.js`, exported via `task-master-core.js`) <-> `Core Modules` (`scripts/modules/*.js`)
 - **Goal**: Provide a performant and reliable way for external tools to interact with Task Master functionality without directly invoking the CLI for every operation.
 
+## Direct Function Implementation Best Practices
+
+When implementing a new direct function in `mcp-server/src/core/direct-functions/`, follow these critical guidelines:
+
+1. **Verify Function Dependencies**:
+   - ✅ **DO**: Check that all helper functions your direct function needs are properly exported from their source modules
+   - ✅ **DO**: Import these dependencies explicitly at the top of your file
+   - ❌ **DON'T**: Assume helper functions like `findTaskById` or `taskExists` are automatically available
+   - **Example**:
+     ```javascript
+     // At top of direct-function file
+     import { removeTask, findTaskById, taskExists } from '../../../../scripts/modules/task-manager.js';
+     ```
+
+2. **Parameter Verification and Completeness**:
+   - ✅ **DO**: Verify the signature of core functions you're calling and ensure all required parameters are provided
+   - ✅ **DO**: Pass explicit values for required parameters rather than relying on defaults
+   - ✅ **DO**: Double-check parameter order against function definition
+   - ❌ **DON'T**: Omit parameters assuming they have default values
+   - **Example**:
+     ```javascript
+     // Correct parameter handling in direct function
+     async function generateTaskFilesDirect(args, log) {
+       const tasksPath = findTasksJsonPath(args, log);
+       const outputDir = args.output || path.dirname(tasksPath);
+       
+       try {
+         // Pass all required parameters
+         const result = await generateTaskFiles(tasksPath, outputDir);
+         return { success: true, data: result, fromCache: false };
+       } catch (error) {
+         // Error handling...
+       }
+     }
+     ```
+
+3. **Consistent File Path Handling**:
+   - ✅ **DO**: Use `path.join()` instead of string concatenation for file paths
+   - ✅ **DO**: Follow established file naming conventions (`task_001.txt` not `1.md`)
+   - ✅ **DO**: Use `path.dirname()` and other path utilities for manipulating paths
+   - ✅ **DO**: When paths relate to task files, follow the standard format: `task_${id.toString().padStart(3, '0')}.txt`
+   - ❌ **DON'T**: Create custom file path handling logic that diverges from established patterns
+   - **Example**:
+     ```javascript
+     // Correct file path handling
+     const taskFilePath = path.join(
+       path.dirname(tasksPath),
+       `task_${taskId.toString().padStart(3, '0')}.txt`
+     );
+     ```
+
+4. **Comprehensive Error Handling**:
+   - ✅ **DO**: Wrap core function calls in try/catch blocks
+   - ✅ **DO**: Log errors with appropriate severity and context
+   - ✅ **DO**: Return standardized error objects with code and message
+   - ✅ **DO**: Handle file system errors separately from function-specific errors
+   - **Example**:
+     ```javascript
+     try {
+       // Core function call
+     } catch (error) {
+       log.error(`Failed to execute command: ${error.message}`);
+       return {
+         success: false,
+         error: {
+           code: error.code || 'DIRECT_FUNCTION_ERROR',
+           message: error.message,
+           details: error.stack
+         },
+         fromCache: false
+       };
+     }
+     ```
+
 ## Tool Definition and Execution
 
 ### Tool Structure

@@ -410,6 +410,21 @@ task-master update-subtask --id=<parentId.subtaskId> --prompt="<prompt>" --resea
 
 Unlike the `update-task` command which replaces task information, the `update-subtask` command _appends_ new information to the existing subtask details, marking it with a timestamp. This is useful for iteratively enhancing subtasks while preserving the original content.
 
+### Remove Task
+
+```bash
+# Remove a task permanently
+task-master remove-task --id=<id>
+
+# Remove a subtask permanently
+task-master remove-task --id=<parentId.subtaskId>
+
+# Skip the confirmation prompt
+task-master remove-task --id=<id> --yes
+```
+
+The `remove-task` command permanently deletes a task or subtask from `tasks.json`. It also automatically cleans up any references to the deleted task in other tasks' dependencies. Consider using 'blocked', 'cancelled', or 'deferred' status instead if you want to keep the task for reference.
+
 ### Generate Task Files
 
 ```bash

@@ -25,6 +25,7 @@ import { registerValidateDependenciesTool } from "./validate-dependencies.js";
 import { registerFixDependenciesTool } from "./fix-dependencies.js";
 import { registerComplexityReportTool } from "./complexity-report.js";
 import { registerAddDependencyTool } from "./add-dependency.js";
+import { registerRemoveTaskTool } from './remove-task.js';
 
 /**
  * Register all Task Master tools with the MCP server
@@ -54,6 +55,7 @@ export function registerTaskMasterTools(server) {
     registerFixDependenciesTool(server);
     registerComplexityReportTool(server);
     registerAddDependencyTool(server);
+    registerRemoveTaskTool(server);
   } catch (error) {
     logger.error(`Error registering Task Master tools: ${error.message}`);
     throw error;

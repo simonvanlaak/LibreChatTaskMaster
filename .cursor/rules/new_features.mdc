@@ -31,6 +31,72 @@ The standard pattern for adding a feature follows this workflow:
 5. **Configuration**: Update any configuration in [`utils.js`](mdc:scripts/modules/utils.js) if needed, following [`utilities.mdc`](mdc:.cursor/rules/utilities.mdc).
 6. **Documentation**: Update help text and documentation in [dev_workflow.mdc](mdc:scripts/modules/dev_workflow.mdc)
 
+## Critical Checklist for New Features
+
+- **Comprehensive Function Exports**:
+  - ✅ **DO**: Export all helper functions and utility methods needed by your new function
+  - ✅ **DO**: Review dependencies and ensure functions like `findTaskById`, `taskExists` are exported
+  - ❌ **DON'T**: Assume internal functions are already exported - always check and add them explicitly
+  - **Example**: If implementing a feature that checks task existence, ensure the helper function is in exports:
+  ```javascript
+  // At the bottom of your module file:
+  export {
+    // ... existing exports ...
+    yourNewFunction,
+    taskExists,  // Helper function used by yourNewFunction
+    findTaskById, // Helper function used by yourNewFunction
+  };
+  ```
+
+- **Parameter Completeness**:
+  - ✅ **DO**: Pass all required parameters to functions you call within your implementation
+  - ✅ **DO**: Check function signatures before implementing calls to them
+  - ❌ **DON'T**: Assume default parameter values will handle missing arguments
+  - **Example**: When calling file generation, pass both required parameters:
+  ```javascript
+  // ✅ DO: Pass all required parameters
+  await generateTaskFiles(tasksPath, path.dirname(tasksPath));
+  
+  // ❌ DON'T: Omit required parameters
+  await generateTaskFiles(tasksPath); // Error - missing outputDir parameter
+  ```
+
+- **Consistent File Path Handling**:
+  - ✅ **DO**: Use consistent file naming conventions: `task_${id.toString().padStart(3, '0')}.txt`
+  - ✅ **DO**: Use `path.join()` for composing file paths
+  - ✅ **DO**: Use appropriate file extensions (.txt for tasks, .json for data)
+  - ❌ **DON'T**: Hardcode path separators or inconsistent file extensions
+  - **Example**: Creating file paths for tasks:
+  ```javascript
+  // ✅ DO: Use consistent file naming and path.join
+  const taskFileName = path.join(
+    path.dirname(tasksPath), 
+    `task_${taskId.toString().padStart(3, '0')}.txt`
+  );
+  
+  // ❌ DON'T: Use inconsistent naming or string concatenation 
+  const taskFileName = path.dirname(tasksPath) + '/' + taskId + '.md';
+  ```
+
+- **Error Handling and Reporting**:
+  - ✅ **DO**: Use structured error objects with code and message properties
+  - ✅ **DO**: Include clear error messages identifying the specific problem
+  - ✅ **DO**: Handle both function-specific errors and potential file system errors
+  - ✅ **DO**: Log errors at appropriate severity levels
+  - **Example**: Structured error handling in core functions:
+  ```javascript
+  try {
+    // Implementation...
+  } catch (error) {
+    log('error', `Error removing task: ${error.message}`);
+    throw {
+      code: 'REMOVE_TASK_ERROR',
+      message: error.message,
+      details: error.stack
+    };
+  }
+  ```
+
 ```javascript
 // 1. CORE LOGIC: Add function to appropriate module (example in task-manager.js)
 /**

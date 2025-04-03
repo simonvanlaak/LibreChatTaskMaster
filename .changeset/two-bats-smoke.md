@@ -13,6 +13,22 @@
   - Significantly reduce response size by returning only the specific requested task instead of all tasks
   - Preserve dependency status relationships for the UI/CLI while keeping MCP responses lean and efficient
 
+- **Implement complete remove-task functionality:**
+  - Add `removeTask` core function to permanently delete tasks or subtasks from tasks.json
+  - Implement CLI command `remove-task` with confirmation prompt and force flag support
+  - Create MCP `remove_task` tool for AI-assisted task removal
+  - Automatically handle dependency cleanup by removing references to deleted tasks
+  - Update task files after removal to maintain consistency
+  - Provide robust error handling and detailed feedback messages
+
+- **Update Cursor rules and documentation:**
+  - Enhance `new_features.mdc` with comprehensive guidelines for implementing removal commands
+  - Update `commands.mdc` with best practices for confirmation flows and cleanup procedures
+  - Expand `mcp.mdc` with detailed instructions for MCP tool implementation patterns
+  - Add examples of proper error handling and parameter validation to all relevant rules
+  - Include new sections about handling dependencies during task removal operations
+  - Document naming conventions and implementation patterns for destructive operations
+
 - **Refactor project root handling for MCP Server:**
   - **Prioritize Session Roots**: MCP tools now extract the project root path directly from `session.roots[0].uri` provided by the client (e.g., Cursor).
   - **New Utility `getProjectRootFromSession`**: Added to `mcp-server/src/tools/utils.js` to encapsulate session root extraction and decoding. **Further refined for more reliable detection, especially in integrated environments, including deriving root from script path and avoiding fallback to '/'.**

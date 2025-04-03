@@ -515,6 +515,7 @@ function createProjectStructure(projectName, projectDescription, projectVersion,
       "boxen": "^7.1.1",
       "gradient-string": "^2.0.2",
       "cli-table3": "^0.6.3",
+      "inquirer": "^9.2.15",
       "ora": "^7.0.1"
     }
   };

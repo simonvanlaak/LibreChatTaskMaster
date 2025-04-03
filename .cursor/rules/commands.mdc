@@ -37,6 +37,126 @@ While this document details the implementation of Task Master's **CLI commands**
   - ✅ DO: Include validation for required parameters
   - ❌ DON'T: Implement business logic in command handlers
 
+## Best Practices for Removal/Delete Commands
+
+When implementing commands that delete or remove data (like `remove-task` or `remove-subtask`), follow these specific guidelines:
+
+- **Confirmation Prompts**:
+  - ✅ **DO**: Include a confirmation prompt by default for destructive operations
+  - ✅ **DO**: Provide a `--yes` or `-y` flag to skip confirmation for scripting/automation
+  - ✅ **DO**: Show what will be deleted in the confirmation message
+  - ❌ **DON'T**: Perform destructive operations without user confirmation unless explicitly overridden
+
+  ```javascript
+  // ✅ DO: Include confirmation for destructive operations
+  programInstance
+    .command('remove-task')
+    .description('Remove a task or subtask permanently')
+    .option('-i, --id <id>', 'ID of the task to remove')
+    .option('-y, --yes', 'Skip confirmation prompt', false)
+    .action(async (options) => {
+      // Validation code...
+      
+      if (!options.yes) {
+        const confirm = await inquirer.prompt([{
+          type: 'confirm',
+          name: 'proceed',
+          message: `Are you sure you want to permanently delete task ${taskId}? This cannot be undone.`,
+          default: false
+        }]);
+        
+        if (!confirm.proceed) {
+          console.log(chalk.yellow('Operation cancelled.'));
+          return;
+        }
+      }
+      
+      // Proceed with removal...
+    });
+  ```
+
+- **File Path Handling**:
+  - ✅ **DO**: Use `path.join()` to construct file paths
+  - ✅ **DO**: Follow established naming conventions for tasks (e.g., `task_001.txt`)
+  - ✅ **DO**: Check if files exist before attempting to delete them
+  - ✅ **DO**: Handle file deletion errors gracefully
+  - ❌ **DON'T**: Construct paths with string concatenation
+
+  ```javascript
+  // ✅ DO: Properly construct file paths
+  const taskFilePath = path.join(
+    path.dirname(tasksPath),
+    `task_${taskId.toString().padStart(3, '0')}.txt`
+  );
+  
+  // ✅ DO: Check existence before deletion
+  if (fs.existsSync(taskFilePath)) {
+    try {
+      fs.unlinkSync(taskFilePath);
+      console.log(chalk.green(`Task file deleted: ${taskFilePath}`));
+    } catch (error) {
+      console.warn(chalk.yellow(`Could not delete task file: ${error.message}`));
+    }
+  }
+  ```
+
+- **Clean Up References**:
+  - ✅ **DO**: Clean up references to the deleted item in other parts of the data
+  - ✅ **DO**: Handle both direct and indirect references
+  - ✅ **DO**: Explain what related data is being updated
+  - ❌ **DON'T**: Leave dangling references
+
+  ```javascript
+  // ✅ DO: Clean up references when deleting items
+  console.log(chalk.blue('Cleaning up task dependencies...'));
+  let referencesRemoved = 0;
+  
+  // Update dependencies in other tasks
+  data.tasks.forEach(task => {
+    if (task.dependencies && task.dependencies.includes(taskId)) {
+      task.dependencies = task.dependencies.filter(depId => depId !== taskId);
+      referencesRemoved++;
+    }
+  });
+  
+  if (referencesRemoved > 0) {
+    console.log(chalk.green(`Removed ${referencesRemoved} references to task ${taskId} from other tasks`));
+  }
+  ```
+
+- **Task File Regeneration**:
+  - ✅ **DO**: Regenerate task files after destructive operations
+  - ✅ **DO**: Pass all required parameters to generation functions
+  - ✅ **DO**: Provide an option to skip regeneration if needed
+  - ❌ **DON'T**: Assume default parameters will work
+
+  ```javascript
+  // ✅ DO: Properly regenerate files after deletion
+  if (!options.skipGenerate) {
+    console.log(chalk.blue('Regenerating task files...'));
+    try {
+      // Note both parameters are explicitly provided
+      await generateTaskFiles(tasksPath, path.dirname(tasksPath));
+      console.log(chalk.green('Task files regenerated successfully'));
+    } catch (error) {
+      console.warn(chalk.yellow(`Warning: Could not regenerate task files: ${error.message}`));
+    }
+  }
+  ```
+
+- **Alternative Suggestions**:
+  - ✅ **DO**: Suggest non-destructive alternatives when appropriate
+  - ✅ **DO**: Explain the difference between deletion and status changes
+  - ✅ **DO**: Include examples of alternative commands
+
+  ```javascript
+  // ✅ DO: Suggest alternatives for destructive operations
+  console.log(chalk.yellow('Note: If you just want to exclude this task from active work, consider:'));
+  console.log(chalk.cyan(`  task-master set-status --id=${taskId} --status=cancelled`));
+  console.log(chalk.cyan(`  task-master set-status --id=${taskId} --status=deferred`));
+  console.log('This preserves the task and its history for reference.');
+  ```
+
 ## Option Naming Conventions
 
 - **Command Names**:
