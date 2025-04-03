@@ -33,7 +33,7 @@ export function registerParsePRDTool(server) {
     }),
     execute: async (args, { log, session, reportProgress }) => {
       try {
-        log.info(`Parsing PRD document with args: ${JSON.stringify(args)}`);
+        log.info(`Parsing PRD with args: ${JSON.stringify(args)}`);
         
         let rootFolder = getProjectRootFromSession(session, log);
         
@@ -45,19 +45,19 @@ export function registerParsePRDTool(server) {
         const result = await parsePRDDirect({
           projectRoot: rootFolder,
           ...args
-        }, log, { reportProgress, mcpLog: log, session});
+        }, log/*, { reportProgress, mcpLog: log, session}*/);
         
-        await reportProgress({ progress: 100 });
+        // await reportProgress({ progress: 100 });
         
         if (result.success) {
-          log.info(`Successfully generated ${result.data?.taskCount || 0} tasks from PRD at ${result.data?.outputPath}`);
+          log.info(`Successfully parsed PRD: ${result.data.message}`);
         } else {
           log.error(`Failed to parse PRD: ${result.error?.message || 'Unknown error'}`);
         }
         
-        return handleApiResult(result, log, 'Error parsing PRD document');
+        return handleApiResult(result, log, 'Error parsing PRD');
       } catch (error) {
-        log.error(`Error in parse_prd tool: ${error.message}`);
+        log.error(`Error in parse-prd tool: ${error.message}`);
         return createErrorResponse(error.message);
       }
     },

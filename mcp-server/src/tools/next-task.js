@@ -31,7 +31,7 @@ export function registerNextTaskTool(server) {
     execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Finding next task with args: ${JSON.stringify(args)}`);
-        await reportProgress({ progress: 0 });
+        // await reportProgress({ progress: 0 });
         
         let rootFolder = getProjectRootFromSession(session, log);
         
@@ -43,24 +43,20 @@ export function registerNextTaskTool(server) {
         const result = await nextTaskDirect({
           projectRoot: rootFolder,
           ...args
-        }, log, { reportProgress, mcpLog: log, session});
+        }, log/*, { reportProgress, mcpLog: log, session}*/);
         
-        await reportProgress({ progress: 100 });
+        // await reportProgress({ progress: 100 });
         
         if (result.success) {
-          if (result.data.nextTask) {
-            log.info(`Successfully found next task ID: ${result.data.nextTask.id}${result.fromCache ? ' (from cache)' : ''}`);
-          } else {
-            log.info(`No eligible next task found${result.fromCache ? ' (from cache)' : ''}`);
-          }
+          log.info(`Successfully found next task: ${result.data?.task?.id || 'No available tasks'}`);
         } else {
-          log.error(`Failed to find next task: ${result.error.message}`);
+          log.error(`Failed to find next task: ${result.error?.message || 'Unknown error'}`);
         }
         
         return handleApiResult(result, log, 'Error finding next task');
       } catch (error) {
-        log.error(`Error in next-task tool: ${error.message}`);
-        return createErrorResponse(`Failed to find next task: ${error.message}`);
+        log.error(`Error in nextTask tool: ${error.message}`);
+        return createErrorResponse(error.message);
       }
     },
   });

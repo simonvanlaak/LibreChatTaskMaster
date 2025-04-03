@@ -97,6 +97,35 @@ The standard pattern for adding a feature follows this workflow:
   }
   ```
 
+- **Silent Mode Implementation**:
+  - ✅ **DO**: Import silent mode utilities in direct functions: `import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';`
+  - ✅ **DO**: Wrap core function calls with silent mode: 
+  ```javascript
+  // Enable silent mode to prevent console logs from interfering with JSON response
+  enableSilentMode();
+  
+  // Call the core function
+  const result = await coreFunction(...);
+  
+  // Restore normal logging
+  disableSilentMode();
+  ```
+  - ✅ **DO**: Ensure silent mode is disabled in error handling:
+  ```javascript
+  try {
+    enableSilentMode();
+    // Core function call
+    disableSilentMode();
+  } catch (error) {
+    // Make sure to restore normal logging even if there's an error
+    disableSilentMode();
+    throw error; // Rethrow to be caught by outer catch block
+  }
+  ```
+  - ✅ **DO**: Add silent mode handling in all direct functions that call core functions
+  - ❌ **DON'T**: Forget to disable silent mode, which would suppress all future logs
+  - ❌ **DON'T**: Enable silent mode outside of direct functions in the MCP server
+
 ```javascript
 // 1. CORE LOGIC: Add function to appropriate module (example in task-manager.js)
 /**
@@ -388,69 +417,112 @@ Integrating Task Master commands with the MCP server (for use by tools like Curs
 1.  **Core Logic**: Ensure the command's core logic exists and is exported from the appropriate module (e.g., [`task-manager.js`](mdc:scripts/modules/task-manager.js)).
 2.  **Direct Function Wrapper (`mcp-server/src/core/direct-functions/`)**:
     - Create a new file (e.g., `your-command.js`) in `mcp-server/src/core/direct-functions/` using **kebab-case** naming.
-    - Import the core logic function and necessary MCP utilities like **`findTasksJsonPath` from `../utils/path-utils.js`** and potentially `getCachedOrExecute` from `../../tools/utils.js`.
+    - Import the core logic function, necessary MCP utilities like **`findTasksJsonPath` from `../utils/path-utils.js`**, and **silent mode utilities**: `import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';`
     - Implement an `async function yourCommandDirect(args, log)` using **camelCase** with `Direct` suffix.
     - **Path Finding**: Inside this function, obtain the `tasksPath` by calling `const tasksPath = findTasksJsonPath(args, log);`. This relies on `args.projectRoot` (derived from the session) being passed correctly.
     - Perform validation on other arguments received in `args`.
-    - **Implement Caching (if applicable)**:
-        - **Use Case**: Apply caching primarily for read-only operations that benefit from repeated calls (e.g., `get_tasks`, `get_task`, `next_task`). Avoid caching for operations that modify state (`set_task_status`, `add_task`, `parse_prd`, `update_task`, `add_dependency`, etc.).
-        - **Implementation**: Use the `getCachedOrExecute` utility (imported from `../../tools/utils.js`).
-            - Generate a unique `cacheKey` based on relevant arguments (e.g., file path, filters).
-            - Define an `async` function `coreActionFn` that wraps the actual call to the core logic and returns `{ success: true/false, data/error }`.
-            - Call `await getCachedOrExecute({ cacheKey, actionFn: coreActionFn, log });`.
+    - **Implement Silent Mode**: Wrap core function calls with `enableSilentMode()` and `disableSilentMode()` to prevent logs from interfering with JSON responses.
+    - **If Caching**: Implement caching using `getCachedOrExecute` from `../../tools/utils.js`.
     - **If Not Caching**: Directly call the core logic function within a try/catch block.
-    - Handle errors and return a standard object: `{ success: true/false, data/error, fromCache: boolean }`. (For non-cached operations, `fromCache` is `false`).
-    - Export the function.
-3.  **Export from `task-master-core.js`**: Import your new `*Direct` function into [`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js), re-export it, and add it to the `directFunctions` map.
-4.  **MCP Tool File (`mcp-server/src/tools/`)**:
-    - Create a new file (e.g., `your-command.js`) using **kebab-case** naming.
-    - Import `zod` (for schema), `handleApiResult`, `createErrorResponse`, **`getProjectRootFromSession`** from `./utils.js`, and your `yourCommandDirect` function from `../core/task-master-core.js`.
-    - Implement `registerYourCommandTool(server)` using **camelCase** with `Tool` suffix, which calls `server.addTool`.
-    - Define the tool's `name` using **snake_case** (e.g., `your_command`), `description`, and `parameters` using `zod`. **Crucially, define `projectRoot` as optional**: `projectRoot: z.string().optional().describe(...)`. Include `file: z.string().optional().describe(...)` if applicable.
-    - Define the standard `async execute(args, { log, reportProgress, session })` method:
-      ```javascript
-      // In mcp-server/src/tools/your-command.js
-      import { z } from "zod";
-      import { handleApiResult, createErrorResponse, getProjectRootFromSession } from "./utils.js";
-      import { yourCommandDirect } from "../core/task-master-core.js"; // Adjust path as needed
-      
-      export function registerYourCommandTool(server) {
-        server.addTool({
-          name: "your_command", // snake_case
-          description: "Description of your command.",
-          parameters: z.object({
-            /* zod schema */
-            projectRoot: z.string().optional().describe("Optional project root path"),
-            file: z.string().optional().describe("Optional tasks file path relative to project root"),
-            /* other parameters */
-          }),
-          execute: async (args, { log, reportProgress, session }) => { // Destructure context
-            try {
-              log.info(`Executing your_command with args: ${JSON.stringify(args)}`);
-              
-              // 1. Get project root from session (or args fallback)
-              let rootFolder = getProjectRootFromSession(session, log);
-              if (!rootFolder && args.projectRoot) {
-                 rootFolder = args.projectRoot;
-                 log.info(`Using project root from args as fallback: ${rootFolder}`);
-              }
+    - Format the return as `{ success: true/false, data/error, fromCache: boolean }`.
+    - Export the wrapper function.
 
-              // 2. Call the direct function wrapper, passing the resolved root
-              const result = await yourCommandDirect({
-                ...args, 
-                projectRoot: rootFolder // Pass the resolved root
-              }, log);
-              
-              // 3. Pass the result to handleApiResult for formatting
-              return handleApiResult(result, log, 'Error executing your_command'); // Provide default error
-            } catch (error) {
-              // Catch unexpected errors from the direct call or handleApiResult itself
-              log.error(`Unexpected error in your_command tool execute: ${error.message}`);
-              return createErrorResponse(`Tool execution failed: ${error.message}`); 
-            }
-          }
-        });
-      }
-      ```
-5.  **Register in Tool Index**: Import and call `registerYourCommandTool` in [`mcp-server/src/tools/index.js`](mdc:mcp-server/src/tools/index.js).
-6.  **Update `mcp.json`**: Add the tool definition (name, description, parameters) to `.cursor/mcp.json`.
+3.  **Update `task-master-core.js` with Import/Export**: Import and re-export your `*Direct` function and add it to the `directFunctions` map.
+
+4.  **Create MCP Tool (`mcp-server/src/tools/`)**:
+    - Create a new file (e.g., `your-command.js`) using **kebab-case**.
+    - Import `zod`, `handleApiResult`, `createErrorResponse`, **`getProjectRootFromSession`**, and your `yourCommandDirect` function.
+    - Implement `registerYourCommandTool(server)`.
+    - Define the tool `name` using **snake_case** (e.g., `your_command`).
+    - Define the `parameters` using `zod`. **Crucially, define `projectRoot` as optional**: `projectRoot: z.string().optional().describe(...)`. Include `file` if applicable.
+    - Implement the standard `async execute(args, { log, reportProgress, session })` method:
+      - Get `rootFolder` using `getProjectRootFromSession` (with fallback to `args.projectRoot`).
+      - Call `yourCommandDirect({ ...args, projectRoot: rootFolder }, log)`. 
+      - Pass the result to `handleApiResult(result, log, 'Error Message')`.
+
+5.  **Register Tool**: Import and call `registerYourCommandTool` in `mcp-server/src/tools/index.js`.
+
+6.  **Update `mcp.json`**: Add the new tool definition to the `tools` array in `.cursor/mcp.json`.
+
+## Implementing Background Operations
+
+For long-running operations that should not block the client, use the AsyncOperationManager:
+
+1. **Identify Background-Appropriate Operations**:
+   - ✅ **DO**: Use async operations for CPU-intensive tasks like task expansion or PRD parsing
+   - ✅ **DO**: Consider async operations for tasks that may take more than 1-2 seconds
+   - ❌ **DON'T**: Use async operations for quick read/status operations
+   - ❌ **DON'T**: Use async operations when immediate feedback is critical
+
+2. **Use AsyncOperationManager in MCP Tools**:
+   ```javascript
+   import { asyncOperationManager } from '../core/utils/async-manager.js';
+   
+   // In execute method:
+   const operationId = asyncOperationManager.addOperation(
+     expandTaskDirect, // The direct function to run in background
+     { ...args, projectRoot: rootFolder }, // Args to pass to the function
+     { log, reportProgress, session } // Context to preserve for the operation
+   );
+   
+   // Return immediate response with operation ID
+   return createContentResponse({
+     message: "Operation started successfully",
+     operationId,
+     status: "pending"
+   });
+   ```
+
+3. **Implement Progress Reporting**:
+   - ✅ **DO**: Use the reportProgress function in direct functions:
+   ```javascript
+   // In your direct function:
+   if (reportProgress) {
+     await reportProgress({ progress: 50 }); // 50% complete
+   }
+   ```
+   - AsyncOperationManager will forward progress updates to the client
+
+4. **Check Operation Status**:
+   - Implement a way for clients to check status using the `get_operation_status` MCP tool
+   - Return appropriate status codes and messages
+
+## Project Initialization
+
+When implementing project initialization commands:
+
+1. **Support Programmatic Initialization**:
+   - ✅ **DO**: Design initialization to work with both CLI and MCP
+   - ✅ **DO**: Support non-interactive modes with sensible defaults
+   - ✅ **DO**: Handle project metadata like name, description, version
+   - ✅ **DO**: Create necessary files and directories
+
+2. **In MCP Tool Implementation**:
+   ```javascript
+   // In initialize-project.js MCP tool:
+   import { z } from "zod";
+   import { initializeProjectDirect } from "../core/task-master-core.js";
+   
+   export function registerInitializeProjectTool(server) {
+     server.addTool({
+       name: "initialize_project",
+       description: "Initialize a new Task Master project",
+       parameters: z.object({
+         projectName: z.string().optional().describe("The name for the new project"),
+         projectDescription: z.string().optional().describe("A brief description"),
+         projectVersion: z.string().optional().describe("Initial version (e.g., '0.1.0')"),
+         // Add other parameters as needed
+       }),
+       execute: async (args, { log, reportProgress, session }) => {
+         try {
+           // No need for project root since we're creating a new project
+           const result = await initializeProjectDirect(args, log);
+           return handleApiResult(result, log, 'Error initializing project');
+         } catch (error) {
+           log.error(`Error in initialize_project: ${error.message}`);
+           return createErrorResponse(`Failed to initialize project: ${error.message}`);
+         }
+       }
+     });
+   }
+   ```

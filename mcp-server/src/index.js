@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 import logger from "./logger.js";
 import { registerTaskMasterTools } from "./tools/index.js";
+import { asyncOperationManager } from './core/utils/async-manager.js';
 
 // Load environment variables
 dotenv.config();
@@ -34,6 +35,9 @@ class TaskMasterMCPServer {
 
     this.server.addResourceTemplate({});
 
+    // Make the manager accessible (e.g., pass it to tool registration)
+    this.asyncManager = asyncOperationManager;
+
     // Bind methods
     this.init = this.init.bind(this);
     this.start = this.start.bind(this);
@@ -49,8 +53,8 @@ class TaskMasterMCPServer {
   async init() {
     if (this.initialized) return;
 
-    // Register Task Master tools
-    registerTaskMasterTools(this.server);
+    // Pass the manager instance to the tool registration function
+    registerTaskMasterTools(this.server, this.asyncManager);
 
     this.initialized = true;
 
@@ -82,5 +86,8 @@ class TaskMasterMCPServer {
     }
   }
 }
+
+// Export the manager from here as well, if needed elsewhere
+export { asyncOperationManager };
 
 export default TaskMasterMCPServer;

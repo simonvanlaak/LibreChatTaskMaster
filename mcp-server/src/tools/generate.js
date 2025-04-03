@@ -32,7 +32,7 @@ export function registerGenerateTool(server) {
     execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Generating task files with args: ${JSON.stringify(args)}`);
-        await reportProgress({ progress: 0 });
+        // await reportProgress({ progress: 0 });
         
         let rootFolder = getProjectRootFromSession(session, log);
         
@@ -44,14 +44,14 @@ export function registerGenerateTool(server) {
         const result = await generateTaskFilesDirect({
           projectRoot: rootFolder,
           ...args
-        }, log, { reportProgress, mcpLog: log, session});
+        }, log/*, { reportProgress, mcpLog: log, session}*/);
         
-        await reportProgress({ progress: 100 });
+        // await reportProgress({ progress: 100 });
         
         if (result.success) {
           log.info(`Successfully generated task files: ${result.data.message}`);
         } else {
-          log.error(`Failed to generate task files: ${result.error.message}`);
+          log.error(`Failed to generate task files: ${result.error?.message || 'Unknown error'}`);
         }
         
         return handleApiResult(result, log, 'Error generating task files');

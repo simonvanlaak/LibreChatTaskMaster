@@ -36,7 +36,7 @@ export function registerListTasksTool(server) {
     execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Getting tasks with filters: ${JSON.stringify(args)}`);
-        await reportProgress({ progress: 0 });
+        // await reportProgress({ progress: 0 });
         
         let rootFolder = getProjectRootFromSession(session, log);
         
@@ -48,9 +48,9 @@ export function registerListTasksTool(server) {
         const result = await listTasksDirect({
           projectRoot: rootFolder,
           ...args
-        }, log);
+        }, log/*, { reportProgress, mcpLog: log, session}*/);
         
-        await reportProgress({ progress: 100 });
+        // await reportProgress({ progress: 100 });
         
         log.info(`Retrieved ${result.success ? (result.data?.tasks?.length || 0) : 0} tasks${result.fromCache ? ' (from cache)' : ''}`);
         return handleApiResult(result, log, 'Error getting tasks');

@@ -4,6 +4,7 @@
 
 import { clearSubtasks } from '../../../../scripts/modules/task-manager.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 import fs from 'fs';
 
 /**
@@ -68,8 +69,14 @@ export async function clearSubtasksDirect(args, log) {
     
     log.info(`Clearing subtasks from tasks: ${taskIds}`);
     
+    // Enable silent mode to prevent console logs from interfering with JSON response
+    enableSilentMode();
+    
     // Call the core function
     clearSubtasks(tasksPath, taskIds);
+    
+    // Restore normal logging
+    disableSilentMode();
     
     // Read the updated data to provide a summary
     const updatedData = JSON.parse(fs.readFileSync(tasksPath, 'utf8'));
@@ -90,6 +97,9 @@ export async function clearSubtasksDirect(args, log) {
       }
     };
   } catch (error) {
+    // Make sure to restore normal logging even if there's an error
+    disableSilentMode();
+    
     log.error(`Error in clearSubtasksDirect: ${error.message}`);
     return {
       success: false,

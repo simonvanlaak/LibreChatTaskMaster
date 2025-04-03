@@ -37,7 +37,7 @@ export function registerSetTaskStatusTool(server) {
     execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Setting status of task(s) ${args.id} to: ${args.status}`);
-        await reportProgress({ progress: 0 });
+        // await reportProgress({ progress: 0 });
         
         let rootFolder = getProjectRootFromSession(session, log);
         
@@ -49,9 +49,9 @@ export function registerSetTaskStatusTool(server) {
         const result = await setTaskStatusDirect({
           projectRoot: rootFolder,
           ...args
-        }, log, { reportProgress, mcpLog: log, session});
+        }, log/*, { reportProgress, mcpLog: log, session}*/);
         
-        await reportProgress({ progress: 100 });
+        // await reportProgress({ progress: 100 });
         
         if (result.success) {
           log.info(`Successfully updated status for task(s) ${args.id} to "${args.status}": ${result.data.message}`);

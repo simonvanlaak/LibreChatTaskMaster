@@ -4,6 +4,7 @@
 
 import { analyzeTaskComplexity } from '../../../../scripts/modules/task-manager.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -48,8 +49,14 @@ export async function analyzeTaskComplexityDirect(args, log) {
       log.info('Using Perplexity AI for research-backed complexity analysis');
     }
     
+    // Enable silent mode to prevent console logs from interfering with JSON response
+    enableSilentMode();
+    
     // Call the core function
     await analyzeTaskComplexity(options);
+    
+    // Restore normal logging
+    disableSilentMode();
     
     // Verify the report file was created
     if (!fs.existsSync(outputPath)) {
@@ -79,6 +86,9 @@ export async function analyzeTaskComplexityDirect(args, log) {
       }
     };
   } catch (error) {
+    // Make sure to restore normal logging even if there's an error
+    disableSilentMode();
+    
     log.error(`Error in analyzeTaskComplexityDirect: ${error.message}`);
     return {
       success: false,

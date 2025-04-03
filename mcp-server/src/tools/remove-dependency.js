@@ -28,7 +28,7 @@ export function registerRemoveDependencyTool(server) {
     execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Removing dependency for task ${args.id} from ${args.dependsOn} with args: ${JSON.stringify(args)}`);
-        await reportProgress({ progress: 0 });
+        // await reportProgress({ progress: 0 });
         
         let rootFolder = getProjectRootFromSession(session, log);
         
@@ -40,9 +40,9 @@ export function registerRemoveDependencyTool(server) {
         const result = await removeDependencyDirect({
           projectRoot: rootFolder,
           ...args
-        }, log, { reportProgress, mcpLog: log, session});
+        }, log/*, { reportProgress, mcpLog: log, session}*/);
         
-        await reportProgress({ progress: 100 });
+        // await reportProgress({ progress: 100 });
         
         if (result.success) {
           log.info(`Successfully removed dependency: ${result.data.message}`);

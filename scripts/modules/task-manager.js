@@ -20,7 +20,9 @@ import {
   findTaskById,
   readComplexityReport,
   findTaskInComplexityReport,
-  truncate
+  truncate,
+  enableSilentMode,
+  disableSilentMode
 } from './utils.js';
 
 import {
@@ -102,7 +104,14 @@ async function parsePRD(prdPath, tasksPath, numTasks, { reportProgress, mcpLog, 
     log('info', `Tasks saved to: ${tasksPath}`);
     
     // Generate individual task files
-    await generateTaskFiles(tasksPath, tasksDir, { reportProgress, mcpLog, session } = {});
+    if (reportProgress && mcpLog) {
+      // Enable silent mode when being called from MCP server
+      enableSilentMode();
+      await generateTaskFiles(tasksPath, tasksDir);
+      disableSilentMode();
+    } else {
+      await generateTaskFiles(tasksPath, tasksDir);
+    }
     
     console.log(boxen(
       chalk.green(`Successfully generated ${tasksData.tasks.length} tasks from PRD`),
@@ -762,6 +771,7 @@ Return only the updated task as a valid JSON object.`
 function generateTaskFiles(tasksPath, outputDir) {
   try {
     log('info', `Reading tasks from ${tasksPath}...`);
+    
     const data = readJSON(tasksPath);
     if (!data || !data.tasks) {
       throw new Error(`No valid tasks found in ${tasksPath}`);
@@ -2059,8 +2069,16 @@ function clearSubtasks(tasksPath, taskIds) {
  * @param {Object} session - Session object from MCP server (optional)
  * @returns {number} The new task ID
  */
-async function addTask(tasksPath, prompt, dependencies = [], priority = 'medium', { reportProgress, mcpLog, session } = {}) {
-  displayBanner();
+async function addTask(tasksPath, prompt, dependencies = [], priority = 'medium', { reportProgress, mcpLog, session } = {}, outputFormat = 'text') {
+  // Only display banner and UI elements for text output (CLI)
+  if (outputFormat === 'text') {
+    displayBanner();
+    
+    console.log(boxen(
+      chalk.white.bold(`Creating New Task`),
+      { padding: 1, borderColor: 'blue', borderStyle: 'round', margin: { top: 1, bottom: 1 } }
+    ));
+  }
   
   // Read the existing tasks
   const data = readJSON(tasksPath);
@@ -2073,10 +2091,13 @@ async function addTask(tasksPath, prompt, dependencies = [], priority = 'medium'
   const highestId = Math.max(...data.tasks.map(t => t.id));
   const newTaskId = highestId + 1;
   
-  console.log(boxen(
-    chalk.white.bold(`Creating New Task #${newTaskId}`),
-    { padding: 1, borderColor: 'blue', borderStyle: 'round', margin: { top: 1, bottom: 1 } }
-  ));
+  // Only show UI box for CLI mode
+  if (outputFormat === 'text') {
+    console.log(boxen(
+      chalk.white.bold(`Creating New Task #${newTaskId}`),
+      { padding: 1, borderColor: 'blue', borderStyle: 'round', margin: { top: 1, bottom: 1 } }
+    ));
+  }
   
   // Validate dependencies before proceeding
   const invalidDeps = dependencies.filter(depId => {
@@ -2126,8 +2147,11 @@ async function addTask(tasksPath, prompt, dependencies = [], priority = 'medium'
   
   IMPORTANT: Return ONLY the JSON object, nothing else.`;
   
-  // Start the loading indicator
-  const loadingIndicator = startLoadingIndicator('Generating new task with Claude AI...');
+  // Start the loading indicator - only for text mode
+  let loadingIndicator = null;
+  if (outputFormat === 'text') {
+    loadingIndicator = startLoadingIndicator('Generating new task with Claude AI...');
+  }
   
   let fullResponse = '';
   let streamingInterval = null;
@@ -2143,13 +2167,15 @@ async function addTask(tasksPath, prompt, dependencies = [], priority = 'medium'
       stream: true
     });
     
-    // Update loading indicator to show streaming progress
+    // Update loading indicator to show streaming progress - only for text mode
     let dotCount = 0;
-    streamingInterval = setInterval(() => {
-      readline.cursorTo(process.stdout, 0);
-      process.stdout.write(`Receiving streaming response from Claude${'.'.repeat(dotCount)}`);
-      dotCount = (dotCount + 1) % 4;
-    }, 500);
+    if (outputFormat === 'text') {
+      streamingInterval = setInterval(() => {
+        readline.cursorTo(process.stdout, 0);
+        process.stdout.write(`Receiving streaming response from Claude${'.'.repeat(dotCount)}`);
+        dotCount = (dotCount + 1) % 4;
+      }, 500);
+    }
     
     // Process the stream
     for await (const chunk of stream) {
@@ -2166,7 +2192,7 @@ async function addTask(tasksPath, prompt, dependencies = [], priority = 'medium'
     }
     
     if (streamingInterval) clearInterval(streamingInterval);
-    stopLoadingIndicator(loadingIndicator);
+    if (loadingIndicator) stopLoadingIndicator(loadingIndicator);
     
     log('info', "Completed streaming response from Claude API!");
     log('debug', `Streaming response length: ${fullResponse.length} characters`);
@@ -2213,28 +2239,31 @@ async function addTask(tasksPath, prompt, dependencies = [], priority = 'medium'
     // Write the updated tasks back to the file
     writeJSON(tasksPath, data);
     
-    // Show success message
-    const successBox = boxen(
-      chalk.green(`Successfully added new task #${newTaskId}:\n`) +
-      chalk.white.bold(newTask.title) + "\n\n" +
-      chalk.white(newTask.description),
-      { padding: 1, borderColor: 'green', borderStyle: 'round', margin: { top: 1 } }
-    );
-    console.log(successBox);
-    
-    // Next steps suggestion
-    console.log(boxen(
-      chalk.white.bold('Next Steps:') + '\n\n' +
-      `${chalk.cyan('1.')} Run ${chalk.yellow('task-master generate')} to update task files\n` +
-      `${chalk.cyan('2.')} Run ${chalk.yellow('task-master expand --id=' + newTaskId)} to break it down into subtasks\n` +
-      `${chalk.cyan('3.')} Run ${chalk.yellow('task-master list --with-subtasks')} to see all tasks`,
-      { padding: 1, borderColor: 'cyan', borderStyle: 'round', margin: { top: 1 } }
-    ));
+    // Only show success messages for text mode (CLI)
+    if (outputFormat === 'text') {
+      // Show success message
+      const successBox = boxen(
+        chalk.green(`Successfully added new task #${newTaskId}:\n`) +
+        chalk.white.bold(newTask.title) + "\n\n" +
+        chalk.white(newTask.description),
+        { padding: 1, borderColor: 'green', borderStyle: 'round', margin: { top: 1 } }
+      );
+      console.log(successBox);
+      
+      // Next steps suggestion
+      console.log(boxen(
+        chalk.white.bold('Next Steps:') + '\n\n' +
+        `${chalk.cyan('1.')} Run ${chalk.yellow('task-master generate')} to update task files\n` +
+        `${chalk.cyan('2.')} Run ${chalk.yellow('task-master expand --id=' + newTaskId)} to break it down into subtasks\n` +
+        `${chalk.cyan('3.')} Run ${chalk.yellow('task-master list --with-subtasks')} to see all tasks`,
+        { padding: 1, borderColor: 'cyan', borderStyle: 'round', margin: { top: 1 } }
+      ));
+    }
     
     return newTaskId;
   } catch (error) {
     if (streamingInterval) clearInterval(streamingInterval);
-    stopLoadingIndicator(loadingIndicator);
+    if (loadingIndicator) stopLoadingIndicator(loadingIndicator);
     log('error', "Error generating task:", error.message);
     process.exit(1);
   }

@@ -34,7 +34,7 @@ export function registerUpdateTool(server) {
     execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Updating tasks with args: ${JSON.stringify(args)}`);
-        await reportProgress({ progress: 0 });
+        // await reportProgress({ progress: 0 });
         
         let rootFolder = getProjectRootFromSession(session, log);
         
@@ -46,9 +46,9 @@ export function registerUpdateTool(server) {
         const result = await updateTasksDirect({
           projectRoot: rootFolder,
           ...args
-        }, log, { reportProgress, mcpLog: log, session});
+        }, log/*, { reportProgress, mcpLog: log, session}*/);
         
-        await reportProgress({ progress: 100 });
+        // await reportProgress({ progress: 100 });
         
         if (result.success) {
           log.info(`Successfully updated tasks from ID ${args.from}: ${result.data.message}`);

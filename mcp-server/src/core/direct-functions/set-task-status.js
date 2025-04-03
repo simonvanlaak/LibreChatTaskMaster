@@ -5,6 +5,7 @@
 
 import { setTaskStatus } from '../../../../scripts/modules/task-manager.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 
 /**
  * Direct function wrapper for setTaskStatus with error handling.
@@ -63,20 +64,40 @@ export async function setTaskStatusDirect(args, log) {
     
     log.info(`Setting task ${taskId} status to "${newStatus}"`);
     
-    // Execute the setTaskStatus function with source=mcp to avoid console output
-    await setTaskStatus(tasksPath, taskId, newStatus);
-    
-    // Return success data
-    return {
-      success: true,
-      data: {
-        message: `Successfully updated task ${taskId} status to "${newStatus}"`,
-        taskId,
-        status: newStatus,
-        tasksPath
-      },
-      fromCache: false // This operation always modifies state and should never be cached
-    };
+    // Call the core function
+    try {
+      // Enable silent mode to prevent console logs from interfering with JSON response
+      enableSilentMode();
+      
+      await setTaskStatus(tasksPath, taskId, newStatus);
+      
+      // Restore normal logging
+      disableSilentMode();
+      
+      log.info(`Successfully set task ${taskId} status to ${newStatus}`);
+      
+      // Return success data
+      return {
+        success: true,
+        data: {
+          message: `Successfully updated task ${taskId} status to "${newStatus}"`,
+          taskId,
+          status: newStatus,
+          tasksPath
+        },
+        fromCache: false // This operation always modifies state and should never be cached
+      };
+    } catch (error) {
+      // Make sure to restore normal logging even if there's an error
+      disableSilentMode();
+      
+      log.error(`Error setting task status: ${error.message}`);
+      return { 
+        success: false, 
+        error: { code: 'SET_STATUS_ERROR', message: error.message || 'Unknown error setting task status' },
+        fromCache: false 
+      };
+    }
   } catch (error) {
     log.error(`Error setting task status: ${error.message}`);
     return { 

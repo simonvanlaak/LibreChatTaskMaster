@@ -93,6 +93,7 @@ alwaysApply: false
       - Includes string manipulation utilities (e.g., `truncate`, `sanitizePrompt`).
       - Offers task-specific utility functions (e.g., `formatTaskId`, `findTaskById`, `taskExists`).
       - Implements graph algorithms like cycle detection for dependency management.
+      - **Silent Mode Control**: Provides `enableSilentMode` and `disableSilentMode` functions to control log output.
     - **Key Components**:
       - `CONFIG`: Global configuration object.
       - `log(level, ...args)`: Logging function.
@@ -100,6 +101,7 @@ alwaysApply: false
       - `truncate(text, maxLength)`: String truncation utility.
       - `formatTaskId(id)` / `findTaskById(tasks, taskId)`: Task ID and search utilities.
       - `findCycles(subtaskId, dependencyMap)`: Cycle detection algorithm.
+      - `enableSilentMode()` / `disableSilentMode()`: Control console logging output.
 
   - **[`mcp-server/`](mdc:mcp-server/): MCP Server Integration**
     - **Purpose**: Provides an MCP (Model Context Protocol) interface for Task Master, allowing integration with external tools like Cursor. Uses FastMCP framework.
@@ -110,6 +112,9 @@ alwaysApply: false
       - Tool `execute` methods use `getProjectRootFromSession` (from [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js)) to determine the project root from the client session and pass it to the direct function.
       - **Direct function wrappers (`*Direct` functions in `mcp-server/src/core/direct-functions/*.js`) contain the main logic for handling MCP requests**, including path resolution, argument validation, caching, and calling core Task Master functions.
       - Direct functions use `findTasksJsonPath` (from [`core/utils/path-utils.js`](mdc:mcp-server/src/core/utils/path-utils.js)) to locate `tasks.json` based on the provided `projectRoot`.
+      - **Silent Mode Implementation**: Direct functions use `enableSilentMode` and `disableSilentMode` to prevent logs from interfering with JSON responses.
+      - **Async Operations**: Uses `AsyncOperationManager` to handle long-running operations in the background.
+      - **Project Initialization**: Provides `initialize_project` command for setting up new projects from within integrated clients.
       - Tool `execute` methods use `handleApiResult` from [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js) to process the result from the direct function and format the final MCP response.
       - Uses CLI execution via `executeTaskMasterCommand` as a fallback only when necessary.
       - **Implements Robust Path Finding**: The utility [`tools/utils.js`](mdc:mcp-server/src/tools/utils.js) (specifically `getProjectRootFromSession`) and [`core/utils/path-utils.js`](mdc:mcp-server/src/core/utils/path-utils.js) (specifically `findTasksJsonPath`) work together. The tool gets the root via session, passes it to the direct function, which uses `findTasksJsonPath` to locate the specific `tasks.json` file within that root.
@@ -121,7 +126,7 @@ alwaysApply: false
       - `mcp-server/src/server.js`: Main server setup and initialization.
       - `mcp-server/src/tools/`: Directory containing individual tool definitions. Each tool's `execute` method orchestrates the call to core logic and handles the response.
       - `mcp-server/src/tools/utils.js`: Provides MCP-specific utilities like `handleApiResult`, `processMCPResponseData`, `getCachedOrExecute`, and **`getProjectRootFromSession`**.
-      - `mcp-server/src/core/utils/`: Directory containing utility functions specific to the MCP server, like **`path-utils.js` for resolving `tasks.json` within a given root**.
+      - `mcp-server/src/core/utils/`: Directory containing utility functions specific to the MCP server, like **`path-utils.js` for resolving `tasks.json` within a given root** and **`async-manager.js` for handling background operations**.
       - `mcp-server/src/core/direct-functions/`: Directory containing individual files for each **direct function wrapper (`*Direct`)**. These files contain the primary logic for MCP tool execution.
       - `mcp-server/src/core/resources/`: Directory containing resource handlers for task templates, workflow definitions, and other static/dynamic data exposed to LLM clients.
       - [`task-master-core.js`](mdc:mcp-server/src/core/task-master-core.js): Acts as an import/export hub, collecting and exporting direct functions from the `direct-functions` directory and MCP utility functions.
@@ -131,6 +136,17 @@ alwaysApply: false
       - **Tool Registration Functions** use **camelCase** with `Tool` suffix: `registerListTasksTool`, `registerSetTaskStatusTool`
       - **MCP Tool Names** use **snake_case**: `list_tasks`, `set_task_status`, `parse_prd_document`
       - **Resource Handlers** use **camelCase** with pattern URI: `@mcp.resource("tasks://templates/{template_id}")`
+    - **AsyncOperationManager**:
+      - **Purpose**: Manages background execution of long-running operations.
+      - **Location**: `mcp-server/src/core/utils/async-manager.js`
+      - **Key Features**:
+        - Operation tracking with unique IDs using UUID
+        - Status management (pending, running, completed, failed)
+        - Progress reporting forwarded from background tasks
+        - Operation history with automatic cleanup of completed operations
+        - Context preservation (log, session, reportProgress)
+        - Robust error handling for background tasks
+      - **Usage**: Used for CPU-intensive operations like task expansion and PRD parsing
 
 - **Data Flow and Module Dependencies**:
 
@@ -191,10 +207,11 @@ Follow these steps to add MCP support for an existing Task Master command (see [
 
 2.  **Create Direct Function File in `mcp-server/src/core/direct-functions/`**:
     - Create a new file (e.g., `your-command.js`) using **kebab-case** naming.
-    - Import necessary core functions and **`findTasksJsonPath` from `../utils/path-utils.js`**.
+    - Import necessary core functions, **`findTasksJsonPath` from `../utils/path-utils.js`**, and **silent mode utilities**.
     - Implement `async function yourCommandDirect(args, log)` using **camelCase** with `Direct` suffix:
         - **Path Resolution**: Obtain the tasks file path using `const tasksPath = findTasksJsonPath(args, log);`. This relies on `args.projectRoot` being provided.
         - Parse other `args` and perform necessary validation.
+        - **Implement Silent Mode**: Wrap core function calls with `enableSilentMode()` and `disableSilentMode()`.
         - Implement caching with `getCachedOrExecute` if applicable.
         - Call core logic.
         - Return `{ success: true/false, data/error, fromCache: boolean }`.
@@ -207,11 +224,41 @@ Follow these steps to add MCP support for an existing Task Master command (see [
     - Import `zod`, `handleApiResult`, **`getProjectRootFromSession`**, and your `yourCommandDirect` function.
     - Implement `registerYourCommandTool(server)`.
     - **Define parameters, making `projectRoot` optional**: `projectRoot: z.string().optional().describe(...)`.
+    - Consider if this operation should run in the background using `AsyncOperationManager`.
     - Implement the standard `execute` method:
       - Get `rootFolder` using `getProjectRootFromSession` (with fallback to `args.projectRoot`).
-      - Call `yourCommandDirect({ ...args, projectRoot: rootFolder }, log)`.
+      - Call `yourCommandDirect({ ...args, projectRoot: rootFolder }, log)` or use `asyncOperationManager.addOperation`.
       - Pass the result to `handleApiResult`.
 
 5.  **Register Tool**: Import and call `registerYourCommandTool` in `mcp-server/src/tools/index.js`.
 
 6.  **Update `mcp.json`**: Add the new tool definition.
+
+## Project Initialization
+
+The `initialize_project` command provides a way to set up a new Task Master project:
+
+- **CLI Command**: `task-master init`
+- **MCP Tool**: `initialize_project`
+- **Functionality**:
+  - Creates necessary directories and files for a new project
+  - Sets up `tasks.json` and initial task files
+  - Configures project metadata (name, description, version)
+  - Handles shell alias creation if requested
+  - Works in both interactive and non-interactive modes
+
+## Async Operation Management
+
+The AsyncOperationManager provides background task execution capabilities:
+
+- **Location**: `mcp-server/src/core/utils/async-manager.js`
+- **Key Components**:
+  - `asyncOperationManager` singleton instance
+  - `addOperation(operationFn, args, context)` method
+  - `getStatus(operationId)` method
+- **Usage Flow**:
+  1. Client calls an MCP tool that may take time to complete
+  2. Tool uses AsyncOperationManager to run the operation in background
+  3. Tool returns immediate response with operation ID
+  4. Client polls `get_operation_status` tool with the ID
+  5. Once completed, client can access operation results

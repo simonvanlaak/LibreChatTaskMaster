@@ -4,6 +4,7 @@
  */
 
 import { generateTaskFiles } from '../../../../scripts/modules/task-manager.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
 import path from 'path';
 
@@ -39,8 +40,27 @@ export async function generateTaskFilesDirect(args, log) {
     
     log.info(`Generating task files from ${tasksPath} to ${outputDir}`);
     
-    // Execute core generateTaskFiles function
-    generateTaskFiles(tasksPath, outputDir);
+    // Execute core generateTaskFiles function in a separate try/catch
+    try {
+      // Enable silent mode to prevent logs from being written to stdout
+      enableSilentMode();
+      
+      // The function is synchronous despite being awaited elsewhere
+      generateTaskFiles(tasksPath, outputDir);
+      
+      // Restore normal logging after task generation
+      disableSilentMode();
+    } catch (genError) {
+      // Make sure to restore normal logging even if there's an error
+      disableSilentMode();
+      
+      log.error(`Error in generateTaskFiles: ${genError.message}`);
+      return { 
+        success: false, 
+        error: { code: 'GENERATE_FILES_ERROR', message: genError.message },
+        fromCache: false 
+      };
+    }
     
     // Return success with file paths
     return {
@@ -54,6 +74,9 @@ export async function generateTaskFilesDirect(args, log) {
       fromCache: false // This operation always modifies state and should never be cached
     };
   } catch (error) {
+    // Make sure to restore normal logging if an outer error occurs
+    disableSilentMode();
+    
     log.error(`Error generating task files: ${error.message}`);
     return { 
       success: false, 

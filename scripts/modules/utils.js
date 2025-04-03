@@ -20,6 +20,9 @@ const CONFIG = {
   projectVersion: "1.5.0" // Hardcoded version - ALWAYS use this value, ignore environment variable
 };
 
+// Global silent mode flag
+let silentMode = false;
+
 // Set up logging based on log level
 const LOG_LEVELS = {
   debug: 0,
@@ -29,22 +32,50 @@ const LOG_LEVELS = {
 };
 
 /**
+ * Enable silent logging mode
+ */
+function enableSilentMode() {
+  silentMode = true;
+}
+
+/**
+ * Disable silent logging mode
+ */
+function disableSilentMode() {
+  silentMode = false;
+}
+
+/**
+ * Check if silent mode is enabled
+ * @returns {boolean} True if silent mode is enabled
+ */
+function isSilentMode() {
+  return silentMode;
+}
+
+/**
  * Logs a message at the specified level
  * @param {string} level - The log level (debug, info, warn, error)
  * @param  {...any} args - Arguments to log
  */
 function log(level, ...args) {
-  const icons = {
-    debug: chalk.gray('🔍'),
-    info: chalk.blue('ℹ️'),
-    warn: chalk.yellow('⚠️'),
-    error: chalk.red('❌'),
-    success: chalk.green('✅')
+  // Skip logging if silent mode is enabled
+  if (silentMode) {
+    return;
+  }
+  
+  // Use text prefixes instead of emojis
+  const prefixes = {
+    debug: chalk.gray("[DEBUG]"),
+    info: chalk.blue("[INFO]"),
+    warn: chalk.yellow("[WARN]"),
+    error: chalk.red("[ERROR]"),
+    success: chalk.green("[SUCCESS]")
   };
   
   if (LOG_LEVELS[level] >= LOG_LEVELS[CONFIG.logLevel]) {
-    const icon = icons[level] || '';
-    console.log(`${icon} ${args.join(' ')}`);
+    const prefix = prefixes[level] || "";
+    console.log(`${prefix} ${args.join(' ')}`);
   }
 }
 
@@ -337,5 +368,8 @@ export {
   truncate,
   findCycles,
   toKebabCase,
-  detectCamelCaseFlags
+  detectCamelCaseFlags,
+  enableSilentMode,
+  disableSilentMode,
+  isSilentMode
 }; 

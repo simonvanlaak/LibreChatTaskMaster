@@ -7,6 +7,7 @@ import { findTaskById } from '../../../../scripts/modules/utils.js';
 import { readJSON } from '../../../../scripts/modules/utils.js';
 import { getCachedOrExecute } from '../../tools/utils.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 
 /**
  * Direct function wrapper for showing task details with error handling and caching.
@@ -52,6 +53,9 @@ export async function showTaskDirect(args, log) {
   // Define the action function to be executed on cache miss
   const coreShowTaskAction = async () => {
     try {
+      // Enable silent mode to prevent console logs from interfering with JSON response
+      enableSilentMode();
+      
       log.info(`Retrieving task details for ID: ${taskId} from ${tasksPath}`);
       
       // Read tasks data
@@ -79,6 +83,9 @@ export async function showTaskDirect(args, log) {
         };
       }
       
+      // Restore normal logging
+      disableSilentMode();
+      
       // Return the task data with the full tasks array for reference
       // (needed for formatDependenciesWithStatus function in UI)
       log.info(`Successfully found task ${taskId}`);
@@ -90,6 +97,9 @@ export async function showTaskDirect(args, log) {
         } 
       };
     } catch (error) {
+      // Make sure to restore normal logging even if there's an error
+      disableSilentMode();
+      
       log.error(`Error showing task: ${error.message}`);
       return { 
         success: false, 
@@ -112,6 +122,7 @@ export async function showTaskDirect(args, log) {
     return result; // Returns { success, data/error, fromCache }
   } catch (error) {
     // Catch unexpected errors from getCachedOrExecute itself
+    disableSilentMode();
     log.error(`Unexpected error during getCachedOrExecute for showTask: ${error.message}`);
     return { 
       success: false, 

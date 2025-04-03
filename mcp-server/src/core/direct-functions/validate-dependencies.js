@@ -4,6 +4,7 @@
 
 import { validateDependenciesCommand } from '../../../../scripts/modules/dependency-manager.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 import fs from 'fs';
 
 /**
@@ -32,8 +33,14 @@ export async function validateDependenciesDirect(args, log) {
       };
     }
     
+    // Enable silent mode to prevent console logs from interfering with JSON response
+    enableSilentMode();
+    
     // Call the original command function
     await validateDependenciesCommand(tasksPath);
+    
+    // Restore normal logging
+    disableSilentMode();
     
     return {
       success: true,
@@ -43,6 +50,9 @@ export async function validateDependenciesDirect(args, log) {
       }
     };
   } catch (error) {
+    // Make sure to restore normal logging even if there's an error
+    disableSilentMode();
+    
     log.error(`Error validating dependencies: ${error.message}`);
     return {
       success: false,

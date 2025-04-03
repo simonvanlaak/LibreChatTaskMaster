@@ -3,7 +3,7 @@
  * Direct function implementation for displaying complexity analysis report
  */
 
-import { readComplexityReport } from '../../../../scripts/modules/utils.js';
+import { readComplexityReport, enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
 import { getCachedOrExecute } from '../../tools/utils.js';
 import path from 'path';
@@ -39,7 +39,13 @@ export async function complexityReportDirect(args, log) {
     // Define the core action function to read the report
     const coreActionFn = async () => {
       try {
+        // Enable silent mode to prevent console logs from interfering with JSON response
+        enableSilentMode();
+        
         const report = readComplexityReport(reportPath);
+        
+        // Restore normal logging
+        disableSilentMode();
         
         if (!report) {
           log.warn(`No complexity report found at ${reportPath}`);
@@ -60,6 +66,9 @@ export async function complexityReportDirect(args, log) {
           }
         };
       } catch (error) {
+        // Make sure to restore normal logging even if there's an error
+        disableSilentMode();
+        
         log.error(`Error reading complexity report: ${error.message}`);
         return { 
           success: false, 
@@ -82,6 +91,9 @@ export async function complexityReportDirect(args, log) {
       return result; // Returns { success, data/error, fromCache }
     } catch (error) {
       // Catch unexpected errors from getCachedOrExecute itself
+      // Ensure silent mode is disabled
+      disableSilentMode();
+      
       log.error(`Unexpected error during getCachedOrExecute for complexityReport: ${error.message}`);
       return { 
         success: false, 
@@ -93,6 +105,9 @@ export async function complexityReportDirect(args, log) {
       };
     }
   } catch (error) {
+    // Ensure silent mode is disabled if an outer error occurs
+    disableSilentMode();
+    
     log.error(`Error in complexityReportDirect: ${error.message}`);
     return { 
       success: false, 

@@ -4,6 +4,7 @@
  */
 
 import { updateSubtaskById } from '../../../../scripts/modules/task-manager.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
 
 /**
@@ -68,35 +69,50 @@ export async function updateSubtaskByIdDirect(args, log) {
     
     log.info(`Updating subtask with ID ${subtaskId} with prompt "${args.prompt}" and research: ${useResearch}`);
     
-    // Execute core updateSubtaskById function
-    const updatedSubtask = await updateSubtaskById(tasksPath, subtaskId, args.prompt, useResearch);
-    
-    // Handle the case where the subtask couldn't be updated (e.g., already marked as done)
-    if (!updatedSubtask) {
+    try {
+      // Enable silent mode to prevent console logs from interfering with JSON response
+      enableSilentMode();
+      
+      // Execute core updateSubtaskById function
+      const updatedSubtask = await updateSubtaskById(tasksPath, subtaskId, args.prompt, useResearch);
+      
+      // Restore normal logging
+      disableSilentMode();
+      
+      // Handle the case where the subtask couldn't be updated (e.g., already marked as done)
+      if (!updatedSubtask) {
+        return {
+          success: false,
+          error: { 
+            code: 'SUBTASK_UPDATE_FAILED', 
+            message: 'Failed to update subtask. It may be marked as completed, or another error occurred.' 
+          },
+          fromCache: false
+        };
+      }
+      
+      // Return the updated subtask information
       return {
-        success: false,
-        error: { 
-          code: 'SUBTASK_UPDATE_FAILED', 
-          message: 'Failed to update subtask. It may be marked as completed, or another error occurred.' 
+        success: true,
+        data: {
+          message: `Successfully updated subtask with ID ${subtaskId}`,
+          subtaskId,
+          parentId: subtaskId.split('.')[0],
+          subtask: updatedSubtask,
+          tasksPath,
+          useResearch
         },
-        fromCache: false
+        fromCache: false // This operation always modifies state and should never be cached
       };
+    } catch (error) {
+      // Make sure to restore normal logging even if there's an error
+      disableSilentMode();
+      throw error; // Rethrow to be caught by outer catch block
     }
-    
-    // Return the updated subtask information
-    return {
-      success: true,
-      data: {
-        message: `Successfully updated subtask with ID ${subtaskId}`,
-        subtaskId,
-        parentId: subtaskId.split('.')[0],
-        subtask: updatedSubtask,
-        tasksPath,
-        useResearch
-      },
-      fromCache: false // This operation always modifies state and should never be cached
-    };
   } catch (error) {
+    // Ensure silent mode is disabled
+    disableSilentMode();
+    
     log.error(`Error updating subtask by ID: ${error.message}`);
     return { 
       success: false, 

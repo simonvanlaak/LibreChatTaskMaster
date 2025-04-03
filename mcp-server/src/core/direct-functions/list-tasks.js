@@ -6,6 +6,7 @@
 import { listTasks } from '../../../../scripts/modules/task-manager.js';
 import { getCachedOrExecute } from '../../tools/utils.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 
 /**
  * Direct function wrapper for listTasks with error handling and caching.
@@ -38,6 +39,9 @@ export async function listTasksDirect(args, log) {
   // Define the action function to be executed on cache miss
   const coreListTasksAction = async () => {
     try {
+      // Enable silent mode to prevent console logs from interfering with JSON response
+      enableSilentMode();
+      
       log.info(`Executing core listTasks function for path: ${tasksPath}, filter: ${statusFilter}, subtasks: ${withSubtasks}`);
       const resultData = listTasks(tasksPath, statusFilter, withSubtasks, 'json');
 
@@ -46,9 +50,16 @@ export async function listTasksDirect(args, log) {
         return { success: false, error: { code: 'INVALID_CORE_RESPONSE', message: 'Invalid or empty response from listTasks core function' } };
       }
       log.info(`Core listTasks function retrieved ${resultData.tasks.length} tasks`);
+      
+      // Restore normal logging
+      disableSilentMode();
+      
       return { success: true, data: resultData };
 
     } catch (error) {
+      // Make sure to restore normal logging even if there's an error
+      disableSilentMode();
+      
       log.error(`Core listTasks function failed: ${error.message}`);
       return { success: false, error: { code: 'LIST_TASKS_CORE_ERROR', message: error.message || 'Failed to list tasks' } };
     }

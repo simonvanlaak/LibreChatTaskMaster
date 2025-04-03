@@ -29,7 +29,7 @@ export function registerRemoveSubtaskTool(server) {
     execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Removing subtask with args: ${JSON.stringify(args)}`);
-        await reportProgress({ progress: 0 });
+        // await reportProgress({ progress: 0 });
         
         let rootFolder = getProjectRootFromSession(session, log);
         
@@ -41,9 +41,9 @@ export function registerRemoveSubtaskTool(server) {
         const result = await removeSubtaskDirect({
           projectRoot: rootFolder,
           ...args
-        }, log, { reportProgress, mcpLog: log, session});
+        }, log/*, { reportProgress, mcpLog: log, session}*/);
         
-        await reportProgress({ progress: 100 });
+        // await reportProgress({ progress: 100 });
         
         if (result.success) {
           log.info(`Subtask removed successfully: ${result.data.message}`);

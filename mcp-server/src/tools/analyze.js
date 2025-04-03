@@ -30,7 +30,7 @@ export function registerAnalyzeTool(server) {
     execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Analyzing task complexity with args: ${JSON.stringify(args)}`);
-        await reportProgress({ progress: 0 });
+        // await reportProgress({ progress: 0 });
         
         let rootFolder = getProjectRootFromSession(session, log);
         
@@ -42,9 +42,9 @@ export function registerAnalyzeTool(server) {
         const result = await analyzeTaskComplexityDirect({
           projectRoot: rootFolder,
           ...args
-        }, log, { reportProgress, mcpLog: log, session});
+        }, log/*, { reportProgress, mcpLog: log, session}*/);
         
-        await reportProgress({ progress: 100 });
+        // await reportProgress({ progress: 100 });
         
         if (result.success) {
           log.info(`Task complexity analysis complete: ${result.data.message}`);

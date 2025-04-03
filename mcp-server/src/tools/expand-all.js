@@ -30,7 +30,7 @@ export function registerExpandAllTool(server) {
     execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Expanding all tasks with args: ${JSON.stringify(args)}`);
-        await reportProgress({ progress: 0 });
+        // await reportProgress({ progress: 0 });
         
         let rootFolder = getProjectRootFromSession(session, log);
         
@@ -42,19 +42,19 @@ export function registerExpandAllTool(server) {
         const result = await expandAllTasksDirect({
           projectRoot: rootFolder,
           ...args
-        }, log, { reportProgress, mcpLog: log, session});
+        }, log/*, { reportProgress, mcpLog: log, session}*/);
         
-        await reportProgress({ progress: 100 });
+        // await reportProgress({ progress: 100 });
         
         if (result.success) {
-          log.info(`All tasks expanded successfully: ${result.data.message}`);
+          log.info(`Successfully expanded all tasks: ${result.data.message}`);
         } else {
-          log.error(`Failed to expand tasks: ${result.error.message}`);
+          log.error(`Failed to expand all tasks: ${result.error?.message || 'Unknown error'}`);
         }
         
-        return handleApiResult(result, log, 'Error expanding tasks');
+        return handleApiResult(result, log, 'Error expanding all tasks');
       } catch (error) {
-        log.error(`Error in expandAll tool: ${error.message}`);
+        log.error(`Error in expand-all tool: ${error.message}`);
         return createErrorResponse(error.message);
       }
     },

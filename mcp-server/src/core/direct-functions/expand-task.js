@@ -4,7 +4,7 @@
  */
 
 import { expandTask } from '../../../../scripts/modules/task-manager.js';
-import { readJSON, writeJSON } from '../../../../scripts/modules/utils.js';
+import { readJSON, writeJSON, enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
 import path from 'path';
 import fs from 'fs';
@@ -116,28 +116,50 @@ export async function expandTaskDirect(args, log) {
     // Save tasks.json with potentially empty subtasks array
     writeJSON(tasksPath, data);
     
-    // Call the core expandTask function
-    await expandTask(taskId, numSubtasks, useResearch, additionalContext);
-    
-    // Read the updated data
-    const updatedData = readJSON(tasksPath);
-    const updatedTask = updatedData.tasks.find(t => t.id === taskId);
-    
-    // Calculate how many subtasks were added
-    const subtasksAdded = updatedTask.subtasks ? 
-      updatedTask.subtasks.length - subtasksCountBefore : 0;
-    
-    // Return the result
-    log.info(`Successfully expanded task ${taskId} with ${subtasksAdded} new subtasks`);
-    return { 
-      success: true, 
-      data: { 
-        task: updatedTask,
-        subtasksAdded,
-        hasExistingSubtasks
-      }, 
-      fromCache: false 
-    };
+    // Process the request
+    try {
+      // Enable silent mode to prevent console logs from interfering with JSON response
+      enableSilentMode();
+      
+      // Call expandTask
+      const result = await expandTask(taskId, numSubtasks, useResearch, additionalContext);
+      
+      // Restore normal logging
+      disableSilentMode();
+      
+      // Read the updated data
+      const updatedData = readJSON(tasksPath);
+      const updatedTask = updatedData.tasks.find(t => t.id === taskId);
+      
+      // Calculate how many subtasks were added
+      const subtasksAdded = updatedTask.subtasks ? 
+        updatedTask.subtasks.length - subtasksCountBefore : 0;
+      
+      // Return the result
+      log.info(`Successfully expanded task ${taskId} with ${subtasksAdded} new subtasks`);
+      return { 
+        success: true, 
+        data: { 
+          task: updatedTask,
+          subtasksAdded,
+          hasExistingSubtasks
+        }, 
+        fromCache: false 
+      };
+    } catch (error) {
+      // Make sure to restore normal logging even if there's an error
+      disableSilentMode();
+      
+      log.error(`Error expanding task: ${error.message}`);
+      return { 
+        success: false, 
+        error: { 
+          code: 'CORE_FUNCTION_ERROR', 
+          message: error.message || 'Failed to expand task' 
+        }, 
+        fromCache: false 
+      };
+    }
   } catch (error) {
     log.error(`Error expanding task: ${error.message}`);
     return { 

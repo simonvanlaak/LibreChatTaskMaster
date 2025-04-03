@@ -4,6 +4,7 @@
 
 import { addSubtask } from '../../../../scripts/modules/task-manager.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 
 /**
  * Add a subtask to an existing task
@@ -67,10 +68,17 @@ export async function addSubtaskDirect(args, log) {
     // Determine if we should generate files
     const generateFiles = !args.skipGenerate;
     
+    // Enable silent mode to prevent console logs from interfering with JSON response
+    enableSilentMode();
+    
     // Case 1: Convert existing task to subtask
     if (existingTaskId) {
       log.info(`Converting task ${existingTaskId} to a subtask of ${parentId}`);
       const result = await addSubtask(tasksPath, parentId, existingTaskId, null, generateFiles);
+      
+      // Restore normal logging
+      disableSilentMode();
+      
       return {
         success: true,
         data: {
@@ -92,6 +100,10 @@ export async function addSubtaskDirect(args, log) {
       };
       
       const result = await addSubtask(tasksPath, parentId, null, newSubtaskData, generateFiles);
+      
+      // Restore normal logging
+      disableSilentMode();
+      
       return {
         success: true,
         data: {
@@ -101,6 +113,9 @@ export async function addSubtaskDirect(args, log) {
       };
     }
   } catch (error) {
+    // Make sure to restore normal logging even if there's an error
+    disableSilentMode();
+    
     log.error(`Error in addSubtaskDirect: ${error.message}`);
     return {
       success: false,

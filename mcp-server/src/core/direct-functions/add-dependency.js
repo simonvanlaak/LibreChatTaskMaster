@@ -5,6 +5,7 @@
 
 import { addDependency } from '../../../../scripts/modules/dependency-manager.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 
 /**
  * Direct function wrapper for addDependency with error handling.
@@ -51,8 +52,14 @@ export async function addDependencyDirect(args, log) {
     
     log.info(`Adding dependency: task ${taskId} will depend on ${dependencyId}`);
     
+    // Enable silent mode to prevent console logs from interfering with JSON response
+    enableSilentMode();
+    
     // Call the core function
     await addDependency(tasksPath, taskId, dependencyId);
+    
+    // Restore normal logging
+    disableSilentMode();
     
     return {
       success: true,
@@ -63,6 +70,9 @@ export async function addDependencyDirect(args, log) {
       }
     };
   } catch (error) {
+    // Make sure to restore normal logging even if there's an error
+    disableSilentMode();
+    
     log.error(`Error in addDependencyDirect: ${error.message}`);
     return {
       success: false,

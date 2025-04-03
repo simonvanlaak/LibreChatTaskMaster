@@ -4,6 +4,7 @@
 
 import { removeSubtask } from '../../../../scripts/modules/task-manager.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 
 /**
  * Remove a subtask from its parent task
@@ -18,6 +19,9 @@ import { findTasksJsonPath } from '../utils/path-utils.js';
  */
 export async function removeSubtaskDirect(args, log) {
   try {
+    // Enable silent mode to prevent console logs from interfering with JSON response
+    enableSilentMode();
+    
     log.info(`Removing subtask with args: ${JSON.stringify(args)}`);
     
     if (!args.id) {
@@ -54,6 +58,9 @@ export async function removeSubtaskDirect(args, log) {
     
     const result = await removeSubtask(tasksPath, args.id, convertToTask, generateFiles);
     
+    // Restore normal logging
+    disableSilentMode();
+    
     if (convertToTask && result) {
       // Return info about the converted task
       return {
@@ -73,6 +80,9 @@ export async function removeSubtaskDirect(args, log) {
       };
     }
   } catch (error) {
+    // Ensure silent mode is disabled even if an outer error occurs
+    disableSilentMode();
+    
     log.error(`Error in removeSubtaskDirect: ${error.message}`);
     return {
       success: false,

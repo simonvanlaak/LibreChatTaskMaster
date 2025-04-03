@@ -7,6 +7,7 @@ import { findNextTask } from '../../../../scripts/modules/task-manager.js';
 import { readJSON } from '../../../../scripts/modules/utils.js';
 import { getCachedOrExecute } from '../../tools/utils.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 
 /**
  * Direct function wrapper for finding the next task to work on with error handling and caching.
@@ -38,6 +39,9 @@ export async function nextTaskDirect(args, log) {
   // Define the action function to be executed on cache miss
   const coreNextTaskAction = async () => {
     try {
+      // Enable silent mode to prevent console logs from interfering with JSON response
+      enableSilentMode();
+      
       log.info(`Finding next task from ${tasksPath}`);
       
       // Read tasks data
@@ -67,6 +71,9 @@ export async function nextTaskDirect(args, log) {
         };
       }
       
+      // Restore normal logging
+      disableSilentMode();
+      
       // Return the next task data with the full tasks array for reference
       log.info(`Successfully found next task ${nextTask.id}: ${nextTask.title}`);
       return { 
@@ -77,6 +84,9 @@ export async function nextTaskDirect(args, log) {
         } 
       };
     } catch (error) {
+      // Make sure to restore normal logging even if there's an error
+      disableSilentMode();
+      
       log.error(`Error finding next task: ${error.message}`);
       return { 
         success: false, 

@@ -4,6 +4,7 @@
 
 import { removeDependency } from '../../../../scripts/modules/dependency-manager.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 
 /**
  * Remove a dependency from a task
@@ -49,8 +50,14 @@ export async function removeDependencyDirect(args, log) {
     
     log.info(`Removing dependency: task ${taskId} no longer depends on ${dependencyId}`);
     
+    // Enable silent mode to prevent console logs from interfering with JSON response
+    enableSilentMode();
+    
     // Call the core function
     await removeDependency(tasksPath, taskId, dependencyId);
+    
+    // Restore normal logging
+    disableSilentMode();
     
     return {
       success: true,
@@ -61,6 +68,9 @@ export async function removeDependencyDirect(args, log) {
       }
     };
   } catch (error) {
+    // Make sure to restore normal logging even if there's an error
+    disableSilentMode();
+    
     log.error(`Error in removeDependencyDirect: ${error.message}`);
     return {
       success: false,

@@ -4,6 +4,7 @@
  */
 
 import { updateTasks } from '../../../../scripts/modules/task-manager.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
 
 /**
@@ -73,22 +74,37 @@ export async function updateTasksDirect(args, log) {
     
     log.info(`Updating tasks from ID ${fromId} with prompt "${args.prompt}" and research: ${useResearch}`);
     
-    // Execute core updateTasks function
-    await updateTasks(tasksPath, fromId, args.prompt, useResearch);
-    
-    // Since updateTasks doesn't return a value but modifies the tasks file,
-    // we'll return a success message
-    return {
-      success: true,
-      data: {
-        message: `Successfully updated tasks from ID ${fromId} based on the prompt`,
-        fromId,
-        tasksPath,
-        useResearch
-      },
-      fromCache: false // This operation always modifies state and should never be cached
-    };
+    try {
+      // Enable silent mode to prevent console logs from interfering with JSON response
+      enableSilentMode();
+      
+      // Execute core updateTasks function
+      await updateTasks(tasksPath, fromId, args.prompt, useResearch);
+      
+      // Restore normal logging
+      disableSilentMode();
+      
+      // Since updateTasks doesn't return a value but modifies the tasks file,
+      // we'll return a success message
+      return {
+        success: true,
+        data: {
+          message: `Successfully updated tasks from ID ${fromId} based on the prompt`,
+          fromId,
+          tasksPath,
+          useResearch
+        },
+        fromCache: false // This operation always modifies state and should never be cached
+      };
+    } catch (error) {
+      // Make sure to restore normal logging even if there's an error
+      disableSilentMode();
+      throw error; // Rethrow to be caught by outer catch block
+    }
   } catch (error) {
+    // Ensure silent mode is disabled
+    disableSilentMode();
+    
     log.error(`Error updating tasks: ${error.message}`);
     return { 
       success: false, 

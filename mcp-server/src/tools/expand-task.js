@@ -36,7 +36,7 @@ export function registerExpandTaskTool(server) {
     execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Expanding task with args: ${JSON.stringify(args)}`);
-        await reportProgress({ progress: 0 });
+        // await reportProgress({ progress: 0 });
         
         let rootFolder = getProjectRootFromSession(session, log);
         
@@ -48,20 +48,20 @@ export function registerExpandTaskTool(server) {
         const result = await expandTaskDirect({
           projectRoot: rootFolder,
           ...args
-        }, log, { reportProgress, mcpLog: log, session});
+        }, log/*, { reportProgress, mcpLog: log, session}*/);
         
-        await reportProgress({ progress: 100 });
+        // await reportProgress({ progress: 100 });
         
         if (result.success) {
-          log.info(`Successfully expanded task ID: ${args.id} with ${result.data.subtasksAdded} new subtasks${result.data.hasExistingSubtasks ? ' (appended to existing subtasks)' : ''}`);
+          log.info(`Successfully expanded task with ID ${args.id}`);
         } else {
-          log.error(`Failed to expand task: ${result.error.message}`);
+          log.error(`Failed to expand task: ${result.error?.message || 'Unknown error'}`);
         }
         
         return handleApiResult(result, log, 'Error expanding task');
       } catch (error) {
-        log.error(`Error in expand-task tool: ${error.message}`);
-        return createErrorResponse(`Failed to expand task: ${error.message}`);
+        log.error(`Error in expand task tool: ${error.message}`);
+        return createErrorResponse(error.message);
       }
     },
   });

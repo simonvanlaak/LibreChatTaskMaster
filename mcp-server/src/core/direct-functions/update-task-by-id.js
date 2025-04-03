@@ -5,6 +5,7 @@
 
 import { updateTaskById } from '../../../../scripts/modules/task-manager.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 
 /**
  * Direct function wrapper for updateTaskById with error handling.
@@ -79,8 +80,14 @@ export async function updateTaskByIdDirect(args, log) {
     
     log.info(`Updating task with ID ${taskId} with prompt "${args.prompt}" and research: ${useResearch}`);
     
+    // Enable silent mode to prevent console logs from interfering with JSON response
+    enableSilentMode();
+    
     // Execute core updateTaskById function
     await updateTaskById(tasksPath, taskId, args.prompt, useResearch);
+    
+    // Restore normal logging
+    disableSilentMode();
     
     // Since updateTaskById doesn't return a value but modifies the tasks file,
     // we'll return a success message
@@ -95,6 +102,9 @@ export async function updateTaskByIdDirect(args, log) {
       fromCache: false // This operation always modifies state and should never be cached
     };
   } catch (error) {
+    // Make sure to restore normal logging even if there's an error
+    disableSilentMode();
+    
     log.error(`Error updating task by ID: ${error.message}`);
     return { 
       success: false, 

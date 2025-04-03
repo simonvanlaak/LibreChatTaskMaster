@@ -7,6 +7,7 @@ import path from 'path';
 import fs from 'fs';
 import { parsePRD } from '../../../../scripts/modules/task-manager.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 
 /**
  * Direct function wrapper for parsing PRD documents and generating tasks.
@@ -66,8 +67,14 @@ export async function parsePRDDirect(args, log) {
     
     log.info(`Preparing to parse PRD from ${inputPath} and output to ${outputPath} with ${numTasks} tasks`);
     
+    // Enable silent mode to prevent console logs from interfering with JSON response
+    enableSilentMode();
+    
     // Execute core parsePRD function (which is not async but we'll await it to maintain consistency)
     await parsePRD(inputPath, outputPath, numTasks);
+    
+    // Restore normal logging
+    disableSilentMode();
     
     // Since parsePRD doesn't return a value but writes to a file, we'll read the result
     // to return it to the caller
@@ -94,6 +101,9 @@ export async function parsePRDDirect(args, log) {
       };
     }
   } catch (error) {
+    // Make sure to restore normal logging even if there's an error
+    disableSilentMode();
+    
     log.error(`Error parsing PRD: ${error.message}`);
     return { 
       success: false, 

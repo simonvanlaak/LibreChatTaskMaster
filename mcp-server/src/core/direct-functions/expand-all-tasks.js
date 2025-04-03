@@ -3,6 +3,7 @@
  */
 
 import { expandAllTasks } from '../../../../scripts/modules/task-manager.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
 
 /**
@@ -41,23 +42,38 @@ export async function expandAllTasksDirect(args, log) {
       log.info('Force regeneration of subtasks is enabled');
     }
     
-    // Call the core function
-    await expandAllTasks(numSubtasks, useResearch, additionalContext, forceFlag);
-    
-    // The expandAllTasks function doesn't have a return value, so we'll create our own success response
-    return {
-      success: true,
-      data: {
-        message: "Successfully expanded all pending tasks with subtasks",
-        details: {
-          numSubtasks: numSubtasks,
-          research: useResearch,
-          prompt: additionalContext,
-          force: forceFlag
+    try {
+      // Enable silent mode to prevent console logs from interfering with JSON response
+      enableSilentMode();
+      
+      // Call the core function
+      await expandAllTasks(numSubtasks, useResearch, additionalContext, forceFlag);
+      
+      // Restore normal logging
+      disableSilentMode();
+      
+      // The expandAllTasks function doesn't have a return value, so we'll create our own success response
+      return {
+        success: true,
+        data: {
+          message: "Successfully expanded all pending tasks with subtasks",
+          details: {
+            numSubtasks: numSubtasks,
+            research: useResearch,
+            prompt: additionalContext,
+            force: forceFlag
+          }
         }
-      }
-    };
+      };
+    } catch (error) {
+      // Make sure to restore normal logging even if there's an error
+      disableSilentMode();
+      throw error; // Rethrow to be caught by outer catch block
+    }
   } catch (error) {
+    // Ensure silent mode is disabled
+    disableSilentMode();
+    
     log.error(`Error in expandAllTasksDirect: ${error.message}`);
     return {
       success: false,

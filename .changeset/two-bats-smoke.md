@@ -29,6 +29,33 @@
   - Include new sections about handling dependencies during task removal operations
   - Document naming conventions and implementation patterns for destructive operations
 
+- **Implement silent mode across all direct functions:**
+  - Add `enableSilentMode` and `disableSilentMode` utility imports to all direct function files
+  - Wrap all core function calls with silent mode to prevent console logs from interfering with JSON responses
+  - Add comprehensive error handling to ensure silent mode is disabled even when errors occur
+  - Fix "Unexpected token 'I', "[INFO] Gene"... is not valid JSON" errors by suppressing log output
+  - Apply consistent silent mode pattern across all MCP direct functions
+  - Maintain clean JSON responses for better integration with client tools
+
+- **Implement AsyncOperationManager for background task processing:**
+  - Add new `async-manager.js` module to handle long-running operations asynchronously
+  - Support background execution of computationally intensive tasks like expansion and analysis
+  - Implement unique operation IDs with UUID generation for reliable tracking
+  - Add operation status tracking (pending, running, completed, failed)
+  - Create `get_operation_status` MCP tool to check on background task progress
+  - Forward progress reporting from background tasks to the client
+  - Implement operation history with automatic cleanup of completed operations
+  - Support proper error handling in background tasks with detailed status reporting
+  - Maintain context (log, session) for background operations ensuring consistent behavior
+
+- **Implement initialize_project command:**
+  - Add new MCP tool to allow project setup via integrated MCP clients
+  - Create `initialize_project` direct function with proper parameter handling
+  - Improve onboarding experience by adding to mcp.json configuration
+  - Support project-specific metadata like name, description, and version
+  - Handle shell alias creation with proper confirmation
+  - Improve first-time user experience in AI environments
+
 - **Refactor project root handling for MCP Server:**
   - **Prioritize Session Roots**: MCP tools now extract the project root path directly from `session.roots[0].uri` provided by the client (e.g., Cursor).
   - **New Utility `getProjectRootFromSession`**: Added to `mcp-server/src/tools/utils.js` to encapsulate session root extraction and decoding. **Further refined for more reliable detection, especially in integrated environments, including deriving root from script path and avoiding fallback to '/'.**

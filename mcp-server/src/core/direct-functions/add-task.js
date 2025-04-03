@@ -5,6 +5,7 @@
 
 import { addTask } from '../../../../scripts/modules/task-manager.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 
 /**
  * Direct function wrapper for adding a new task with error handling.
@@ -20,6 +21,9 @@ import { findTasksJsonPath } from '../utils/path-utils.js';
  */
 export async function addTaskDirect(args, log) {
   try {
+    // Enable silent mode to prevent console logs from interfering with JSON response
+    enableSilentMode();
+    
     // Find the tasks.json path
     const tasksPath = findTasksJsonPath(args, log);
     
@@ -44,8 +48,18 @@ export async function addTaskDirect(args, log) {
     
     log.info(`Adding new task with prompt: "${prompt}", dependencies: [${dependencies.join(', ')}], priority: ${priority}`);
     
-    // Call the addTask function
-    const newTaskId = await addTask(tasksPath, prompt, dependencies, priority);
+    // Call the addTask function with 'json' outputFormat to prevent console output when called via MCP
+    const newTaskId = await addTask(
+      tasksPath, 
+      prompt, 
+      dependencies, 
+      priority, 
+      { mcpLog: log }, 
+      'json'
+    );
+    
+    // Restore normal logging
+    disableSilentMode();
     
     return {
       success: true,
@@ -55,6 +69,9 @@ export async function addTaskDirect(args, log) {
       }
     };
   } catch (error) {
+    // Make sure to restore normal logging even if there's an error
+    disableSilentMode();
+    
     log.error(`Error in addTaskDirect: ${error.message}`);
     return {
       success: false,

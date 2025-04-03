@@ -4,6 +4,7 @@
  */
 
 import { removeTask } from '../../../../scripts/modules/task-manager.js';
+import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
 
 /**
@@ -49,8 +50,14 @@ export async function removeTaskDirect(args, log) {
     log.info(`Removing task with ID: ${taskId} from ${tasksPath}`);
     
     try {
+      // Enable silent mode to prevent console logs from interfering with JSON response
+      enableSilentMode();
+      
       // Call the core removeTask function
       const result = await removeTask(tasksPath, taskId);
+      
+      // Restore normal logging
+      disableSilentMode();
       
       log.info(`Successfully removed task: ${taskId}`);
       
@@ -66,6 +73,9 @@ export async function removeTaskDirect(args, log) {
         fromCache: false
       };
     } catch (error) {
+      // Make sure to restore normal logging even if there's an error
+      disableSilentMode();
+      
       log.error(`Error removing task: ${error.message}`);
       return { 
         success: false, 
@@ -77,6 +87,9 @@ export async function removeTaskDirect(args, log) {
       };
     }
   } catch (error) {
+    // Ensure silent mode is disabled even if an outer error occurs
+    disableSilentMode();
+    
     // Catch any unexpected errors
     log.error(`Unexpected error in removeTaskDirect: ${error.message}`);
     return { 
