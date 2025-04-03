@@ -21,7 +21,7 @@ export function registerParsePRDTool(server) {
     description: "Parse a Product Requirements Document (PRD) or text file to automatically generate initial tasks.",
     parameters: z.object({
       input: z.string().default("tasks/tasks.json").describe("Path to the PRD document file (relative to project root or absolute)"),
-      numTasks: z.union([z.number(), z.string()]).optional().describe("Approximate number of top-level tasks to generate (default: 10)"),
+      numTasks: z.string().optional().describe("Approximate number of top-level tasks to generate (default: 10)"),
       output: z.string().optional().describe("Output path for tasks.json file (relative to project root or absolute, default: tasks/tasks.json)"),
       force: z.boolean().optional().describe("Allow overwriting an existing tasks.json file."),
       projectRoot: z
