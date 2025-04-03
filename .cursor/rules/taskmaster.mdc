@@ -37,6 +37,7 @@ This document provides a detailed reference for interacting with Taskmaster, cov
     *   `numTasks`: `Approximate number of top-level tasks Taskmaster should aim to generate from the document.` (CLI: `-n, --num-tasks <number>`)
     *   `force`: `Use this to allow Taskmaster to overwrite an existing 'tasks.json' without asking for confirmation.` (CLI: `-f, --force`)
 *   **Usage:** Useful for bootstrapping a project from an existing requirements document.
+*   **Notes:** Task Master will strictly adhere to any specific requirements mentioned in the PRD (libraries, database schemas, frameworks, tech stacks, etc.) while filling in any gaps where the PRD isn't fully specified. Tasks are designed to provide the most direct implementation path while avoiding over-engineering.
 
 ---
 

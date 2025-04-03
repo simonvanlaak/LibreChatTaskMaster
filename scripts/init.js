@@ -706,10 +706,10 @@ function setupMCPConfiguration(targetDir, projectName) {
       "env": {
           "ANTHROPIC_API_KEY": "%ANTHROPIC_API_KEY%",
           "PERPLEXITY_API_KEY": "%PERPLEXITY_API_KEY%",
-          "MODEL": "%MODEL%",
-          "PERPLEXITY_MODEL": "%PERPLEXITY_MODEL%",
-          "MAX_TOKENS": "%MAX_TOKENS%",
-          "TEMPERATURE": "%TEMPERATURE%",
+          "MODEL": "claude-3-7-sonnet-20250219",
+          "PERPLEXITY_MODEL": "sonar-pro",
+          "MAX_TOKENS": 64000,
+          "TEMPERATURE": 0.3,
           "DEFAULT_SUBTASKS": 5,
           "DEFAULT_PRIORITY": "medium"
       }
