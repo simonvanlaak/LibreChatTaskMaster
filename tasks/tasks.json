@@ -2439,6 +2439,16 @@
           "status": "pending"
         }
       ]
+    },
+    {
+      "id": 43,
+      "title": "Add Research Flag to Add-Task Command",
+      "description": "Implement a '--research' flag for the add-task command that enables users to automatically generate research-related subtasks when creating a new task.",
+      "status": "pending",
+      "dependencies": [],
+      "priority": "medium",
+      "details": "Modify the add-task command to accept a new optional flag '--research'. When this flag is provided, the system should automatically generate and attach a set of research-oriented subtasks to the newly created task. These subtasks should follow a standard research methodology structure:\n\n1. Background Investigation: Research existing solutions and approaches\n2. Requirements Analysis: Define specific requirements and constraints\n3. Technology/Tool Evaluation: Compare potential technologies or tools for implementation\n4. Proof of Concept: Create a minimal implementation to validate approach\n5. Documentation: Document findings and recommendations\n\nThe implementation should:\n- Update the command-line argument parser to recognize the new flag\n- Create a dedicated function to generate the research subtasks with appropriate descriptions\n- Ensure subtasks are properly linked to the parent task\n- Update help documentation to explain the new flag\n- Maintain backward compatibility with existing add-task functionality\n\nThe research subtasks should be customized based on the main task's title and description when possible, rather than using generic templates.",
+      "testStrategy": "Testing should verify both the functionality and usability of the new feature:\n\n1. Unit tests:\n   - Test that the '--research' flag is properly parsed\n   - Verify the correct number and structure of subtasks are generated\n   - Ensure subtask IDs are correctly assigned and linked to the parent task\n\n2. Integration tests:\n   - Create a task with the research flag and verify all subtasks appear in the task list\n   - Test that the research flag works with other existing flags (e.g., --priority, --depends-on)\n   - Verify the task and subtasks are properly saved to the storage backend\n\n3. Manual testing:\n   - Run 'taskmaster add-task \"Test task\" --research' and verify the output\n   - Check that the help documentation correctly describes the new flag\n   - Verify the research subtasks have meaningful descriptions\n   - Test the command with and without the flag to ensure backward compatibility\n\n4. Edge cases:\n   - Test with very short or very long task descriptions\n   - Verify behavior when maximum task/subtask limits are reached"
     }
   ]
 }
