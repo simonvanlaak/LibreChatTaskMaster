@@ -12,6 +12,24 @@ import {
 import { showTaskDirect } from "../core/task-master-core.js";
 
 /**
+ * Custom processor function that removes allTasks from the response
+ * @param {Object} data - The data returned from showTaskDirect
+ * @returns {Object} - The processed data with allTasks removed
+ */
+function processTaskResponse(data) {
+  if (!data) return data;
+  
+  // If we have the expected structure with task and allTasks
+  if (data.task) {
+    // Return only the task object, removing the allTasks array
+    return data.task;
+  }
+  
+  // If structure is unexpected, return as is
+  return data;
+}
+
+/**
  * Register the get-task tool with the MCP server
  * @param {Object} server - FastMCP server instance
  */
@@ -63,7 +81,8 @@ export function registerShowTaskTool(server) {
           log.error(`Failed to get task: ${result.error.message}`);
         }
         
-        return handleApiResult(result, log, 'Error retrieving task details');
+        // Use our custom processor function to remove allTasks from the response
+        return handleApiResult(result, log, 'Error retrieving task details', processTaskResponse);
       } catch (error) {
         log.error(`Error in get-task tool: ${error.message}\n${error.stack}`); // Add stack trace
         return createErrorResponse(`Failed to get task: ${error.message}`);

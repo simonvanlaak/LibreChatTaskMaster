@@ -8,6 +8,11 @@
   - Rename `list-tasks` to `get-tasks` for more intuitive client requests like "get my tasks"
   - Rename `show-task` to `get-task` for consistency with GET-based API naming conventions
 
+- **Optimize MCP response payloads:**
+  - Add custom `processTaskResponse` function to `get-task` MCP tool to filter out unnecessary `allTasks` array data
+  - Significantly reduce response size by returning only the specific requested task instead of all tasks
+  - Preserve dependency status relationships for the UI/CLI while keeping MCP responses lean and efficient
+
 - **Refactor project root handling for MCP Server:**
   - **Prioritize Session Roots**: MCP tools now extract the project root path directly from `session.roots[0].uri` provided by the client (e.g., Cursor).
   - **New Utility `getProjectRootFromSession`**: Added to `mcp-server/src/tools/utils.js` to encapsulate session root extraction and decoding. **Further refined for more reliable detection, especially in integrated environments, including deriving root from script path and avoiding fallback to '/'.**
