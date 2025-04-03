@@ -49,19 +49,19 @@ import {
 
 // Initialize Anthropic client
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+  apiKey: process.env.ANTHROPIC_API_KEY || session?.env?.ANTHROPIC_API_KEY,
 });
 
 // Import perplexity if available
 let perplexity;
 
 try {
-  if (process.env.PERPLEXITY_API_KEY) {
+  if (process.env.PERPLEXITY_API_KEY || session?.env?.PERPLEXITY_API_KEY) {
     // Using the existing approach from ai-services.js
     const OpenAI = (await import('openai')).default;
     
     perplexity = new OpenAI({
-      apiKey: process.env.PERPLEXITY_API_KEY, 
+      apiKey: process.env.PERPLEXITY_API_KEY || session?.env?.PERPLEXITY_API_KEY, 
       baseURL: 'https://api.perplexity.ai',
     });
     
@@ -77,8 +77,11 @@ try {
  * @param {string} prdPath - Path to the PRD file
  * @param {string} tasksPath - Path to the tasks.json file
  * @param {number} numTasks - Number of tasks to generate
+ * @param {function} reportProgress - Function to report progress to MCP server (optional)
+ * @param {Object} mcpLog - MCP logger object (optional)
+ * @param {Object} session - Session object from MCP server (optional)
  */
-async function parsePRD(prdPath, tasksPath, numTasks) {
+async function parsePRD(prdPath, tasksPath, numTasks, { reportProgress, mcpLog, session } = {}) {
   try {
     log('info', `Parsing PRD file: ${prdPath}`);
     
@@ -86,22 +89,20 @@ async function parsePRD(prdPath, tasksPath, numTasks) {
     const prdContent = fs.readFileSync(prdPath, 'utf8');
     
     // Call Claude to generate tasks
-    const tasksData = await callClaude(prdContent, prdPath, numTasks);
+    const tasksData = await callClaude(prdContent, prdPath, numTasks, { reportProgress, mcpLog, session } = {});
     
     // Create the directory if it doesn't exist
     const tasksDir = path.dirname(tasksPath);
     if (!fs.existsSync(tasksDir)) {
       fs.mkdirSync(tasksDir, { recursive: true });
     }
-    
     // Write the tasks to the file
     writeJSON(tasksPath, tasksData);
-    
     log('success', `Successfully generated ${tasksData.tasks.length} tasks from PRD`);
     log('info', `Tasks saved to: ${tasksPath}`);
     
     // Generate individual task files
-    await generateTaskFiles(tasksPath, tasksDir);
+    await generateTaskFiles(tasksPath, tasksDir, { reportProgress, mcpLog, session } = {});
     
     console.log(boxen(
       chalk.green(`Successfully generated ${tasksData.tasks.length} tasks from PRD`),
@@ -132,13 +133,16 @@ async function parsePRD(prdPath, tasksPath, numTasks) {
  * @param {number} fromId - Task ID to start updating from
  * @param {string} prompt - Prompt with new context
  * @param {boolean} useResearch - Whether to use Perplexity AI for research
+ * @param {function} reportProgress - Function to report progress to MCP server (optional)
+ * @param {Object} mcpLog - MCP logger object (optional)
+ * @param {Object} session - Session object from MCP server (optional)
  */
-async function updateTasks(tasksPath, fromId, prompt, useResearch = false) {
+async function updateTasks(tasksPath, fromId, prompt, useResearch = false, { reportProgress, mcpLog, session } = {}) {
   try {
     log('info', `Updating tasks from ID ${fromId} with prompt: "${prompt}"`);
     
     // Validate research flag
-    if (useResearch && (!perplexity || !process.env.PERPLEXITY_API_KEY)) {
+    if (useResearch && (!perplexity || !process.env.PERPLEXITY_API_KEY || session?.env?.PERPLEXITY_API_KEY)) {
       log('warn', 'Perplexity AI is not available. Falling back to Claude AI.');
       console.log(chalk.yellow('Perplexity AI is not available (API key may be missing). Falling back to Claude AI.'));
       useResearch = false;
@@ -224,7 +228,7 @@ The changes described in the prompt should be applied to ALL tasks in the list.`
         log('info', 'Using Perplexity AI for research-backed task updates');
         
         // Call Perplexity AI using format consistent with ai-services.js
-        const perplexityModel = process.env.PERPLEXITY_MODEL || 'sonar-pro';
+        const perplexityModel = process.env.PERPLEXITY_MODEL || session?.env?.PERPLEXITY_MODEL || 'sonar-pro';
         const result = await perplexity.chat.completions.create({
           model: perplexityModel,
           messages: [
@@ -245,8 +249,8 @@ IMPORTANT: In the tasks JSON above, any subtasks with "status": "done" or "statu
 Return only the updated tasks as a valid JSON array.`
             }
           ],
-          temperature: parseFloat(process.env.TEMPERATURE || CONFIG.temperature),
-          max_tokens: parseInt(process.env.MAX_TOKENS || CONFIG.maxTokens),
+          temperature: parseFloat(process.env.TEMPERATURE || session?.env?.TEMPERATURE || CONFIG.temperature),
+          max_tokens: parseInt(process.env.MAX_TOKENS || session?.env?.MAX_TOKENS || CONFIG.maxTokens),
         });
         
         const responseText = result.choices[0].message.content;
@@ -278,9 +282,9 @@ Return only the updated tasks as a valid JSON array.`
           
           // Use streaming API call
           const stream = await anthropic.messages.create({
-            model: CONFIG.model,
-            max_tokens: CONFIG.maxTokens,
-            temperature: CONFIG.temperature,
+            model: session?.env?.ANTHROPIC_MODEL || CONFIG.model,
+            max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
+            temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
             system: systemPrompt,
             messages: [
               {
@@ -303,6 +307,13 @@ Return only the updated tasks as a valid JSON array.`
           for await (const chunk of stream) {
             if (chunk.type === 'content_block_delta' && chunk.delta.text) {
               responseText += chunk.delta.text;
+            }
+            if (reportProgress) {
+              await reportProgress({ progress: (responseText.length / CONFIG.maxTokens) * 100 });
+            }
+
+            if (mcpLog) {
+              mcpLog.info(`Progress: ${responseText.length / CONFIG.maxTokens * 100}%`);
             }
           }
           
@@ -366,9 +377,12 @@ Return only the updated tasks as a valid JSON array.`
  * @param {number} taskId - Task ID to update
  * @param {string} prompt - Prompt with new context
  * @param {boolean} useResearch - Whether to use Perplexity AI for research
+ * @param {function} reportProgress - Function to report progress to MCP server (optional)
+ * @param {Object} mcpLog - MCP logger object (optional)
+ * @param {Object} session - Session object from MCP server (optional)
  * @returns {Object} - Updated task data or null if task wasn't updated
  */
-async function updateTaskById(tasksPath, taskId, prompt, useResearch = false) {
+async function updateTaskById(tasksPath, taskId, prompt, useResearch = false, { reportProgress, mcpLog, session } = {}) {
   try {
     log('info', `Updating single task ${taskId} with prompt: "${prompt}"`);
     
@@ -383,7 +397,7 @@ async function updateTaskById(tasksPath, taskId, prompt, useResearch = false) {
     }
     
     // Validate research flag
-    if (useResearch && (!perplexity || !process.env.PERPLEXITY_API_KEY)) {
+    if (useResearch && (!perplexity || !process.env.PERPLEXITY_API_KEY || session?.env?.PERPLEXITY_API_KEY)) {
       log('warn', 'Perplexity AI is not available. Falling back to Claude AI.');
       console.log(chalk.yellow('Perplexity AI is not available (API key may be missing). Falling back to Claude AI.'));
       useResearch = false;
@@ -484,13 +498,13 @@ The changes described in the prompt should be thoughtfully applied to make the t
         log('info', 'Using Perplexity AI for research-backed task update');
         
         // Verify Perplexity API key exists
-        if (!process.env.PERPLEXITY_API_KEY) {
+        if (!process.env.PERPLEXITY_API_KEY || session?.env?.PERPLEXITY_API_KEY) {
           throw new Error('PERPLEXITY_API_KEY environment variable is missing but --research flag was used.');
         }
         
         try {
           // Call Perplexity AI
-          const perplexityModel = process.env.PERPLEXITY_MODEL || 'sonar-pro';
+          const perplexityModel = process.env.PERPLEXITY_MODEL || session?.env?.PERPLEXITY_MODEL || 'sonar-pro';
           const result = await perplexity.chat.completions.create({
             model: perplexityModel,
             messages: [
@@ -511,8 +525,8 @@ IMPORTANT: In the task JSON above, any subtasks with "status": "done" or "status
 Return only the updated task as a valid JSON object.`
               }
             ],
-            temperature: parseFloat(process.env.TEMPERATURE || CONFIG.temperature),
-            max_tokens: parseInt(process.env.MAX_TOKENS || CONFIG.maxTokens),
+            temperature: parseFloat(process.env.TEMPERATURE || session?.env?.TEMPERATURE || CONFIG.temperature),
+            max_tokens: parseInt(process.env.MAX_TOKENS || session?.env?.MAX_TOKENS || CONFIG.maxTokens),
           });
           
           const responseText = result.choices[0].message.content;
@@ -542,7 +556,7 @@ Return only the updated task as a valid JSON object.`
         
         try {
           // Verify Anthropic API key exists
-          if (!process.env.ANTHROPIC_API_KEY) {
+          if (!process.env.ANTHROPIC_API_KEY || session?.env?.ANTHROPIC_API_KEY) {
             throw new Error('ANTHROPIC_API_KEY environment variable is missing. Required for task updates.');
           }
           
@@ -557,9 +571,9 @@ Return only the updated task as a valid JSON object.`
           
           // Use streaming API call
           const stream = await anthropic.messages.create({
-            model: CONFIG.model,
-            max_tokens: CONFIG.maxTokens,
-            temperature: CONFIG.temperature,
+            model: session?.env?.ANTHROPIC_MODEL || CONFIG.model,
+            max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
+            temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
             system: systemPrompt,
             messages: [
               {
@@ -582,6 +596,12 @@ Return only the updated task as a valid JSON object.`
           for await (const chunk of stream) {
             if (chunk.type === 'content_block_delta' && chunk.delta.text) {
               responseText += chunk.delta.text;
+            }
+            if (reportProgress) {
+              await reportProgress({ progress: (responseText.length / CONFIG.maxTokens) * 100 });
+            }
+            if (mcpLog) {
+              mcpLog.info(`Progress: ${responseText.length / CONFIG.maxTokens * 100}%`);
             }
           }
           
@@ -2034,9 +2054,12 @@ function clearSubtasks(tasksPath, taskIds) {
  * @param {string} prompt - Description of the task to add
  * @param {Array} dependencies - Task dependencies
  * @param {string} priority - Task priority
+ * @param {function} reportProgress - Function to report progress to MCP server (optional)
+ * @param {Object} mcpLog - MCP logger object (optional)
+ * @param {Object} session - Session object from MCP server (optional)
  * @returns {number} The new task ID
  */
-async function addTask(tasksPath, prompt, dependencies = [], priority = 'medium') {
+async function addTask(tasksPath, prompt, dependencies = [], priority = 'medium', { reportProgress, mcpLog, session } = {}) {
   displayBanner();
   
   // Read the existing tasks
@@ -2112,9 +2135,9 @@ async function addTask(tasksPath, prompt, dependencies = [], priority = 'medium'
   try {
     // Call Claude with streaming enabled
     const stream = await anthropic.messages.create({
-      max_tokens: CONFIG.maxTokens,
-      model: CONFIG.model,
-      temperature: CONFIG.temperature,
+      max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
+      model: session?.env?.ANTHROPIC_MODEL || CONFIG.model,
+      temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
       messages: [{ role: "user", content: userPrompt }],
       system: systemPrompt,
       stream: true
@@ -2132,6 +2155,13 @@ async function addTask(tasksPath, prompt, dependencies = [], priority = 'medium'
     for await (const chunk of stream) {
       if (chunk.type === 'content_block_delta' && chunk.delta.text) {
         fullResponse += chunk.delta.text;
+      }
+
+      if (reportProgress) {
+        await reportProgress({ progress: (fullResponse.length / CONFIG.maxTokens) * 100 });
+      }
+      if (mcpLog) {
+        mcpLog.info(`Progress: ${fullResponse.length / CONFIG.maxTokens * 100}%`);
       }
     }
     
@@ -2213,8 +2243,11 @@ async function addTask(tasksPath, prompt, dependencies = [], priority = 'medium'
 /**
  * Analyzes task complexity and generates expansion recommendations
  * @param {Object} options Command options
+ * @param {function} reportProgress - Function to report progress to MCP server (optional)
+ * @param {Object} mcpLog - MCP logger object (optional)
+ * @param {Object} session - Session object from MCP server (optional)
  */
-async function analyzeTaskComplexity(options) {
+async function analyzeTaskComplexity(options, { reportProgress, mcpLog, session } = {}) {
   const tasksPath = options.file || 'tasks/tasks.json';
   const outputPath = options.output || 'scripts/task-complexity-report.json';
   const modelOverride = options.model;
@@ -2274,7 +2307,7 @@ Your response must be a clean JSON array only, following exactly this format:
 DO NOT include any text before or after the JSON array. No explanations, no markdown formatting.`;
           
           const result = await perplexity.chat.completions.create({
-            model: process.env.PERPLEXITY_MODEL || 'sonar-pro',
+            model: process.env.PERPLEXITY_MODEL || session?.env?.PERPLEXITY_MODEL || 'sonar-pro',
             messages: [
               {
                 role: "system", 
@@ -2285,8 +2318,8 @@ DO NOT include any text before or after the JSON array. No explanations, no mark
                 content: researchPrompt
               }
             ],
-            temperature: CONFIG.temperature,
-            max_tokens: CONFIG.maxTokens,
+            temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
+            max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
           });
           
           // Extract the response text
@@ -2315,9 +2348,9 @@ DO NOT include any text before or after the JSON array. No explanations, no mark
       async function useClaudeForComplexityAnalysis() {
         // Call the LLM API with streaming
         const stream = await anthropic.messages.create({
-          max_tokens: CONFIG.maxTokens,
-          model: modelOverride || CONFIG.model,
-          temperature: CONFIG.temperature,
+          max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
+          model: modelOverride || CONFIG.model || session?.env?.ANTHROPIC_MODEL,
+          temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
           messages: [{ role: "user", content: prompt }],
           system: "You are an expert software architect and project manager analyzing task complexity. Respond only with valid JSON.",
           stream: true
@@ -2335,6 +2368,12 @@ DO NOT include any text before or after the JSON array. No explanations, no mark
         for await (const chunk of stream) {
           if (chunk.type === 'content_block_delta' && chunk.delta.text) {
             fullResponse += chunk.delta.text;
+          }
+          if (reportProgress) {
+            await reportProgress({ progress: (fullResponse.length / CONFIG.maxTokens) * 100 });
+          }
+          if (mcpLog) {
+            mcpLog.info(`Progress: ${fullResponse.length / CONFIG.maxTokens * 100}%`);
           }
         }
         
@@ -2530,7 +2569,7 @@ Your response must be a clean JSON array only, following exactly this format:
 DO NOT include any text before or after the JSON array. No explanations, no markdown formatting.`;
 
               const result = await perplexity.chat.completions.create({
-                model: process.env.PERPLEXITY_MODEL || 'sonar-pro',
+                model: process.env.PERPLEXITY_MODEL || session?.env?.PERPLEXITY_MODEL || 'sonar-pro',
                 messages: [
                   {
                     role: "system", 
@@ -2541,8 +2580,8 @@ DO NOT include any text before or after the JSON array. No explanations, no mark
                     content: missingTasksResearchPrompt
                   }
                 ],
-                temperature: CONFIG.temperature,
-                max_tokens: CONFIG.maxTokens,
+                temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
+                max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
               });
               
               // Extract the response
@@ -2550,9 +2589,9 @@ DO NOT include any text before or after the JSON array. No explanations, no mark
             } else {
               // Use Claude
               const stream = await anthropic.messages.create({
-                max_tokens: CONFIG.maxTokens,
-                model: modelOverride || CONFIG.model,
-                temperature: CONFIG.temperature,
+                max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
+                model: modelOverride || CONFIG.model || session?.env?.ANTHROPIC_MODEL,
+                temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
                 messages: [{ role: "user", content: missingTasksPrompt }],
                 system: "You are an expert software architect and project manager analyzing task complexity. Respond only with valid JSON.",
                 stream: true
@@ -2562,6 +2601,12 @@ DO NOT include any text before or after the JSON array. No explanations, no mark
               for await (const chunk of stream) {
                 if (chunk.type === 'content_block_delta' && chunk.delta.text) {
                   missingAnalysisResponse += chunk.delta.text;
+                }
+                if (reportProgress) {
+                  await reportProgress({ progress: (missingAnalysisResponse.length / CONFIG.maxTokens) * 100 });
+                }
+                if (mcpLog) {
+                  mcpLog.info(`Progress: ${missingAnalysisResponse.length / CONFIG.maxTokens * 100}%`);
                 }
               }
             }
@@ -3063,9 +3108,12 @@ async function removeSubtask(tasksPath, subtaskId, convertToTask = false, genera
  * @param {string} subtaskId - ID of the subtask to update in format "parentId.subtaskId"
  * @param {string} prompt - Prompt for generating additional information
  * @param {boolean} useResearch - Whether to use Perplexity AI for research-backed updates
+ * @param {function} reportProgress - Function to report progress to MCP server (optional)
+ * @param {Object} mcpLog - MCP logger object (optional)
+ * @param {Object} session - Session object from MCP server (optional)
  * @returns {Object|null} - The updated subtask or null if update failed
  */
-async function updateSubtaskById(tasksPath, subtaskId, prompt, useResearch = false) {
+async function updateSubtaskById(tasksPath, subtaskId, prompt, useResearch = false, { reportProgress, mcpLog, session } = {} ) {
   let loadingIndicator = null;
   try {
     log('info', `Updating subtask ${subtaskId} with prompt: "${prompt}"`);
@@ -3194,15 +3242,15 @@ Provide concrete examples, code snippets, or implementation details when relevan
 
         if (modelType === 'perplexity') {
           // Construct Perplexity payload
-          const perplexityModel = process.env.PERPLEXITY_MODEL || 'sonar-pro';
+          const perplexityModel = process.env.PERPLEXITY_MODEL || session?.env?.PERPLEXITY_MODEL || 'sonar-pro';
           const response = await client.chat.completions.create({
             model: perplexityModel,
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userMessageContent }
             ],
-            temperature: parseFloat(process.env.TEMPERATURE || CONFIG.temperature),
-            max_tokens: parseInt(process.env.MAX_TOKENS || CONFIG.maxTokens),
+            temperature: parseFloat(process.env.TEMPERATURE || session?.env?.TEMPERATURE || CONFIG.temperature),
+            max_tokens: parseInt(process.env.MAX_TOKENS || session?.env?.MAX_TOKENS || CONFIG.maxTokens),
           });
           additionalInformation = response.choices[0].message.content.trim();
         } else { // Claude
@@ -3233,6 +3281,12 @@ Provide concrete examples, code snippets, or implementation details when relevan
             for await (const chunk of stream) {
               if (chunk.type === 'content_block_delta' && chunk.delta.text) {
                 responseText += chunk.delta.text;
+              }
+              if (reportProgress) {
+                await reportProgress({ progress: (responseText.length / CONFIG.maxTokens) * 100 });
+              }
+              if (mcpLog) {
+                mcpLog.info(`Progress: ${responseText.length / CONFIG.maxTokens * 100}%`);
               }
             }
           } finally {

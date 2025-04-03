@@ -6,7 +6,8 @@
 import { z } from "zod";
 import {
   handleApiResult,
-  createErrorResponse
+  createErrorResponse,
+  getProjectRootFromSession
 } from "./utils.js";
 import { removeSubtaskDirect } from "../core/task-master-core.js";
 
@@ -25,21 +26,31 @@ export function registerRemoveSubtaskTool(server) {
       skipGenerate: z.boolean().optional().describe("Skip regenerating task files"),
       projectRoot: z.string().optional().describe("Root directory of the project (default: current working directory)")
     }),
-    execute: async (args, { log }) => {
+    execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Removing subtask with args: ${JSON.stringify(args)}`);
+        await reportProgress({ progress: 0 });
         
-        // Call the direct function wrapper
-        const result = await removeSubtaskDirect(args, log);
+        let rootFolder = getProjectRootFromSession(session, log);
         
-        // Log result
+        if (!rootFolder && args.projectRoot) {
+          rootFolder = args.projectRoot;
+          log.info(`Using project root from args as fallback: ${rootFolder}`);
+        }
+        
+        const result = await removeSubtaskDirect({
+          projectRoot: rootFolder,
+          ...args
+        }, log, { reportProgress, mcpLog: log, session});
+        
+        await reportProgress({ progress: 100 });
+        
         if (result.success) {
           log.info(`Subtask removed successfully: ${result.data.message}`);
         } else {
           log.error(`Failed to remove subtask: ${result.error.message}`);
         }
         
-        // Use handleApiResult to format the response
         return handleApiResult(result, log, 'Error removing subtask');
       } catch (error) {
         log.error(`Error in removeSubtask tool: ${error.message}`);

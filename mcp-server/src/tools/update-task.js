@@ -6,7 +6,8 @@
 import { z } from "zod";
 import {
   handleApiResult,
-  createErrorResponse
+  createErrorResponse,
+  getProjectRootFromSession
 } from "./utils.js";
 import { updateTaskByIdDirect } from "../core/task-master-core.js";
 
@@ -16,11 +17,11 @@ import { updateTaskByIdDirect } from "../core/task-master-core.js";
  */
 export function registerUpdateTaskTool(server) {
   server.addTool({
-    name: "update-task",
-    description: "Updates a single task by ID with new information",
+    name: "update_task",
+    description: "Updates a single task by ID with new information or context provided in the prompt.",
     parameters: z.object({
-      id: z.union([z.number(), z.string()]).describe("ID of the task to update"),
-      prompt: z.string().describe("New information or context to update the task"),
+      id: z.union([z.number(), z.string()]).describe("ID of the task or subtask (e.g., '15', '15.2') to update"),
+      prompt: z.string().describe("New information or context to incorporate into the task"),
       research: z.boolean().optional().describe("Use Perplexity AI for research-backed updates"),
       file: z.string().optional().describe("Path to the tasks file"),
       projectRoot: z
@@ -30,20 +31,34 @@ export function registerUpdateTaskTool(server) {
           "Root directory of the project (default: current working directory)"
         ),
     }),
-    execute: async (args, { log }) => {
+    execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Updating task with args: ${JSON.stringify(args)}`);
+        await reportProgress({ progress: 0 });
         
-        // Call the direct function wrapper
-        const result = await updateTaskByIdDirect(args, log);
+        let rootFolder = getProjectRootFromSession(session, log);
         
-        // Log result
-        log.info(`${result.success ? `Successfully updated task with ID ${args.id}` : 'Failed to update task'}`);
+        if (!rootFolder && args.projectRoot) {
+          rootFolder = args.projectRoot;
+          log.info(`Using project root from args as fallback: ${rootFolder}`);
+        }
         
-        // Use handleApiResult to format the response
+        const result = await updateTaskByIdDirect({
+          projectRoot: rootFolder,
+          ...args
+        }, log, { reportProgress, mcpLog: log, session});
+        
+        await reportProgress({ progress: 100 });
+        
+        if (result.success) {
+          log.info(`Successfully updated task with ID ${args.id}`);
+        } else {
+          log.error(`Failed to update task: ${result.error?.message || 'Unknown error'}`);
+        }
+        
         return handleApiResult(result, log, 'Error updating task');
       } catch (error) {
-        log.error(`Error in update-task tool: ${error.message}`);
+        log.error(`Error in update_task tool: ${error.message}`);
         return createErrorResponse(error.message);
       }
     },

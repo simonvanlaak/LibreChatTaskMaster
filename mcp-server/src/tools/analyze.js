@@ -6,7 +6,8 @@
 import { z } from "zod";
 import {
   handleApiResult,
-  createErrorResponse
+  createErrorResponse,
+  getProjectRootFromSession
 } from "./utils.js";
 import { analyzeTaskComplexityDirect } from "../core/task-master-core.js";
 
@@ -26,14 +27,25 @@ export function registerAnalyzeTool(server) {
       research: z.boolean().optional().describe("Use Perplexity AI for research-backed complexity analysis"),
       projectRoot: z.string().optional().describe("Root directory of the project (default: current working directory)")
     }),
-    execute: async (args, { log }) => {
+    execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Analyzing task complexity with args: ${JSON.stringify(args)}`);
+        await reportProgress({ progress: 0 });
         
-        // Call the direct function wrapper
-        const result = await analyzeTaskComplexityDirect(args, log);
+        let rootFolder = getProjectRootFromSession(session, log);
         
-        // Log result
+        if (!rootFolder && args.projectRoot) {
+          rootFolder = args.projectRoot;
+          log.info(`Using project root from args as fallback: ${rootFolder}`);
+        }
+        
+        const result = await analyzeTaskComplexityDirect({
+          projectRoot: rootFolder,
+          ...args
+        }, log, { reportProgress, mcpLog: log, session});
+        
+        await reportProgress({ progress: 100 });
+        
         if (result.success) {
           log.info(`Task complexity analysis complete: ${result.data.message}`);
           log.info(`Report summary: ${JSON.stringify(result.data.reportSummary)}`);
@@ -41,7 +53,6 @@ export function registerAnalyzeTool(server) {
           log.error(`Failed to analyze task complexity: ${result.error.message}`);
         }
         
-        // Use handleApiResult to format the response
         return handleApiResult(result, log, 'Error analyzing task complexity');
       } catch (error) {
         log.error(`Error in analyze tool: ${error.message}`);

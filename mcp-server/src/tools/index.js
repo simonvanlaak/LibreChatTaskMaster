@@ -30,9 +30,7 @@ import { registerAddDependencyTool } from "./add-dependency.js";
  * Register all Task Master tools with the MCP server
  * @param {Object} server - FastMCP server instance
  */
-export function registerTaskMasterTools(server) {
-  logger.info("Registering Task Master tools with MCP server");
-  
+export function registerTaskMasterTools(server) {  
   try {
     // Register each tool
     registerListTasksTool(server);
@@ -56,8 +54,6 @@ export function registerTaskMasterTools(server) {
     registerFixDependenciesTool(server);
     registerComplexityReportTool(server);
     registerAddDependencyTool(server);
-    
-    logger.info("Successfully registered all Task Master tools");
   } catch (error) {
     logger.error(`Error registering Task Master tools: ${error.message}`);
     throw error;

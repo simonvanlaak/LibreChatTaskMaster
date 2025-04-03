@@ -6,7 +6,8 @@
 import { z } from "zod";
 import {
   handleApiResult,
-  createErrorResponse
+  createErrorResponse,
+  getProjectRootFromSession
 } from "./utils.js";
 import { fixDependenciesDirect } from "../core/task-master-core.js";
 
@@ -22,21 +23,31 @@ export function registerFixDependenciesTool(server) {
       file: z.string().optional().describe("Path to the tasks file"),
       projectRoot: z.string().optional().describe("Root directory of the project (default: current working directory)")
     }),
-    execute: async (args, { log }) => {
+    execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Fixing dependencies with args: ${JSON.stringify(args)}`);
+        await reportProgress({ progress: 0 });
         
-        // Call the direct function wrapper
-        const result = await fixDependenciesDirect(args, log);
+        let rootFolder = getProjectRootFromSession(session, log);
         
-        // Log result
+        if (!rootFolder && args.projectRoot) {
+          rootFolder = args.projectRoot;
+          log.info(`Using project root from args as fallback: ${rootFolder}`);
+        }
+        
+        const result = await fixDependenciesDirect({
+          projectRoot: rootFolder,
+          ...args
+        }, log, { reportProgress, mcpLog: log, session});
+        
+        await reportProgress({ progress: 100 });
+        
         if (result.success) {
           log.info(`Successfully fixed dependencies: ${result.data.message}`);
         } else {
           log.error(`Failed to fix dependencies: ${result.error.message}`);
         }
         
-        // Use handleApiResult to format the response
         return handleApiResult(result, log, 'Error fixing dependencies');
       } catch (error) {
         log.error(`Error in fixDependencies tool: ${error.message}`);

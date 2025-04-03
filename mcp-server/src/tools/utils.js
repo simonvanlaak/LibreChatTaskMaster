@@ -5,12 +5,11 @@
 
 import { spawnSync } from "child_process";
 import path from "path";
-import { contextManager } from '../core/context-manager.js'; // Import the singleton
 import fs from 'fs';
-import { decodeURIComponent } from 'querystring'; // Added for URI decoding
+import { contextManager } from '../core/context-manager.js'; // Import the singleton
 
 // Import path utilities to ensure consistent path resolution
-import { lastFoundProjectRoot, getPackagePath, PROJECT_MARKERS } from '../core/utils/path-utils.js';
+import { lastFoundProjectRoot, PROJECT_MARKERS } from '../core/utils/path-utils.js';
 
 /**
  * Get normalized project root path 
@@ -18,7 +17,7 @@ import { lastFoundProjectRoot, getPackagePath, PROJECT_MARKERS } from '../core/u
  * @param {Object} log - Logger object
  * @returns {string} - Normalized absolute path to project root
  */
-export function getProjectRoot(projectRootRaw, log) {
+function getProjectRoot(projectRootRaw, log) {
   // PRECEDENCE ORDER:
   // 1. Environment variable override
   // 2. Explicitly provided projectRoot in args
@@ -74,28 +73,69 @@ export function getProjectRoot(projectRootRaw, log) {
  * @param {Object} log - Logger object.
  * @returns {string|null} - The absolute path to the project root, or null if not found.
  */
-export function getProjectRootFromSession(session, log) {
-  if (session && session.roots && session.roots.length > 0) {
-    const firstRoot = session.roots[0];
-    if (firstRoot && firstRoot.uri) {
-      try {
-        const rootUri = firstRoot.uri;
-        const rootPath = rootUri.startsWith('file://')
-          ? decodeURIComponent(rootUri.slice(7)) // Remove 'file://' and decode
-          : rootUri; // Assume it's a path if no scheme
-        log.info(`Extracted project root from session: ${rootPath}`);
-        return rootPath;
-      } catch (e) {
-        log.error(`Error decoding project root URI from session: ${firstRoot.uri}`, e);
-        return null;
-      }
-    } else {
-      log.info('Session exists, but first root or its URI is missing.');
+function getProjectRootFromSession(session, log) {
+  try {
+    // If we have a session with roots array
+    if (session?.roots?.[0]?.uri) {
+      const rootUri = session.roots[0].uri;
+      const rootPath = rootUri.startsWith('file://')
+        ? decodeURIComponent(rootUri.slice(7))
+        : rootUri;
+      return rootPath;
     }
-  } else {
-    log.info('No session or session roots found to extract project root.');
+    
+    // If we have a session with roots.roots array (different structure)
+    if (session?.roots?.roots?.[0]?.uri) {
+      const rootUri = session.roots.roots[0].uri;
+      const rootPath = rootUri.startsWith('file://')
+        ? decodeURIComponent(rootUri.slice(7))
+        : rootUri;
+      return rootPath;
+    }
+
+    // Get the server's location and try to find project root -- this is a fallback necessary in Cursor IDE
+    const serverPath = process.argv[1];  // This should be the path to server.js, which is in mcp-server/
+    if (serverPath && serverPath.includes('mcp-server')) {
+      // Find the mcp-server directory first
+      const mcpServerIndex = serverPath.indexOf('mcp-server');
+      if (mcpServerIndex !== -1) {
+        // Get the path up to mcp-server, which should be the project root
+        const projectRoot = serverPath.substring(0, mcpServerIndex - 1); // -1 to remove trailing slash
+        
+        // Verify this looks like our project root by checking for key files/directories
+        if (fs.existsSync(path.join(projectRoot, '.cursor')) || 
+            fs.existsSync(path.join(projectRoot, 'mcp-server')) ||
+            fs.existsSync(path.join(projectRoot, 'package.json'))) {
+          return projectRoot;
+        }
+      }
+    }
+
+    // If we get here, we'll try process.cwd() but only if it's not "/"
+    const cwd = process.cwd();
+    if (cwd !== '/') {
+      return cwd;
+    }
+
+    // Last resort: try to derive from the server path we found earlier
+    if (serverPath) {
+      const mcpServerIndex = serverPath.indexOf('mcp-server');
+      return mcpServerIndex !== -1 ? serverPath.substring(0, mcpServerIndex - 1) : cwd;
+    }
+
+    throw new Error('Could not determine project root');
+  } catch (e) {
+    // If we have a server path, use it as a basis for project root
+    const serverPath = process.argv[1];
+    if (serverPath && serverPath.includes('mcp-server')) {
+      const mcpServerIndex = serverPath.indexOf('mcp-server');
+      return mcpServerIndex !== -1 ? serverPath.substring(0, mcpServerIndex - 1) : process.cwd();
+    }
+    
+    // Only use cwd if it's not "/"
+    const cwd = process.cwd();
+    return cwd !== '/' ? cwd : '/';
   }
-  return null;
 }
 
 /**
@@ -106,7 +146,7 @@ export function getProjectRootFromSession(session, log) {
  * @param {Function} processFunction - Optional function to process successful result data
  * @returns {Object} - Standardized MCP response object
  */
-export function handleApiResult(result, log, errorPrefix = 'API error', processFunction = processMCPResponseData) {
+function handleApiResult(result, log, errorPrefix = 'API error', processFunction = processMCPResponseData) {
   if (!result.success) {
     const errorMsg = result.error?.message || `Unknown ${errorPrefix}`;
     // Include cache status in error logs
@@ -138,7 +178,7 @@ export function handleApiResult(result, log, errorPrefix = 'API error', processF
  * @param {string|undefined} projectRootRaw - Optional raw project root path (will be normalized internally)
  * @returns {Object} - The result of the command execution
  */
-export function executeTaskMasterCommand(
+function executeTaskMasterCommand(
   command,
   log,
   args = [],
@@ -215,7 +255,7 @@ export function executeTaskMasterCommand(
  * @returns {Promise<Object>} - An object containing the result, indicating if it was from cache.
  *                              Format: { success: boolean, data?: any, error?: { code: string, message: string }, fromCache: boolean }
  */
-export async function getCachedOrExecute({ cacheKey, actionFn, log }) {
+async function getCachedOrExecute({ cacheKey, actionFn, log }) {
   // Check cache first
   const cachedResult = contextManager.getCachedData(cacheKey);
   
@@ -259,7 +299,7 @@ export async function getCachedOrExecute({ cacheKey, actionFn, log }) {
  * @param {string[]} fieldsToRemove - An array of field names to remove.
  * @returns {Object|Array} - The processed data with specified fields removed.
  */
-export function processMCPResponseData(taskOrData, fieldsToRemove = ['details', 'testStrategy']) {
+function processMCPResponseData(taskOrData, fieldsToRemove = ['details', 'testStrategy']) {
   if (!taskOrData) {
     return taskOrData;
   }
@@ -316,7 +356,7 @@ export function processMCPResponseData(taskOrData, fieldsToRemove = ['details', 
  * @param {string|Object} content - Content to include in response
  * @returns {Object} - Content response object in FastMCP format
  */
-export function createContentResponse(content) {
+function createContentResponse(content) {
   // FastMCP requires text type, so we format objects as JSON strings
   return {
     content: [
@@ -351,10 +391,11 @@ export function createErrorResponse(errorMessage) {
 
 // Ensure all functions are exported
 export {
+  getProjectRoot,
+  getProjectRootFromSession,
   handleApiResult,
   executeTaskMasterCommand,
   getCachedOrExecute,
   processMCPResponseData,
   createContentResponse,
-  createErrorResponse
 };

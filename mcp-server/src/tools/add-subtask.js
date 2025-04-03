@@ -6,7 +6,8 @@
 import { z } from "zod";
 import {
   handleApiResult,
-  createErrorResponse
+  createErrorResponse,
+  getProjectRootFromSession
 } from "./utils.js";
 import { addSubtaskDirect } from "../core/task-master-core.js";
 
@@ -30,21 +31,28 @@ export function registerAddSubtaskTool(server) {
       skipGenerate: z.boolean().optional().describe("Skip regenerating task files"),
       projectRoot: z.string().optional().describe("Root directory of the project (default: current working directory)")
     }),
-    execute: async (args, { log }) => {
+    execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Adding subtask with args: ${JSON.stringify(args)}`);
         
-        // Call the direct function wrapper
-        const result = await addSubtaskDirect(args, log);
+        let rootFolder = getProjectRootFromSession(session, log);
         
-        // Log result
+        if (!rootFolder && args.projectRoot) {
+          rootFolder = args.projectRoot;
+          log.info(`Using project root from args as fallback: ${rootFolder}`);
+        }
+        
+        const result = await addSubtaskDirect({
+          projectRoot: rootFolder,
+          ...args
+        }, log, { reportProgress, mcpLog: log, session});
+        
         if (result.success) {
           log.info(`Subtask added successfully: ${result.data.message}`);
         } else {
           log.error(`Failed to add subtask: ${result.error.message}`);
         }
         
-        // Use handleApiResult to format the response
         return handleApiResult(result, log, 'Error adding subtask');
       } catch (error) {
         log.error(`Error in addSubtask tool: ${error.message}`);

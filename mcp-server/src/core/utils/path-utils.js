@@ -91,8 +91,23 @@ export function findTasksJsonPath(args, log) {
   if (args.projectRoot) {
     const projectRoot = args.projectRoot;
     log.info(`Using explicitly provided project root: ${projectRoot}`);
-    // This will throw if tasks.json isn't found within this root
-    return findTasksJsonInDirectory(projectRoot, args.file, log); 
+    try {
+      // This will throw if tasks.json isn't found within this root
+      return findTasksJsonInDirectory(projectRoot, args.file, log); 
+    } catch (error) {
+      // Include debug info in error
+      const debugInfo = {
+        projectRoot,
+        currentDir: process.cwd(),
+        serverDir: path.dirname(process.argv[1]),
+        possibleProjectRoot: path.resolve(path.dirname(process.argv[1]), '../..'),
+        lastFoundProjectRoot,
+        searchedPaths: error.message
+      };
+      
+      error.message = `Tasks file not found in any of the expected locations relative to project root "${projectRoot}" (from session).\nDebug Info: ${JSON.stringify(debugInfo, null, 2)}`;
+      throw error;
+    }
   }
   
   // --- Fallback logic primarily for CLI or when projectRoot isn't passed --- 
@@ -120,7 +135,7 @@ export function findTasksJsonPath(args, log) {
     return findTasksJsonWithParentSearch(startDir, args.file, log); 
   } catch (error) {
     // If all attempts fail, augment and throw the original error from CWD search
-    error.message = `${error.message}\n\nPossible solutions:\n1. Run the command from your project directory containing tasks.json\n2. Use --project-root=/path/to/project to specify the project location (if using CLI)\n3. Ensure the project root is correctly passed from the client (if using MCP)`;
+    error.message = `${error.message}\n\nPossible solutions:\n1. Run the command from your project directory containing tasks.json\n2. Use --project-root=/path/to/project to specify the project location (if using CLI)\n3. Ensure the project root is correctly passed from the client (if using MCP)\n\nCurrent working directory: ${startDir}\nLast known project root: ${lastFoundProjectRoot}\nProject root from args: ${args.projectRoot}`;
     throw error;
   }
 }

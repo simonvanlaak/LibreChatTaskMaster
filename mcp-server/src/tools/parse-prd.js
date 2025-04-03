@@ -6,7 +6,8 @@
 import { z } from "zod";
 import {
   handleApiResult,
-  createErrorResponse
+  createErrorResponse,
+  getProjectRootFromSession
 } from "./utils.js";
 import { parsePRDDirect } from "../core/task-master-core.js";
 
@@ -16,32 +17,47 @@ import { parsePRDDirect } from "../core/task-master-core.js";
  */
 export function registerParsePRDTool(server) {
   server.addTool({
-    name: "parse_prd_document",
-    description: "Parse PRD document and generate tasks",
+    name: "parse_prd",
+    description: "Parse a Product Requirements Document (PRD) or text file to automatically generate initial tasks.",
     parameters: z.object({
-      input: z.string().describe("Path to the PRD document file"),
-      numTasks: z.union([z.number(), z.string()]).optional().describe("Number of tasks to generate (default: 10)"),
-      output: z.string().optional().describe("Output path for tasks.json file (default: tasks/tasks.json)"),
+      input: z.string().default("tasks/tasks.json").describe("Path to the PRD document file (relative to project root or absolute)"),
+      numTasks: z.union([z.number(), z.string()]).optional().describe("Approximate number of top-level tasks to generate (default: 10)"),
+      output: z.string().optional().describe("Output path for tasks.json file (relative to project root or absolute, default: tasks/tasks.json)"),
+      force: z.boolean().optional().describe("Allow overwriting an existing tasks.json file."),
       projectRoot: z
         .string()
+        .optional()
         .describe(
-          "Root directory of the project (default: current working directory)"
+          "Root directory of the project (default: automatically detected from session or CWD)"
         ),
     }),
-    execute: async (args, { log }) => {
+    execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Parsing PRD document with args: ${JSON.stringify(args)}`);
         
-        // Call the direct function wrapper
-        const result = await parsePRDDirect(args, log);
+        let rootFolder = getProjectRootFromSession(session, log);
         
-        // Log result
-        log.info(`${result.success ? `Successfully generated ${result.data?.taskCount || 0} tasks` : 'Failed to parse PRD'}`);
+        if (!rootFolder && args.projectRoot) {
+          rootFolder = args.projectRoot;
+          log.info(`Using project root from args as fallback: ${rootFolder}`);
+        }
         
-        // Use handleApiResult to format the response
+        const result = await parsePRDDirect({
+          projectRoot: rootFolder,
+          ...args
+        }, log, { reportProgress, mcpLog: log, session});
+        
+        await reportProgress({ progress: 100 });
+        
+        if (result.success) {
+          log.info(`Successfully generated ${result.data?.taskCount || 0} tasks from PRD at ${result.data?.outputPath}`);
+        } else {
+          log.error(`Failed to parse PRD: ${result.error?.message || 'Unknown error'}`);
+        }
+        
         return handleApiResult(result, log, 'Error parsing PRD document');
       } catch (error) {
-        log.error(`Error in parsePRD tool: ${error.message}`);
+        log.error(`Error in parse_prd tool: ${error.message}`);
         return createErrorResponse(error.message);
       }
     },

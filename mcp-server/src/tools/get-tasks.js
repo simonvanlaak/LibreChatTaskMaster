@@ -6,7 +6,8 @@
 import { z } from "zod";
 import {
   createErrorResponse,
-  handleApiResult
+  handleApiResult,
+  getProjectRootFromSession
 } from "./utils.js";
 import { listTasksDirect } from "../core/task-master-core.js";
 
@@ -16,31 +17,42 @@ import { listTasksDirect } from "../core/task-master-core.js";
  */
 export function registerListTasksTool(server) {
   server.addTool({
-    name: "get-tasks",
-    description: "Get all tasks from Task Master",
+    name: "get_tasks",
+    description: "Get all tasks from Task Master, optionally filtering by status and including subtasks.",
     parameters: z.object({
-      status: z.string().optional().describe("Filter tasks by status"),
+      status: z.string().optional().describe("Filter tasks by status (e.g., 'pending', 'done')"),
       withSubtasks: z
         .boolean()
         .optional()
-        .describe("Include subtasks in the response"),
-      file: z.string().optional().describe("Path to the tasks file"),
+        .describe("Include subtasks nested within their parent tasks in the response"),
+      file: z.string().optional().describe("Path to the tasks file (relative to project root or absolute)"),
       projectRoot: z
         .string()
         .optional()
         .describe(
-          "Root directory of the project (default: automatically detected)"
+          "Root directory of the project (default: automatically detected from session or CWD)"
         ),
     }),
-    execute: async (args, { log }) => {
+    execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Getting tasks with filters: ${JSON.stringify(args)}`);
+        await reportProgress({ progress: 0 });
         
-        // Call core function - args contains projectRoot which is handled internally
-        const result = await listTasksDirect(args, log);
+        let rootFolder = getProjectRootFromSession(session, log);
         
-        // Log result and use handleApiResult utility
-        log.info(`Retrieved ${result.success ? (result.data?.tasks?.length || 0) : 0} tasks`);
+        if (!rootFolder && args.projectRoot) {
+          rootFolder = args.projectRoot;
+          log.info(`Using project root from args as fallback: ${rootFolder}`);
+        }
+        
+        const result = await listTasksDirect({
+          projectRoot: rootFolder,
+          ...args
+        }, log);
+        
+        await reportProgress({ progress: 100 });
+        
+        log.info(`Retrieved ${result.success ? (result.data?.tasks?.length || 0) : 0} tasks${result.fromCache ? ' (from cache)' : ''}`);
         return handleApiResult(result, log, 'Error getting tasks');
       } catch (error) {
         log.error(`Error getting tasks: ${error.message}`);

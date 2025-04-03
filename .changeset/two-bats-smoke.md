@@ -10,8 +10,8 @@
 
 - **Refactor project root handling for MCP Server:**
   - **Prioritize Session Roots**: MCP tools now extract the project root path directly from `session.roots[0].uri` provided by the client (e.g., Cursor).
-  - **New Utility `getProjectRootFromSession`**: Added to `mcp-server/src/tools/utils.js` to encapsulate session root extraction and decoding.
-  - **Simplify `findTasksJsonPath`**: The core path finding utility in `mcp-server/src/core/utils/path-utils.js` now prioritizes the `projectRoot` passed in `args` (originating from the session). Removed checks for `TASK_MASTER_PROJECT_ROOT` env var and package directory fallback.
+  - **New Utility `getProjectRootFromSession`**: Added to `mcp-server/src/tools/utils.js` to encapsulate session root extraction and decoding. **Further refined for more reliable detection, especially in integrated environments, including deriving root from script path and avoiding fallback to '/'.**
+  - **Simplify `findTasksJsonPath`**: The core path finding utility in `mcp-server/src/core/utils/path-utils.js` now prioritizes the `projectRoot` passed in `args` (originating from the session). Removed checks for `TASK_MASTER_PROJECT_ROOT` env var (we do not use this anymore) and package directory fallback. **Enhanced error handling to include detailed debug information (paths searched, CWD, server dir, etc.) and clearer potential solutions when `tasks.json` is not found.**
   - **Retain CLI Fallbacks**: Kept `lastFoundProjectRoot` cache check and CWD search in `findTasksJsonPath` for compatibility with direct CLI usage.
 
 - Updated all MCP tools to use the new project root handling:
@@ -22,7 +22,10 @@
 
 - Add comprehensive PROJECT_MARKERS array for detecting common project files (used in CLI fallback logic).
 - Improved error messages with specific troubleshooting guidance.
-- Enhanced logging to indicate the source of project root selection.
+- **Enhanced logging:**
+    - Indicate the source of project root selection more clearly.
+    - **Add verbose logging in `get-task.js` to trace session object content and resolved project root path, aiding debugging.**
+
 - DRY refactoring by centralizing path utilities in `core/utils/path-utils.js` and session handling in `tools/utils.js`.
 - Keep caching of `lastFoundProjectRoot` for CLI performance.
 
@@ -59,6 +62,7 @@
   - Update tool descriptions to better reflect their actual behavior and capabilities.
   - Add cross-references between related tools and commands.
   - Include troubleshooting guidance in tool descriptions.
+  - **Add default values for `DEFAULT_SUBTASKS` and `DEFAULT_PRIORITY` to the example `.cursor/mcp.json` configuration.**
 
 - Document MCP server naming conventions in architecture.mdc and mcp.mdc files (file names use kebab-case, direct functions use camelCase with Direct suffix, tool registration functions use camelCase with Tool suffix, and MCP tool names use snake_case).
 - Update MCP tool naming to follow more intuitive conventions that better align with natural language requests in client chat applications.

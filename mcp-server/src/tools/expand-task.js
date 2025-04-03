@@ -6,7 +6,8 @@
 import { z } from "zod";
 import {
   handleApiResult,
-  createErrorResponse
+  createErrorResponse,
+  getProjectRootFromSession
 } from "./utils.js";
 import { expandTaskDirect } from "../core/task-master-core.js";
 
@@ -27,25 +28,36 @@ export function registerExpandTaskTool(server) {
       file: z.string().optional().describe("Path to the tasks file"),
       projectRoot: z
         .string()
+        .optional()
         .describe(
           "Root directory of the project (default: current working directory)"
         ),
     }),
-    execute: async (args, { log }) => {
+    execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Expanding task with args: ${JSON.stringify(args)}`);
+        await reportProgress({ progress: 0 });
         
-        // Call the direct function wrapper
-        const result = await expandTaskDirect(args, log);
+        let rootFolder = getProjectRootFromSession(session, log);
         
-        // Log result
+        if (!rootFolder && args.projectRoot) {
+          rootFolder = args.projectRoot;
+          log.info(`Using project root from args as fallback: ${rootFolder}`);
+        }
+        
+        const result = await expandTaskDirect({
+          projectRoot: rootFolder,
+          ...args
+        }, log, { reportProgress, mcpLog: log, session});
+        
+        await reportProgress({ progress: 100 });
+        
         if (result.success) {
           log.info(`Successfully expanded task ID: ${args.id} with ${result.data.subtasksAdded} new subtasks${result.data.hasExistingSubtasks ? ' (appended to existing subtasks)' : ''}`);
         } else {
           log.error(`Failed to expand task: ${result.error.message}`);
         }
         
-        // Use handleApiResult to format the response
         return handleApiResult(result, log, 'Error expanding task');
       } catch (error) {
         log.error(`Error in expand-task tool: ${error.message}`);

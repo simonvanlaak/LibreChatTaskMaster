@@ -6,7 +6,8 @@
 import { z } from "zod";
 import {
   handleApiResult,
-  createErrorResponse
+  createErrorResponse,
+  getProjectRootFromSession
 } from "./utils.js";
 import { nextTaskDirect } from "../core/task-master-core.js";
 
@@ -22,18 +23,30 @@ export function registerNextTaskTool(server) {
       file: z.string().optional().describe("Path to the tasks file"),
       projectRoot: z
         .string()
+        .optional()
         .describe(
           "Root directory of the project (default: current working directory)"
         ),
     }),
-    execute: async (args, { log }) => {
+    execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Finding next task with args: ${JSON.stringify(args)}`);
+        await reportProgress({ progress: 0 });
         
-        // Call the direct function wrapper
-        const result = await nextTaskDirect(args, log);
+        let rootFolder = getProjectRootFromSession(session, log);
         
-        // Log result
+        if (!rootFolder && args.projectRoot) {
+          rootFolder = args.projectRoot;
+          log.info(`Using project root from args as fallback: ${rootFolder}`);
+        }
+        
+        const result = await nextTaskDirect({
+          projectRoot: rootFolder,
+          ...args
+        }, log, { reportProgress, mcpLog: log, session});
+        
+        await reportProgress({ progress: 100 });
+        
         if (result.success) {
           if (result.data.nextTask) {
             log.info(`Successfully found next task ID: ${result.data.nextTask.id}${result.fromCache ? ' (from cache)' : ''}`);
@@ -44,7 +57,6 @@ export function registerNextTaskTool(server) {
           log.error(`Failed to find next task: ${result.error.message}`);
         }
         
-        // Use handleApiResult to format the response
         return handleApiResult(result, log, 'Error finding next task');
       } catch (error) {
         log.error(`Error in next-task tool: ${error.message}`);

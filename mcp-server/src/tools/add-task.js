@@ -43,7 +43,7 @@ export function registerAddTaskTool(server) {
         const result = await addTaskDirect({
           projectRoot: rootFolder, // Pass the resolved root
           ...args
-        }, log);
+        }, log, { reportProgress, mcpLog: log, session});
         
         return handleApiResult(result, log);
       } catch (error) {

@@ -43,7 +43,7 @@ export function registerAddDependencyTool(server) {
         const result = await addDependencyDirect({
           projectRoot: rootFolder,
           ...args
-        }, log);
+        }, log, { reportProgress, mcpLog: log, session});
 
         reportProgress({ progress: 100 });
         

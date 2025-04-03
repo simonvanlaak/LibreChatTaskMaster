@@ -6,7 +6,8 @@
 import { z } from "zod";
 import {
   handleApiResult,
-  createErrorResponse
+  createErrorResponse,
+  getProjectRootFromSession
 } from "./utils.js";
 import { setTaskStatusDirect } from "../core/task-master-core.js";
 
@@ -17,14 +18,14 @@ import { setTaskStatusDirect } from "../core/task-master-core.js";
 export function registerSetTaskStatusTool(server) {
   server.addTool({
     name: "set_task_status",
-    description: "Set the status of a task",
+    description: "Set the status of one or more tasks or subtasks.",
     parameters: z.object({
       id: z
         .string()
-        .describe("Task ID (can be comma-separated for multiple tasks)"),
+        .describe("Task ID or subtask ID (e.g., '15', '15.2'). Can be comma-separated for multiple updates."),
       status: z
         .string()
-        .describe("New status (todo, in-progress, review, done)"),
+        .describe("New status to set (e.g., 'pending', 'done', 'in-progress', 'review', 'deferred', 'cancelled'."),
       file: z.string().optional().describe("Path to the tasks file"),
       projectRoot: z
         .string()
@@ -33,17 +34,31 @@ export function registerSetTaskStatusTool(server) {
           "Root directory of the project (default: automatically detected)"
         ),
     }),
-    execute: async (args, { log }) => {
+    execute: async (args, { log, session, reportProgress }) => {
       try {
         log.info(`Setting status of task(s) ${args.id} to: ${args.status}`);
+        await reportProgress({ progress: 0 });
         
-        // Call the direct function wrapper
-        const result = await setTaskStatusDirect(args, log);
+        let rootFolder = getProjectRootFromSession(session, log);
         
-        // Log result
-        log.info(`${result.success ? `Successfully updated task ${args.id} status to "${args.status}"` : 'Failed to update task status'}`);
+        if (!rootFolder && args.projectRoot) {
+          rootFolder = args.projectRoot;
+          log.info(`Using project root from args as fallback: ${rootFolder}`);
+        }
         
-        // Use handleApiResult to format the response
+        const result = await setTaskStatusDirect({
+          projectRoot: rootFolder,
+          ...args
+        }, log, { reportProgress, mcpLog: log, session});
+        
+        await reportProgress({ progress: 100 });
+        
+        if (result.success) {
+          log.info(`Successfully updated status for task(s) ${args.id} to "${args.status}": ${result.data.message}`);
+        } else {
+          log.error(`Failed to update task status: ${result.error?.message || 'Unknown error'}`);
+        }
+        
         return handleApiResult(result, log, 'Error setting task status');
       } catch (error) {
         log.error(`Error in setTaskStatus tool: ${error.message}`);
