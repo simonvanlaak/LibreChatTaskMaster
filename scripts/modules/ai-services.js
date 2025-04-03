@@ -171,6 +171,9 @@ Guidelines:
 6. Set appropriate dependency IDs (a task can only depend on tasks with lower IDs)
 7. Assign priority (high/medium/low) based on criticality and dependency order
 8. Include detailed implementation guidance in the "details" field
+9. If the PRD contains specific requirements for libraries, database schemas, frameworks, tech stacks, or any other implementation details, STRICTLY ADHERE to these requirements in your task breakdown and do not discard them under any circumstance
+10. Focus on filling in any gaps left by the PRD or areas that aren't fully specified, while preserving all explicit requirements
+11. Always aim to provide the most direct path to implementation, avoiding over-engineering or roundabout approaches
 
 Expected output format:
 {

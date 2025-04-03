@@ -702,7 +702,17 @@ function setupMCPConfiguration(targetDir, projectName) {
       "args": [
         "-y",
         "task-master-mcp-server"
-      ]
+      ],
+      "env": {
+          "ANTHROPIC_API_KEY": "%ANTHROPIC_API_KEY%",
+          "PERPLEXITY_API_KEY": "%PERPLEXITY_API_KEY%",
+          "MODEL": "%MODEL%",
+          "PERPLEXITY_MODEL": "%PERPLEXITY_MODEL%",
+          "MAX_TOKENS": "%MAX_TOKENS%",
+          "TEMPERATURE": "%TEMPERATURE%",
+          "DEFAULT_SUBTASKS": 5,
+          "DEFAULT_PRIORITY": "medium"
+      }
     }
   };
   
