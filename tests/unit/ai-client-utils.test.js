@@ -211,6 +211,9 @@ describe('AI Client Utilities', () => {
 
     it('should return Claude when Perplexity is not available and Claude is not overloaded', async () => {
       // Setup
+      const originalPerplexityKey = process.env.PERPLEXITY_API_KEY;
+      delete process.env.PERPLEXITY_API_KEY; // Make sure Perplexity is not available in process.env
+
       const session = {
         env: {
           ANTHROPIC_API_KEY: 'test-anthropic-key'
@@ -219,15 +222,22 @@ describe('AI Client Utilities', () => {
       };
       const mockLog = { warn: jest.fn(), info: jest.fn(), error: jest.fn() };
       
-      // Execute
-      const result = await getBestAvailableAIModel(session, { requiresResearch: true }, mockLog);
+      try {
+        // Execute
+        const result = await getBestAvailableAIModel(session, { requiresResearch: true }, mockLog);
 
-      // Verify
-      // In our implementation, we prioritize research capability through Perplexity
-      // so if we're testing research but Perplexity isn't available, Claude is used
-      expect(result.type).toBe('perplexity');
-      expect(result.client).toBeDefined();
-      expect(mockLog.warn).not.toHaveBeenCalled(); // No warning since implementation succeeds
+        // Verify
+        // In our implementation, we prioritize research capability through Perplexity
+        // so if we're testing research but Perplexity isn't available, Claude is used
+        expect(result.type).toBe('claude');
+        expect(result.client).toBeDefined();
+        expect(mockLog.warn).toHaveBeenCalled(); // Warning about using Claude instead of Perplexity
+      } finally {
+        // Restore original env variables
+        if (originalPerplexityKey) {
+          process.env.PERPLEXITY_API_KEY = originalPerplexityKey;
+        }
+      }
     });
 
     it('should fall back to Claude as last resort when overloaded', async () => {

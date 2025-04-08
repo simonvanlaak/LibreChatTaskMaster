@@ -236,7 +236,8 @@ describe('Utils Module', () => {
       
       expect(fsWriteFileSyncSpy).toHaveBeenCalledWith(
         'output.json', 
-        JSON.stringify(testData, null, 2)
+        JSON.stringify(testData, null, 2),
+        'utf8'
       );
     });
 
