@@ -7,6 +7,7 @@
   "bin": {
     "task-master": "bin/task-master.js",
     "task-master-init": "bin/task-master-init.js",
+    "task-master-mcp": "mcp-server/server.js",
     "task-master-mcp-server": "mcp-server/server.js"
   },
   "scripts": {
@@ -16,10 +17,11 @@
     "test:coverage": "node --experimental-vm-modules node_modules/.bin/jest --coverage",
     "prepare-package": "node scripts/prepare-package.js",
     "prepublishOnly": "npm run prepare-package",
-    "prepare": "chmod +x bin/task-master.js bin/task-master-init.js",
+    "prepare": "chmod +x bin/task-master.js bin/task-master-init.js mcp-server/server.js",
     "changeset": "changeset",
     "release": "changeset publish",
-    "inspector": "CLIENT_PORT=8888 SERVER_PORT=9000 npx @modelcontextprotocol/inspector node mcp-server/server.js"
+    "inspector": "CLIENT_PORT=8888 SERVER_PORT=9000 npx @modelcontextprotocol/inspector node mcp-server/server.js",
+    "mcp-server": "node mcp-server/server.js"
   },
   "keywords": [
     "claude",
@@ -49,10 +51,12 @@
     "fuse.js": "^7.0.0",
     "gradient-string": "^3.0.0",
     "helmet": "^8.1.0",
+    "inquirer": "^12.5.0",
     "jsonwebtoken": "^9.0.2",
     "lru-cache": "^10.2.0",
     "openai": "^4.89.0",
-    "ora": "^8.2.0"
+    "ora": "^8.2.0",
+    "uuid": "^11.1.0"
   },
   "engines": {
     "node": ">=14.0.0"

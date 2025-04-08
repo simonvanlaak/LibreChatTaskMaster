@@ -212,6 +212,9 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
     case 'dev_workflow.mdc':
       sourcePath = path.join(__dirname, '..', '.cursor', 'rules', 'dev_workflow.mdc');
       break;
+    case 'taskmaster.mdc':
+      sourcePath = path.join(__dirname, '..', '.cursor', 'rules', 'taskmaster.mdc');
+      break;
     case 'cursor_rules.mdc':
       sourcePath = path.join(__dirname, '..', '.cursor', 'rules', 'cursor_rules.mdc');
       break;
@@ -504,15 +507,24 @@ function createProjectStructure(projectName, projectDescription, projectVersion,
     },
     dependencies: {
       "@anthropic-ai/sdk": "^0.39.0",
-      "chalk": "^5.3.0",
+      "boxen": "^8.0.1",
+      "chalk": "^4.1.2",
       "commander": "^11.1.0",
+      "cli-table3": "^0.6.5",
+      "cors": "^2.8.5",
       "dotenv": "^16.3.1",
-      "openai": "^4.86.1",
-      "figlet": "^1.7.0",
-      "boxen": "^7.1.1",
-      "gradient-string": "^2.0.2",
-      "cli-table3": "^0.6.3",
-      "ora": "^7.0.1"
+      "express": "^4.21.2",
+      "fastmcp": "^1.20.5",
+      "figlet": "^1.8.0",
+      "fuse.js": "^7.0.0",
+      "gradient-string": "^3.0.0",
+      "helmet": "^8.1.0",
+      "inquirer": "^12.5.0",
+      "jsonwebtoken": "^9.0.2",
+      "lru-cache": "^10.2.0",
+      "openai": "^4.89.0",
+      "ora": "^8.2.0",
+      "task-master-ai": "^0.9.31"
     }
   };
   
@@ -584,6 +596,9 @@ function createProjectStructure(projectName, projectDescription, projectVersion,
   
   // Copy dev_workflow.mdc
   copyTemplateFile('dev_workflow.mdc', path.join(targetDir, '.cursor', 'rules', 'dev_workflow.mdc'));
+
+  // Copy taskmaster.mdc
+  copyTemplateFile('taskmaster.mdc', path.join(targetDir, '.cursor', 'rules', 'taskmaster.mdc'));
   
   // Copy cursor_rules.mdc
   copyTemplateFile('cursor_rules.mdc', path.join(targetDir, '.cursor', 'rules', 'cursor_rules.mdc'));
@@ -694,9 +709,19 @@ function setupMCPConfiguration(targetDir, projectName) {
     "task-master-ai": {
       "command": "npx",
       "args": [
-        "task-master-ai",
-        "mcp-server"
-      ]
+        "-y",
+        "task-master-mcp-server"
+      ],
+      "env": {
+          "ANTHROPIC_API_KEY": "%ANTHROPIC_API_KEY%",
+          "PERPLEXITY_API_KEY": "%PERPLEXITY_API_KEY%",
+          "MODEL": "claude-3-7-sonnet-20250219",
+          "PERPLEXITY_MODEL": "sonar-pro",
+          "MAX_TOKENS": 64000,
+          "TEMPERATURE": 0.3,
+          "DEFAULT_SUBTASKS": 5,
+          "DEFAULT_PRIORITY": "medium"
+      }
     }
   };
   

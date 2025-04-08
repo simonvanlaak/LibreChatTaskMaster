@@ -20,13 +20,39 @@ const CONFIG = {
   projectVersion: "1.5.0" // Hardcoded version - ALWAYS use this value, ignore environment variable
 };
 
+// Global silent mode flag
+let silentMode = false;
+
 // Set up logging based on log level
 const LOG_LEVELS = {
   debug: 0,
   info: 1,
   warn: 2,
-  error: 3
+  error: 3,
+  success: 1 // Treat success like info level
 };
+
+/**
+ * Enable silent logging mode
+ */
+function enableSilentMode() {
+  silentMode = true;
+}
+
+/**
+ * Disable silent logging mode
+ */
+function disableSilentMode() {
+  silentMode = false;
+}
+
+/**
+ * Check if silent mode is enabled
+ * @returns {boolean} True if silent mode is enabled
+ */
+function isSilentMode() {
+  return silentMode;
+}
 
 /**
  * Logs a message at the specified level
@@ -34,24 +60,38 @@ const LOG_LEVELS = {
  * @param  {...any} args - Arguments to log
  */
 function log(level, ...args) {
-  const icons = {
-    debug: chalk.gray('🔍'),
-    info: chalk.blue('ℹ️'),
-    warn: chalk.yellow('⚠️'),
-    error: chalk.red('❌'),
-    success: chalk.green('✅')
+  // Immediately return if silentMode is enabled
+  if (silentMode) {
+    return;
+  }
+  
+  // Use text prefixes instead of emojis
+  const prefixes = {
+    debug: chalk.gray("[DEBUG]"),
+    info: chalk.blue("[INFO]"),
+    warn: chalk.yellow("[WARN]"),
+    error: chalk.red("[ERROR]"),
+    success: chalk.green("[SUCCESS]")
   };
   
-  if (LOG_LEVELS[level] >= LOG_LEVELS[CONFIG.logLevel]) {
-    const icon = icons[level] || '';
-    console.log(`${icon} ${args.join(' ')}`);
+  // Ensure level exists, default to info if not
+  const currentLevel = LOG_LEVELS.hasOwnProperty(level) ? level : 'info';
+  const configLevel = CONFIG.logLevel || 'info'; // Ensure configLevel has a default
+  
+  // Check log level configuration
+  if (LOG_LEVELS[currentLevel] >= (LOG_LEVELS[configLevel] ?? LOG_LEVELS.info)) {
+    const prefix = prefixes[currentLevel] || '';
+    // Use console.log for all levels, let chalk handle coloring
+    // Construct the message properly
+    const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+    console.log(`${prefix} ${message}`);
   }
 }
 
 /**
  * Reads and parses a JSON file
  * @param {string} filepath - Path to the JSON file
- * @returns {Object} Parsed JSON data
+ * @returns {Object|null} Parsed JSON data or null if error occurs
  */
 function readJSON(filepath) {
   try {
@@ -60,7 +100,8 @@ function readJSON(filepath) {
   } catch (error) {
     log('error', `Error reading JSON file ${filepath}:`, error.message);
     if (CONFIG.debug) {
-      console.error(error);
+      // Use log utility for debug output too
+      log('error', 'Full error details:', error);
     }
     return null;
   }
@@ -73,11 +114,16 @@ function readJSON(filepath) {
  */
 function writeJSON(filepath, data) {
   try {
-    fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
+    const dir = path.dirname(filepath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf8');
   } catch (error) {
     log('error', `Error writing JSON file ${filepath}:`, error.message);
     if (CONFIG.debug) {
-      console.error(error);
+       // Use log utility for debug output too
+      log('error', 'Full error details:', error);
     }
   }
 }
@@ -337,5 +383,8 @@ export {
   truncate,
   findCycles,
   toKebabCase,
-  detectCamelCaseFlags
+  detectCamelCaseFlags,
+  enableSilentMode,
+  disableSilentMode,
+  isSilentMode
 }; 

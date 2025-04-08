@@ -9,6 +9,7 @@ import chalk from 'chalk';
 import boxen from 'boxen';
 import fs from 'fs';
 import https from 'https';
+import inquirer from 'inquirer';
 
 import { CONFIG, log, readJSON } from './utils.js';
 import {
@@ -25,7 +26,10 @@ import {
   removeSubtask,
   analyzeTaskComplexity,
   updateTaskById,
-  updateSubtaskById
+  updateSubtaskById,
+  removeTask,
+  findTaskById,
+  taskExists
 } from './task-manager.js';
 
 import {
@@ -42,7 +46,9 @@ import {
   displayTaskById,
   displayComplexityReport,
   getStatusWithColor,
-  confirmTaskOverwrite
+  confirmTaskOverwrite,
+  startLoadingIndicator,
+  stopLoadingIndicator
 } from './ui.js';
 
 /**
@@ -140,7 +146,7 @@ function registerCommands(programInstance) {
   // update command
   programInstance
     .command('update')
-    .description('Update tasks based on new information or implementation changes')
+    .description('Update multiple tasks with ID >= "from" based on new information or implementation changes')
     .option('-f, --file <file>', 'Path to the tasks file', 'tasks/tasks.json')
     .option('--from <id>', 'Task ID to start updating from (tasks with ID >= this value will be updated)', '1')
     .option('-p, --prompt <text>', 'Prompt explaining the changes or new context (required)')
@@ -150,6 +156,16 @@ function registerCommands(programInstance) {
       const fromId = parseInt(options.from, 10);
       const prompt = options.prompt;
       const useResearch = options.research || false;
+      
+      // Check if there's an 'id' option which is a common mistake (instead of 'from')
+      if (process.argv.includes('--id') || process.argv.some(arg => arg.startsWith('--id='))) {
+        console.error(chalk.red('Error: The update command uses --from=<id>, not --id=<id>'));
+        console.log(chalk.yellow('\nTo update multiple tasks:'));
+        console.log(`  task-master update --from=${fromId} --prompt="Your prompt here"`);
+        console.log(chalk.yellow('\nTo update a single specific task, use the update-task command instead:'));
+        console.log(`  task-master update-task --id=<id> --prompt="Your prompt here"`);
+        process.exit(1);
+      }
       
       if (!prompt) {
         console.error(chalk.red('Error: --prompt parameter is required. Please provide information about the changes.'));
@@ -169,7 +185,7 @@ function registerCommands(programInstance) {
   // update-task command
   programInstance
     .command('update-task')
-    .description('Update a single task by ID with new information')
+    .description('Update a single specific task by ID with new information (use --id parameter)')
     .option('-f, --file <file>', 'Path to the tasks file', 'tasks/tasks.json')
     .option('-i, --id <id>', 'Task ID to update (required)')
     .option('-p, --prompt <text>', 'Prompt explaining the changes or new context (required)')
@@ -410,18 +426,14 @@ function registerCommands(programInstance) {
     .option('-p, --prompt <text>', 'Additional context to guide subtask generation')
     .option('--force', 'Force regeneration of subtasks for tasks that already have them')
     .action(async (options) => {
-      const tasksPath = options.file;
-      const idArg = options.id ? parseInt(options.id, 10) : null;
-      const allFlag = options.all;
-      const numSubtasks = parseInt(options.num, 10);
-      const forceFlag = options.force;
-      const useResearch = options.research === true;
+      const idArg = options.id;
+      const numSubtasks = options.num || CONFIG.defaultSubtasks;
+      const useResearch = options.research || false;
       const additionalContext = options.prompt || '';
+      const forceFlag = options.force || false;
+      const tasksPath = options.file || 'tasks/tasks.json';
       
-      // Debug log to verify the value
-      log('debug', `Research enabled: ${useResearch}`);
-      
-      if (allFlag) {
+      if (options.all) {
         console.log(chalk.blue(`Expanding all tasks with ${numSubtasks} subtasks each...`));
         if (useResearch) {
           console.log(chalk.blue('Using Perplexity AI for research-backed subtask generation'));
@@ -431,7 +443,7 @@ function registerCommands(programInstance) {
         if (additionalContext) {
           console.log(chalk.blue(`Additional context: "${additionalContext}"`));
         }
-        await expandAllTasks(numSubtasks, useResearch, additionalContext, forceFlag);
+        await expandAllTasks(tasksPath, numSubtasks, useResearch, additionalContext, forceFlag);
       } else if (idArg) {
         console.log(chalk.blue(`Expanding task ${idArg} with ${numSubtasks} subtasks...`));
         if (useResearch) {
@@ -442,7 +454,7 @@ function registerCommands(programInstance) {
         if (additionalContext) {
           console.log(chalk.blue(`Additional context: "${additionalContext}"`));
         }
-        await expandTask(idArg, numSubtasks, useResearch, additionalContext);
+        await expandTask(tasksPath, idArg, numSubtasks, useResearch, additionalContext);
       } else {
         console.error(chalk.red('Error: Please specify a task ID with --id=<id> or use --all to expand all tasks.'));
       }
@@ -863,7 +875,120 @@ function registerCommands(programInstance) {
       console.log(chalk.white('  task-master init -y'));
       process.exit(0);
     });
-    
+
+  // remove-task command
+  programInstance
+    .command('remove-task')
+    .description('Remove a task or subtask permanently')
+    .option('-i, --id <id>', 'ID of the task or subtask to remove (e.g., "5" or "5.2")')
+    .option('-f, --file <file>', 'Path to the tasks file', 'tasks/tasks.json')
+    .option('-y, --yes', 'Skip confirmation prompt', false)
+    .action(async (options) => {
+      const tasksPath = options.file;
+      const taskId = options.id;
+      
+      if (!taskId) {
+        console.error(chalk.red('Error: Task ID is required'));
+        console.error(chalk.yellow('Usage: task-master remove-task --id=<taskId>'));
+        process.exit(1);
+      }
+      
+      try {
+        // Check if the task exists
+        const data = readJSON(tasksPath);
+        if (!data || !data.tasks) {
+          console.error(chalk.red(`Error: No valid tasks found in ${tasksPath}`));
+          process.exit(1);
+        }
+        
+        if (!taskExists(data.tasks, taskId)) {
+          console.error(chalk.red(`Error: Task with ID ${taskId} not found`));
+          process.exit(1);
+        }
+        
+        // Load task for display
+        const task = findTaskById(data.tasks, taskId);
+        
+        // Skip confirmation if --yes flag is provided
+        if (!options.yes) {
+          // Display task information
+          console.log();
+          console.log(chalk.red.bold('⚠️ WARNING: This will permanently delete the following task:'));
+          console.log();
+          
+          if (typeof taskId === 'string' && taskId.includes('.')) {
+            // It's a subtask
+            const [parentId, subtaskId] = taskId.split('.');
+            console.log(chalk.white.bold(`Subtask ${taskId}: ${task.title}`));
+            console.log(chalk.gray(`Parent Task: ${task.parentTask.id} - ${task.parentTask.title}`));
+          } else {
+            // It's a main task
+            console.log(chalk.white.bold(`Task ${taskId}: ${task.title}`));
+            
+            // Show if it has subtasks
+            if (task.subtasks && task.subtasks.length > 0) {
+              console.log(chalk.yellow(`⚠️ This task has ${task.subtasks.length} subtasks that will also be deleted!`));
+            }
+            
+            // Show if other tasks depend on it
+            const dependentTasks = data.tasks.filter(t => 
+              t.dependencies && t.dependencies.includes(parseInt(taskId, 10)));
+            
+            if (dependentTasks.length > 0) {
+              console.log(chalk.yellow(`⚠️ Warning: ${dependentTasks.length} other tasks depend on this task!`));
+              console.log(chalk.yellow('These dependencies will be removed:'));
+              dependentTasks.forEach(t => {
+                console.log(chalk.yellow(`  - Task ${t.id}: ${t.title}`));
+              });
+            }
+          }
+          
+          console.log();
+          
+          // Prompt for confirmation
+          const { confirm } = await inquirer.prompt([
+            {
+              type: 'confirm',
+              name: 'confirm',
+              message: chalk.red.bold('Are you sure you want to permanently delete this task?'),
+              default: false
+            }
+          ]);
+          
+          if (!confirm) {
+            console.log(chalk.blue('Task deletion cancelled.'));
+            process.exit(0);
+          }
+        }
+        
+        const indicator = startLoadingIndicator('Removing task...');
+        
+        // Remove the task
+        const result = await removeTask(tasksPath, taskId);
+        
+        stopLoadingIndicator(indicator);
+        
+        // Display success message with appropriate color based on task or subtask
+        if (typeof taskId === 'string' && taskId.includes('.')) {
+          // It was a subtask
+          console.log(boxen(
+            chalk.green(`Subtask ${taskId} has been successfully removed`),
+            { padding: 1, borderColor: 'green', borderStyle: 'round' }
+          ));
+        } else {
+          // It was a main task
+          console.log(boxen(
+            chalk.green(`Task ${taskId} has been successfully removed`),
+            { padding: 1, borderColor: 'green', borderStyle: 'round' }
+          ));
+        }
+        
+      } catch (error) {
+        console.error(chalk.red(`Error: ${error.message || 'An unknown error occurred'}`));
+        process.exit(1);
+      }
+    });
+
   // Add more commands as needed...
   
   return programInstance;

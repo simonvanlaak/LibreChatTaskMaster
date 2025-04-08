@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 import logger from "./logger.js";
 import { registerTaskMasterTools } from "./tools/index.js";
+import { asyncOperationManager } from './core/utils/async-manager.js';
 
 // Load environment variables
 dotenv.config();
@@ -30,9 +31,12 @@ class TaskMasterMCPServer {
     this.server = new FastMCP(this.options);
     this.initialized = false;
 
-    // this.server.addResource({});
+    this.server.addResource({});
 
-    // this.server.addResourceTemplate({});
+    this.server.addResourceTemplate({});
+
+    // Make the manager accessible (e.g., pass it to tool registration)
+    this.asyncManager = asyncOperationManager;
 
     // Bind methods
     this.init = this.init.bind(this);
@@ -49,8 +53,8 @@ class TaskMasterMCPServer {
   async init() {
     if (this.initialized) return;
 
-    // Register Task Master tools
-    registerTaskMasterTools(this.server);
+    // Pass the manager instance to the tool registration function
+    registerTaskMasterTools(this.server, this.asyncManager);
 
     this.initialized = true;
 
@@ -65,9 +69,10 @@ class TaskMasterMCPServer {
       await this.init();
     }
 
-    // Start the FastMCP server
+    // Start the FastMCP server with increased timeout
     await this.server.start({
       transportType: "stdio",
+      timeout: 120000 // 2 minutes timeout (in milliseconds)
     });
 
     return this;
@@ -82,5 +87,8 @@ class TaskMasterMCPServer {
     }
   }
 }
+
+// Export the manager from here as well, if needed elsewhere
+export { asyncOperationManager };
 
 export default TaskMasterMCPServer;
