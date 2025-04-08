@@ -4,7 +4,10 @@
 
 import { addSubtask } from '../../../../scripts/modules/task-manager.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
-import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
+import {
+	enableSilentMode,
+	disableSilentMode
+} from '../../../../scripts/modules/utils.js';
 
 /**
  * Add a subtask to an existing task
@@ -23,106 +26,118 @@ import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules
  * @returns {Promise<{success: boolean, data?: Object, error?: string}>}
  */
 export async function addSubtaskDirect(args, log) {
-  try {
-    log.info(`Adding subtask with args: ${JSON.stringify(args)}`);
-    
-    if (!args.id) {
-      return {
-        success: false,
-        error: {
-          code: 'INPUT_VALIDATION_ERROR',
-          message: 'Parent task ID is required'
-        }
-      };
-    }
-    
-    // Either taskId or title must be provided
-    if (!args.taskId && !args.title) {
-      return {
-        success: false,
-        error: {
-          code: 'INPUT_VALIDATION_ERROR',
-          message: 'Either taskId or title must be provided'
-        }
-      };
-    }
+	try {
+		log.info(`Adding subtask with args: ${JSON.stringify(args)}`);
 
-    // Find the tasks.json path
-    const tasksPath = findTasksJsonPath(args, log);
-    
-    // Parse dependencies if provided
-    let dependencies = [];
-    if (args.dependencies) {
-      dependencies = args.dependencies.split(',').map(id => {
-        // Handle both regular IDs and dot notation
-        return id.includes('.') ? id.trim() : parseInt(id.trim(), 10);
-      });
-    }
-    
-    // Convert existingTaskId to a number if provided
-    const existingTaskId = args.taskId ? parseInt(args.taskId, 10) : null;
-    
-    // Convert parent ID to a number
-    const parentId = parseInt(args.id, 10);
-    
-    // Determine if we should generate files
-    const generateFiles = !args.skipGenerate;
-    
-    // Enable silent mode to prevent console logs from interfering with JSON response
-    enableSilentMode();
-    
-    // Case 1: Convert existing task to subtask
-    if (existingTaskId) {
-      log.info(`Converting task ${existingTaskId} to a subtask of ${parentId}`);
-      const result = await addSubtask(tasksPath, parentId, existingTaskId, null, generateFiles);
-      
-      // Restore normal logging
-      disableSilentMode();
-      
-      return {
-        success: true,
-        data: {
-          message: `Task ${existingTaskId} successfully converted to a subtask of task ${parentId}`,
-          subtask: result
-        }
-      };
-    } 
-    // Case 2: Create new subtask
-    else {
-      log.info(`Creating new subtask for parent task ${parentId}`);
-      
-      const newSubtaskData = {
-        title: args.title,
-        description: args.description || '',
-        details: args.details || '',
-        status: args.status || 'pending',
-        dependencies: dependencies
-      };
-      
-      const result = await addSubtask(tasksPath, parentId, null, newSubtaskData, generateFiles);
-      
-      // Restore normal logging
-      disableSilentMode();
-      
-      return {
-        success: true,
-        data: {
-          message: `New subtask ${parentId}.${result.id} successfully created`,
-          subtask: result
-        }
-      };
-    }
-  } catch (error) {
-    // Make sure to restore normal logging even if there's an error
-    disableSilentMode();
-    
-    log.error(`Error in addSubtaskDirect: ${error.message}`);
-    return {
-      success: false,
-      error: {
-        code: 'CORE_FUNCTION_ERROR',
-        message: error.message
-      }
-    };
-  }
-} 
+		if (!args.id) {
+			return {
+				success: false,
+				error: {
+					code: 'INPUT_VALIDATION_ERROR',
+					message: 'Parent task ID is required'
+				}
+			};
+		}
+
+		// Either taskId or title must be provided
+		if (!args.taskId && !args.title) {
+			return {
+				success: false,
+				error: {
+					code: 'INPUT_VALIDATION_ERROR',
+					message: 'Either taskId or title must be provided'
+				}
+			};
+		}
+
+		// Find the tasks.json path
+		const tasksPath = findTasksJsonPath(args, log);
+
+		// Parse dependencies if provided
+		let dependencies = [];
+		if (args.dependencies) {
+			dependencies = args.dependencies.split(',').map((id) => {
+				// Handle both regular IDs and dot notation
+				return id.includes('.') ? id.trim() : parseInt(id.trim(), 10);
+			});
+		}
+
+		// Convert existingTaskId to a number if provided
+		const existingTaskId = args.taskId ? parseInt(args.taskId, 10) : null;
+
+		// Convert parent ID to a number
+		const parentId = parseInt(args.id, 10);
+
+		// Determine if we should generate files
+		const generateFiles = !args.skipGenerate;
+
+		// Enable silent mode to prevent console logs from interfering with JSON response
+		enableSilentMode();
+
+		// Case 1: Convert existing task to subtask
+		if (existingTaskId) {
+			log.info(`Converting task ${existingTaskId} to a subtask of ${parentId}`);
+			const result = await addSubtask(
+				tasksPath,
+				parentId,
+				existingTaskId,
+				null,
+				generateFiles
+			);
+
+			// Restore normal logging
+			disableSilentMode();
+
+			return {
+				success: true,
+				data: {
+					message: `Task ${existingTaskId} successfully converted to a subtask of task ${parentId}`,
+					subtask: result
+				}
+			};
+		}
+		// Case 2: Create new subtask
+		else {
+			log.info(`Creating new subtask for parent task ${parentId}`);
+
+			const newSubtaskData = {
+				title: args.title,
+				description: args.description || '',
+				details: args.details || '',
+				status: args.status || 'pending',
+				dependencies: dependencies
+			};
+
+			const result = await addSubtask(
+				tasksPath,
+				parentId,
+				null,
+				newSubtaskData,
+				generateFiles
+			);
+
+			// Restore normal logging
+			disableSilentMode();
+
+			return {
+				success: true,
+				data: {
+					message: `New subtask ${parentId}.${result.id} successfully created`,
+					subtask: result
+				}
+			};
+		}
+	} catch (error) {
+		// Make sure to restore normal logging even if there's an error
+		disableSilentMode();
+
+		log.error(`Error in addSubtaskDirect: ${error.message}`);
+		return {
+			success: false,
+			error: {
+				code: 'CORE_FUNCTION_ERROR',
+				message: error.message
+			}
+		};
+	}
+}

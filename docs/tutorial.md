@@ -14,22 +14,22 @@ MCP (Model Control Protocol) provides the easiest way to get started with Task M
 
 ```json
 {
-  "mcpServers": {
-    "taskmaster-ai": {
-      "command": "npx",
-      "args": ["-y", "task-master-ai", "mcp-server"],
-      "env": {
-        "ANTHROPIC_API_KEY": "YOUR_ANTHROPIC_API_KEY_HERE",
-        "PERPLEXITY_API_KEY": "YOUR_PERPLEXITY_API_KEY_HERE",
-        "MODEL": "claude-3-7-sonnet-20250219",
-        "PERPLEXITY_MODEL": "sonar-pro",
-        "MAX_TOKENS": 128000,
-        "TEMPERATURE": 0.2,
-        "DEFAULT_SUBTASKS": 5,
-        "DEFAULT_PRIORITY": "medium"
-      }
-    }
-  }
+	"mcpServers": {
+		"taskmaster-ai": {
+			"command": "npx",
+			"args": ["-y", "task-master-ai", "mcp-server"],
+			"env": {
+				"ANTHROPIC_API_KEY": "YOUR_ANTHROPIC_API_KEY_HERE",
+				"PERPLEXITY_API_KEY": "YOUR_PERPLEXITY_API_KEY_HERE",
+				"MODEL": "claude-3-7-sonnet-20250219",
+				"PERPLEXITY_MODEL": "sonar-pro",
+				"MAX_TOKENS": 128000,
+				"TEMPERATURE": 0.2,
+				"DEFAULT_SUBTASKS": 5,
+				"DEFAULT_PRIORITY": "medium"
+			}
+		}
+	}
 }
 ```
 

@@ -17,11 +17,11 @@ dotenv.config();
 
 // Configure Anthropic client
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-  // Add beta header for 128k token output
-  defaultHeaders: {
-    'anthropic-beta': 'output-128k-2025-02-19'
-  }
+	apiKey: process.env.ANTHROPIC_API_KEY,
+	// Add beta header for 128k token output
+	defaultHeaders: {
+		'anthropic-beta': 'output-128k-2025-02-19'
+	}
 });
 
 // Lazy-loaded Perplexity client
@@ -32,16 +32,18 @@ let perplexity = null;
  * @returns {OpenAI} Perplexity client
  */
 function getPerplexityClient() {
-  if (!perplexity) {
-    if (!process.env.PERPLEXITY_API_KEY) {
-      throw new Error("PERPLEXITY_API_KEY environment variable is missing. Set it to use research-backed features.");
-    }
-    perplexity = new OpenAI({
-      apiKey: process.env.PERPLEXITY_API_KEY,
-      baseURL: 'https://api.perplexity.ai',
-    });
-  }
-  return perplexity;
+	if (!perplexity) {
+		if (!process.env.PERPLEXITY_API_KEY) {
+			throw new Error(
+				'PERPLEXITY_API_KEY environment variable is missing. Set it to use research-backed features.'
+			);
+		}
+		perplexity = new OpenAI({
+			apiKey: process.env.PERPLEXITY_API_KEY,
+			baseURL: 'https://api.perplexity.ai'
+		});
+	}
+	return perplexity;
 }
 
 /**
@@ -52,46 +54,51 @@ function getPerplexityClient() {
  * @returns {Object} Selected model info with type and client
  */
 function getAvailableAIModel(options = {}) {
-  const { claudeOverloaded = false, requiresResearch = false } = options;
-  
-  // First choice: Perplexity if research is required and it's available
-  if (requiresResearch && process.env.PERPLEXITY_API_KEY) {
-    try {
-      const client = getPerplexityClient();
-      return { type: 'perplexity', client };
-    } catch (error) {
-      log('warn', `Perplexity not available: ${error.message}`);
-      // Fall through to Claude
-    }
-  }
-  
-  // Second choice: Claude if not overloaded
-  if (!claudeOverloaded && process.env.ANTHROPIC_API_KEY) {
-    return { type: 'claude', client: anthropic };
-  }
-  
-  // Third choice: Perplexity as Claude fallback (even if research not required)
-  if (process.env.PERPLEXITY_API_KEY) {
-    try {
-      const client = getPerplexityClient();
-      log('info', 'Claude is overloaded, falling back to Perplexity');
-      return { type: 'perplexity', client };
-    } catch (error) {
-      log('warn', `Perplexity fallback not available: ${error.message}`);
-      // Fall through to Claude anyway with warning
-    }
-  }
-  
-  // Last resort: Use Claude even if overloaded (might fail)
-  if (process.env.ANTHROPIC_API_KEY) {
-    if (claudeOverloaded) {
-      log('warn', 'Claude is overloaded but no alternatives are available. Proceeding with Claude anyway.');
-    }
-    return { type: 'claude', client: anthropic };
-  }
-  
-  // No models available
-  throw new Error('No AI models available. Please set ANTHROPIC_API_KEY and/or PERPLEXITY_API_KEY.');
+	const { claudeOverloaded = false, requiresResearch = false } = options;
+
+	// First choice: Perplexity if research is required and it's available
+	if (requiresResearch && process.env.PERPLEXITY_API_KEY) {
+		try {
+			const client = getPerplexityClient();
+			return { type: 'perplexity', client };
+		} catch (error) {
+			log('warn', `Perplexity not available: ${error.message}`);
+			// Fall through to Claude
+		}
+	}
+
+	// Second choice: Claude if not overloaded
+	if (!claudeOverloaded && process.env.ANTHROPIC_API_KEY) {
+		return { type: 'claude', client: anthropic };
+	}
+
+	// Third choice: Perplexity as Claude fallback (even if research not required)
+	if (process.env.PERPLEXITY_API_KEY) {
+		try {
+			const client = getPerplexityClient();
+			log('info', 'Claude is overloaded, falling back to Perplexity');
+			return { type: 'perplexity', client };
+		} catch (error) {
+			log('warn', `Perplexity fallback not available: ${error.message}`);
+			// Fall through to Claude anyway with warning
+		}
+	}
+
+	// Last resort: Use Claude even if overloaded (might fail)
+	if (process.env.ANTHROPIC_API_KEY) {
+		if (claudeOverloaded) {
+			log(
+				'warn',
+				'Claude is overloaded but no alternatives are available. Proceeding with Claude anyway.'
+			);
+		}
+		return { type: 'claude', client: anthropic };
+	}
+
+	// No models available
+	throw new Error(
+		'No AI models available. Please set ANTHROPIC_API_KEY and/or PERPLEXITY_API_KEY.'
+	);
 }
 
 /**
@@ -100,34 +107,34 @@ function getAvailableAIModel(options = {}) {
  * @returns {string} User-friendly error message
  */
 function handleClaudeError(error) {
-  // Check if it's a structured error response
-  if (error.type === 'error' && error.error) {
-    switch (error.error.type) {
-      case 'overloaded_error':
-        // Check if we can use Perplexity as a fallback
-        if (process.env.PERPLEXITY_API_KEY) {
-          return 'Claude is currently overloaded. Trying to fall back to Perplexity AI.';
-        }
-        return 'Claude is currently experiencing high demand and is overloaded. Please wait a few minutes and try again.';
-      case 'rate_limit_error':
-        return 'You have exceeded the rate limit. Please wait a few minutes before making more requests.';
-      case 'invalid_request_error':
-        return 'There was an issue with the request format. If this persists, please report it as a bug.';
-      default:
-        return `Claude API error: ${error.error.message}`;
-    }
-  }
-  
-  // Check for network/timeout errors
-  if (error.message?.toLowerCase().includes('timeout')) {
-    return 'The request to Claude timed out. Please try again.';
-  }
-  if (error.message?.toLowerCase().includes('network')) {
-    return 'There was a network error connecting to Claude. Please check your internet connection and try again.';
-  }
-  
-  // Default error message
-  return `Error communicating with Claude: ${error.message}`;
+	// Check if it's a structured error response
+	if (error.type === 'error' && error.error) {
+		switch (error.error.type) {
+			case 'overloaded_error':
+				// Check if we can use Perplexity as a fallback
+				if (process.env.PERPLEXITY_API_KEY) {
+					return 'Claude is currently overloaded. Trying to fall back to Perplexity AI.';
+				}
+				return 'Claude is currently experiencing high demand and is overloaded. Please wait a few minutes and try again.';
+			case 'rate_limit_error':
+				return 'You have exceeded the rate limit. Please wait a few minutes before making more requests.';
+			case 'invalid_request_error':
+				return 'There was an issue with the request format. If this persists, please report it as a bug.';
+			default:
+				return `Claude API error: ${error.error.message}`;
+		}
+	}
+
+	// Check for network/timeout errors
+	if (error.message?.toLowerCase().includes('timeout')) {
+		return 'The request to Claude timed out. Please try again.';
+	}
+	if (error.message?.toLowerCase().includes('network')) {
+		return 'There was a network error connecting to Claude. Please check your internet connection and try again.';
+	}
+
+	// Default error message
+	return `Error communicating with Claude: ${error.message}`;
 }
 
 /**
@@ -144,12 +151,20 @@ function handleClaudeError(error) {
  * @param {Object} modelConfig - Model configuration (optional)
  * @returns {Object} Claude's response
  */
-async function callClaude(prdContent, prdPath, numTasks, retryCount = 0, { reportProgress, mcpLog, session } = {}, aiClient = null, modelConfig = null) {
-  try {
-    log('info', 'Calling Claude...');
-    
-    // Build the system prompt
-    const systemPrompt = `You are an AI assistant helping to break down a Product Requirements Document (PRD) into a set of sequential development tasks. 
+async function callClaude(
+	prdContent,
+	prdPath,
+	numTasks,
+	retryCount = 0,
+	{ reportProgress, mcpLog, session } = {},
+	aiClient = null,
+	modelConfig = null
+) {
+	try {
+		log('info', 'Calling Claude...');
+
+		// Build the system prompt
+		const systemPrompt = `You are an AI assistant helping to break down a Product Requirements Document (PRD) into a set of sequential development tasks. 
 Your goal is to create ${numTasks} well-structured, actionable development tasks based on the PRD provided.
 
 Each task should follow this JSON structure:
@@ -198,41 +213,53 @@ Expected output format:
 
 Important: Your response must be valid JSON only, with no additional explanation or comments.`;
 
-    // Use streaming request to handle large responses and show progress
-    return await handleStreamingRequest(
-      prdContent, 
-      prdPath, 
-      numTasks, 
-      modelConfig?.maxTokens || CONFIG.maxTokens, 
-      systemPrompt, 
-      { reportProgress, mcpLog, session },
-      aiClient || anthropic,
-      modelConfig
-    );
-  } catch (error) {
-    // Get user-friendly error message
-    const userMessage = handleClaudeError(error);
-    log('error', userMessage);
+		// Use streaming request to handle large responses and show progress
+		return await handleStreamingRequest(
+			prdContent,
+			prdPath,
+			numTasks,
+			modelConfig?.maxTokens || CONFIG.maxTokens,
+			systemPrompt,
+			{ reportProgress, mcpLog, session },
+			aiClient || anthropic,
+			modelConfig
+		);
+	} catch (error) {
+		// Get user-friendly error message
+		const userMessage = handleClaudeError(error);
+		log('error', userMessage);
 
-    // Retry logic for certain errors
-    if (retryCount < 2 && (
-      error.error?.type === 'overloaded_error' || 
-      error.error?.type === 'rate_limit_error' ||
-      error.message?.toLowerCase().includes('timeout') ||
-      error.message?.toLowerCase().includes('network')
-    )) {
-      const waitTime = (retryCount + 1) * 5000; // 5s, then 10s
-      log('info', `Waiting ${waitTime/1000} seconds before retry ${retryCount + 1}/2...`);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-      return await callClaude(prdContent, prdPath, numTasks, retryCount + 1, { reportProgress, mcpLog, session }, aiClient, modelConfig);
-    } else {
-      console.error(chalk.red(userMessage));
-      if (CONFIG.debug) {
-        log('debug', 'Full error:', error);
-      }
-      throw new Error(userMessage);
-    }
-  }
+		// Retry logic for certain errors
+		if (
+			retryCount < 2 &&
+			(error.error?.type === 'overloaded_error' ||
+				error.error?.type === 'rate_limit_error' ||
+				error.message?.toLowerCase().includes('timeout') ||
+				error.message?.toLowerCase().includes('network'))
+		) {
+			const waitTime = (retryCount + 1) * 5000; // 5s, then 10s
+			log(
+				'info',
+				`Waiting ${waitTime / 1000} seconds before retry ${retryCount + 1}/2...`
+			);
+			await new Promise((resolve) => setTimeout(resolve, waitTime));
+			return await callClaude(
+				prdContent,
+				prdPath,
+				numTasks,
+				retryCount + 1,
+				{ reportProgress, mcpLog, session },
+				aiClient,
+				modelConfig
+			);
+		} else {
+			console.error(chalk.red(userMessage));
+			if (CONFIG.debug) {
+				log('debug', 'Full error:', error);
+			}
+			throw new Error(userMessage);
+		}
+	}
 }
 
 /**
@@ -250,104 +277,134 @@ Important: Your response must be valid JSON only, with no additional explanation
  * @param {Object} modelConfig - Model configuration (optional)
  * @returns {Object} Claude's response
  */
-async function handleStreamingRequest(prdContent, prdPath, numTasks, maxTokens, systemPrompt, { reportProgress, mcpLog, session } = {}, aiClient = null, modelConfig = null) {
-  // Determine output format based on mcpLog presence
-  const outputFormat = mcpLog ? 'json' : 'text';
-  
-  // Create custom reporter that checks for MCP log and silent mode
-  const report = (message, level = 'info') => {
-    if (mcpLog) {
-      mcpLog[level](message);
-    } else if (!isSilentMode() && outputFormat === 'text') {
-      // Only log to console if not in silent mode and outputFormat is 'text'
-      log(level, message);
-    }
-  };
-  
-  // Only show loading indicators for text output (CLI)
-  let loadingIndicator = null;
-  if (outputFormat === 'text' && !isSilentMode()) {
-    loadingIndicator = startLoadingIndicator('Generating tasks from PRD...');
-  }
-  
-  if (reportProgress) { await reportProgress({ progress: 0 }); }
-  let responseText = '';
-  let streamingInterval = null;
-  
-  try {
-    // Use streaming for handling large responses
-    const stream = await (aiClient || anthropic).messages.create({
-      model: modelConfig?.model || session?.env?.ANTHROPIC_MODEL || CONFIG.model,
-      max_tokens: modelConfig?.maxTokens || session?.env?.MAX_TOKENS || maxTokens,
-      temperature: modelConfig?.temperature || session?.env?.TEMPERATURE || CONFIG.temperature,
-      system: systemPrompt,
-      messages: [
-        {
-          role: 'user',
-          content: `Here's the Product Requirements Document (PRD) to break down into ${numTasks} tasks:\n\n${prdContent}`
-        }
-      ],
-      stream: true
-    });
-    
-    // Update loading indicator to show streaming progress - only for text output
-    if (outputFormat === 'text' && !isSilentMode()) {
-      let dotCount = 0;
-      const readline = await import('readline');
-      streamingInterval = setInterval(() => {
-        readline.cursorTo(process.stdout, 0);
-        process.stdout.write(`Receiving streaming response from Claude${'.'.repeat(dotCount)}`);
-        dotCount = (dotCount + 1) % 4;
-      }, 500);
-    }
-    
-    // Process the stream
-    for await (const chunk of stream) {
-      if (chunk.type === 'content_block_delta' && chunk.delta.text) {
-        responseText += chunk.delta.text;
-      }
-      if (reportProgress) {
-        await reportProgress({ progress: (responseText.length / maxTokens) * 100 });
-      }
-      if (mcpLog) {
-        mcpLog.info(`Progress: ${responseText.length / maxTokens * 100}%`);
-      }
-    }
-    
-    if (streamingInterval) clearInterval(streamingInterval);
-    
-    // Only call stopLoadingIndicator if we started one
-    if (loadingIndicator && outputFormat === 'text' && !isSilentMode()) {
-      stopLoadingIndicator(loadingIndicator);
-    }
-    
-    report(`Completed streaming response from ${aiClient ? 'provided' : 'default'} AI client!`, 'info');
-    
-    // Pass options to processClaudeResponse
-    return processClaudeResponse(responseText, numTasks, 0, prdContent, prdPath, { reportProgress, mcpLog, session });
-  } catch (error) {
-    if (streamingInterval) clearInterval(streamingInterval);
-    
-    // Only call stopLoadingIndicator if we started one
-    if (loadingIndicator && outputFormat === 'text' && !isSilentMode()) {
-      stopLoadingIndicator(loadingIndicator);
-    }
-    
-    // Get user-friendly error message
-    const userMessage = handleClaudeError(error);
-    report(`Error: ${userMessage}`, 'error');
-    
-    // Only show console error for text output (CLI)
-    if (outputFormat === 'text' && !isSilentMode()) {
-      console.error(chalk.red(userMessage));
-    }
-    
-    if (CONFIG.debug && outputFormat === 'text' && !isSilentMode()) {
-      log('debug', 'Full error:', error);
-    }
-    
-    throw new Error(userMessage);
-  }
+async function handleStreamingRequest(
+	prdContent,
+	prdPath,
+	numTasks,
+	maxTokens,
+	systemPrompt,
+	{ reportProgress, mcpLog, session } = {},
+	aiClient = null,
+	modelConfig = null
+) {
+	// Determine output format based on mcpLog presence
+	const outputFormat = mcpLog ? 'json' : 'text';
+
+	// Create custom reporter that checks for MCP log and silent mode
+	const report = (message, level = 'info') => {
+		if (mcpLog) {
+			mcpLog[level](message);
+		} else if (!isSilentMode() && outputFormat === 'text') {
+			// Only log to console if not in silent mode and outputFormat is 'text'
+			log(level, message);
+		}
+	};
+
+	// Only show loading indicators for text output (CLI)
+	let loadingIndicator = null;
+	if (outputFormat === 'text' && !isSilentMode()) {
+		loadingIndicator = startLoadingIndicator('Generating tasks from PRD...');
+	}
+
+	if (reportProgress) {
+		await reportProgress({ progress: 0 });
+	}
+	let responseText = '';
+	let streamingInterval = null;
+
+	try {
+		// Use streaming for handling large responses
+		const stream = await (aiClient || anthropic).messages.create({
+			model:
+				modelConfig?.model || session?.env?.ANTHROPIC_MODEL || CONFIG.model,
+			max_tokens:
+				modelConfig?.maxTokens || session?.env?.MAX_TOKENS || maxTokens,
+			temperature:
+				modelConfig?.temperature ||
+				session?.env?.TEMPERATURE ||
+				CONFIG.temperature,
+			system: systemPrompt,
+			messages: [
+				{
+					role: 'user',
+					content: `Here's the Product Requirements Document (PRD) to break down into ${numTasks} tasks:\n\n${prdContent}`
+				}
+			],
+			stream: true
+		});
+
+		// Update loading indicator to show streaming progress - only for text output
+		if (outputFormat === 'text' && !isSilentMode()) {
+			let dotCount = 0;
+			const readline = await import('readline');
+			streamingInterval = setInterval(() => {
+				readline.cursorTo(process.stdout, 0);
+				process.stdout.write(
+					`Receiving streaming response from Claude${'.'.repeat(dotCount)}`
+				);
+				dotCount = (dotCount + 1) % 4;
+			}, 500);
+		}
+
+		// Process the stream
+		for await (const chunk of stream) {
+			if (chunk.type === 'content_block_delta' && chunk.delta.text) {
+				responseText += chunk.delta.text;
+			}
+			if (reportProgress) {
+				await reportProgress({
+					progress: (responseText.length / maxTokens) * 100
+				});
+			}
+			if (mcpLog) {
+				mcpLog.info(`Progress: ${(responseText.length / maxTokens) * 100}%`);
+			}
+		}
+
+		if (streamingInterval) clearInterval(streamingInterval);
+
+		// Only call stopLoadingIndicator if we started one
+		if (loadingIndicator && outputFormat === 'text' && !isSilentMode()) {
+			stopLoadingIndicator(loadingIndicator);
+		}
+
+		report(
+			`Completed streaming response from ${aiClient ? 'provided' : 'default'} AI client!`,
+			'info'
+		);
+
+		// Pass options to processClaudeResponse
+		return processClaudeResponse(
+			responseText,
+			numTasks,
+			0,
+			prdContent,
+			prdPath,
+			{ reportProgress, mcpLog, session }
+		);
+	} catch (error) {
+		if (streamingInterval) clearInterval(streamingInterval);
+
+		// Only call stopLoadingIndicator if we started one
+		if (loadingIndicator && outputFormat === 'text' && !isSilentMode()) {
+			stopLoadingIndicator(loadingIndicator);
+		}
+
+		// Get user-friendly error message
+		const userMessage = handleClaudeError(error);
+		report(`Error: ${userMessage}`, 'error');
+
+		// Only show console error for text output (CLI)
+		if (outputFormat === 'text' && !isSilentMode()) {
+			console.error(chalk.red(userMessage));
+		}
+
+		if (CONFIG.debug && outputFormat === 'text' && !isSilentMode()) {
+			log('debug', 'Full error:', error);
+		}
+
+		throw new Error(userMessage);
+	}
 }
 
 /**
@@ -360,73 +417,96 @@ async function handleStreamingRequest(prdContent, prdPath, numTasks, maxTokens, 
  * @param {Object} options - Options object containing mcpLog etc.
  * @returns {Object} Processed response
  */
-function processClaudeResponse(textContent, numTasks, retryCount, prdContent, prdPath, options = {}) {
-  const { mcpLog } = options;
-  
-  // Determine output format based on mcpLog presence
-  const outputFormat = mcpLog ? 'json' : 'text';
-  
-  // Create custom reporter that checks for MCP log and silent mode
-  const report = (message, level = 'info') => {
-    if (mcpLog) {
-      mcpLog[level](message);
-    } else if (!isSilentMode() && outputFormat === 'text') {
-      // Only log to console if not in silent mode and outputFormat is 'text'
-      log(level, message);
-    }
-  };
-  
-  try {
-    // Attempt to parse the JSON response
-    let jsonStart = textContent.indexOf('{');
-    let jsonEnd = textContent.lastIndexOf('}');
-    
-    if (jsonStart === -1 || jsonEnd === -1) {
-      throw new Error("Could not find valid JSON in Claude's response");
-    }
-    
-    let jsonContent = textContent.substring(jsonStart, jsonEnd + 1);
-    let parsedData = JSON.parse(jsonContent);
-    
-    // Validate the structure of the generated tasks
-    if (!parsedData.tasks || !Array.isArray(parsedData.tasks)) {
-      throw new Error("Claude's response does not contain a valid tasks array");
-    }
-    
-    // Ensure we have the correct number of tasks
-    if (parsedData.tasks.length !== numTasks) {
-      report(`Expected ${numTasks} tasks, but received ${parsedData.tasks.length}`, 'warn');
-    }
-    
-    // Add metadata if missing
-    if (!parsedData.metadata) {
-      parsedData.metadata = {
-        projectName: "PRD Implementation",
-        totalTasks: parsedData.tasks.length,
-        sourceFile: prdPath,
-        generatedAt: new Date().toISOString().split('T')[0]
-      };
-    }
-    
-    return parsedData;
-  } catch (error) {
-    report(`Error processing Claude's response: ${error.message}`, 'error');
-    
-    // Retry logic
-    if (retryCount < 2) {
-      report(`Retrying to parse response (${retryCount + 1}/2)...`, 'info');
-      
-      // Try again with Claude for a cleaner response
-      if (retryCount === 1) {
-        report("Calling Claude again for a cleaner response...", 'info');
-        return callClaude(prdContent, prdPath, numTasks, retryCount + 1, options);
-      }
-      
-      return processClaudeResponse(textContent, numTasks, retryCount + 1, prdContent, prdPath, options);
-    } else {
-      throw error;
-    }
-  }
+function processClaudeResponse(
+	textContent,
+	numTasks,
+	retryCount,
+	prdContent,
+	prdPath,
+	options = {}
+) {
+	const { mcpLog } = options;
+
+	// Determine output format based on mcpLog presence
+	const outputFormat = mcpLog ? 'json' : 'text';
+
+	// Create custom reporter that checks for MCP log and silent mode
+	const report = (message, level = 'info') => {
+		if (mcpLog) {
+			mcpLog[level](message);
+		} else if (!isSilentMode() && outputFormat === 'text') {
+			// Only log to console if not in silent mode and outputFormat is 'text'
+			log(level, message);
+		}
+	};
+
+	try {
+		// Attempt to parse the JSON response
+		let jsonStart = textContent.indexOf('{');
+		let jsonEnd = textContent.lastIndexOf('}');
+
+		if (jsonStart === -1 || jsonEnd === -1) {
+			throw new Error("Could not find valid JSON in Claude's response");
+		}
+
+		let jsonContent = textContent.substring(jsonStart, jsonEnd + 1);
+		let parsedData = JSON.parse(jsonContent);
+
+		// Validate the structure of the generated tasks
+		if (!parsedData.tasks || !Array.isArray(parsedData.tasks)) {
+			throw new Error("Claude's response does not contain a valid tasks array");
+		}
+
+		// Ensure we have the correct number of tasks
+		if (parsedData.tasks.length !== numTasks) {
+			report(
+				`Expected ${numTasks} tasks, but received ${parsedData.tasks.length}`,
+				'warn'
+			);
+		}
+
+		// Add metadata if missing
+		if (!parsedData.metadata) {
+			parsedData.metadata = {
+				projectName: 'PRD Implementation',
+				totalTasks: parsedData.tasks.length,
+				sourceFile: prdPath,
+				generatedAt: new Date().toISOString().split('T')[0]
+			};
+		}
+
+		return parsedData;
+	} catch (error) {
+		report(`Error processing Claude's response: ${error.message}`, 'error');
+
+		// Retry logic
+		if (retryCount < 2) {
+			report(`Retrying to parse response (${retryCount + 1}/2)...`, 'info');
+
+			// Try again with Claude for a cleaner response
+			if (retryCount === 1) {
+				report('Calling Claude again for a cleaner response...', 'info');
+				return callClaude(
+					prdContent,
+					prdPath,
+					numTasks,
+					retryCount + 1,
+					options
+				);
+			}
+
+			return processClaudeResponse(
+				textContent,
+				numTasks,
+				retryCount + 1,
+				prdContent,
+				prdPath,
+				options
+			);
+		} else {
+			throw error;
+		}
+	}
 }
 
 /**
@@ -441,15 +521,26 @@ function processClaudeResponse(textContent, numTasks, retryCount, prdContent, pr
  *   - session: Session object from MCP server (optional)
  * @returns {Array} Generated subtasks
  */
-async function generateSubtasks(task, numSubtasks, nextSubtaskId, additionalContext = '', { reportProgress, mcpLog, session } = {}) {
-  try {
-    log('info', `Generating ${numSubtasks} subtasks for task ${task.id}: ${task.title}`);
-    
-    const loadingIndicator = startLoadingIndicator(`Generating subtasks for task ${task.id}...`);
-    let streamingInterval = null;
-    let responseText = '';
-    
-    const systemPrompt = `You are an AI assistant helping with task breakdown for software development. 
+async function generateSubtasks(
+	task,
+	numSubtasks,
+	nextSubtaskId,
+	additionalContext = '',
+	{ reportProgress, mcpLog, session } = {}
+) {
+	try {
+		log(
+			'info',
+			`Generating ${numSubtasks} subtasks for task ${task.id}: ${task.title}`
+		);
+
+		const loadingIndicator = startLoadingIndicator(
+			`Generating subtasks for task ${task.id}...`
+		);
+		let streamingInterval = null;
+		let responseText = '';
+
+		const systemPrompt = `You are an AI assistant helping with task breakdown for software development. 
 You need to break down a high-level task into ${numSubtasks} specific subtasks that can be implemented one by one.
 
 Subtasks should:
@@ -468,10 +559,11 @@ For each subtask, provide:
 
 Each subtask should be implementable in a focused coding session.`;
 
-    const contextPrompt = additionalContext ? 
-      `\n\nAdditional context to consider: ${additionalContext}` : '';
-    
-    const userPrompt = `Please break down this task into ${numSubtasks} specific, actionable subtasks:
+		const contextPrompt = additionalContext
+			? `\n\nAdditional context to consider: ${additionalContext}`
+			: '';
+
+		const userPrompt = `Please break down this task into ${numSubtasks} specific, actionable subtasks:
 
 Task ID: ${task.id}
 Title: ${task.title}
@@ -493,61 +585,72 @@ Return exactly ${numSubtasks} subtasks with the following JSON structure:
 
 Note on dependencies: Subtasks can depend on other subtasks with lower IDs. Use an empty array if there are no dependencies.`;
 
-    try {
-      // Update loading indicator to show streaming progress
-      let dotCount = 0;
-      const readline = await import('readline');
-      streamingInterval = setInterval(() => {
-        readline.cursorTo(process.stdout, 0);
-        process.stdout.write(`Generating subtasks for task ${task.id}${'.'.repeat(dotCount)}`);
-        dotCount = (dotCount + 1) % 4;
-      }, 500);
+		try {
+			// Update loading indicator to show streaming progress
+			let dotCount = 0;
+			const readline = await import('readline');
+			streamingInterval = setInterval(() => {
+				readline.cursorTo(process.stdout, 0);
+				process.stdout.write(
+					`Generating subtasks for task ${task.id}${'.'.repeat(dotCount)}`
+				);
+				dotCount = (dotCount + 1) % 4;
+			}, 500);
 
-      // TODO: MOVE THIS TO THE STREAM REQUEST FUNCTION (DRY)
-      
-      // Use streaming API call
-      const stream = await anthropic.messages.create({
-        model: session?.env?.ANTHROPIC_MODEL || CONFIG.model,
-        max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
-        temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
-        system: systemPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: userPrompt
-          }
-        ],
-        stream: true
-      });
-      
-      // Process the stream
-      for await (const chunk of stream) {
-        if (chunk.type === 'content_block_delta' && chunk.delta.text) {
-          responseText += chunk.delta.text;
-        }
-        if (reportProgress) {
-          await reportProgress({ progress: (responseText.length / CONFIG.maxTokens) * 100 });
-        }
-        if (mcpLog) {
-          mcpLog.info(`Progress: ${responseText.length / CONFIG.maxTokens * 100}%`);
-        }
-      }
-      
-      if (streamingInterval) clearInterval(streamingInterval);
-      stopLoadingIndicator(loadingIndicator);
-      
-      log('info', `Completed generating subtasks for task ${task.id}`);
-      
-      return parseSubtasksFromText(responseText, nextSubtaskId, numSubtasks, task.id);
-    } catch (error) {
-      if (streamingInterval) clearInterval(streamingInterval);
-      stopLoadingIndicator(loadingIndicator);
-      throw error;
-    }
-  } catch (error) {
-    log('error', `Error generating subtasks: ${error.message}`);
-    throw error;
-  }
+			// TODO: MOVE THIS TO THE STREAM REQUEST FUNCTION (DRY)
+
+			// Use streaming API call
+			const stream = await anthropic.messages.create({
+				model: session?.env?.ANTHROPIC_MODEL || CONFIG.model,
+				max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
+				temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
+				system: systemPrompt,
+				messages: [
+					{
+						role: 'user',
+						content: userPrompt
+					}
+				],
+				stream: true
+			});
+
+			// Process the stream
+			for await (const chunk of stream) {
+				if (chunk.type === 'content_block_delta' && chunk.delta.text) {
+					responseText += chunk.delta.text;
+				}
+				if (reportProgress) {
+					await reportProgress({
+						progress: (responseText.length / CONFIG.maxTokens) * 100
+					});
+				}
+				if (mcpLog) {
+					mcpLog.info(
+						`Progress: ${(responseText.length / CONFIG.maxTokens) * 100}%`
+					);
+				}
+			}
+
+			if (streamingInterval) clearInterval(streamingInterval);
+			stopLoadingIndicator(loadingIndicator);
+
+			log('info', `Completed generating subtasks for task ${task.id}`);
+
+			return parseSubtasksFromText(
+				responseText,
+				nextSubtaskId,
+				numSubtasks,
+				task.id
+			);
+		} catch (error) {
+			if (streamingInterval) clearInterval(streamingInterval);
+			stopLoadingIndicator(loadingIndicator);
+			throw error;
+		}
+	} catch (error) {
+		log('error', `Error generating subtasks: ${error.message}`);
+		throw error;
+	}
 }
 
 /**
@@ -563,71 +666,90 @@ Note on dependencies: Subtasks can depend on other subtasks with lower IDs. Use 
  *   - session: Session object from MCP server (optional)
  * @returns {Array} Generated subtasks
  */
-async function generateSubtasksWithPerplexity(task, numSubtasks = 3, nextSubtaskId = 1, additionalContext = '', { reportProgress, mcpLog, silentMode, session } = {}) {
-  // Check both global silentMode and the passed parameter
-  const isSilent = silentMode || (typeof silentMode === 'undefined' && isSilentMode());
-  
-  // Use mcpLog if provided, otherwise use regular log if not silent
-  const logFn = mcpLog ? 
-    (level, ...args) => mcpLog[level](...args) : 
-    (level, ...args) => !isSilent && log(level, ...args);
-  
-  try {
-    // First, perform research to get context
-    logFn('info', `Researching context for task ${task.id}: ${task.title}`);
-    const perplexityClient = getPerplexityClient();
-    
-    const PERPLEXITY_MODEL = process.env.PERPLEXITY_MODEL || session?.env?.PERPLEXITY_MODEL || 'sonar-pro';
-    
-    // Only create loading indicators if not in silent mode
-    let researchLoadingIndicator = null;
-    if (!isSilent) {
-      researchLoadingIndicator = startLoadingIndicator('Researching best practices with Perplexity AI...');
-    }
-    
-    // Formulate research query based on task
-    const researchQuery = `I need to implement "${task.title}" which involves: "${task.description}". 
+async function generateSubtasksWithPerplexity(
+	task,
+	numSubtasks = 3,
+	nextSubtaskId = 1,
+	additionalContext = '',
+	{ reportProgress, mcpLog, silentMode, session } = {}
+) {
+	// Check both global silentMode and the passed parameter
+	const isSilent =
+		silentMode || (typeof silentMode === 'undefined' && isSilentMode());
+
+	// Use mcpLog if provided, otherwise use regular log if not silent
+	const logFn = mcpLog
+		? (level, ...args) => mcpLog[level](...args)
+		: (level, ...args) => !isSilent && log(level, ...args);
+
+	try {
+		// First, perform research to get context
+		logFn('info', `Researching context for task ${task.id}: ${task.title}`);
+		const perplexityClient = getPerplexityClient();
+
+		const PERPLEXITY_MODEL =
+			process.env.PERPLEXITY_MODEL ||
+			session?.env?.PERPLEXITY_MODEL ||
+			'sonar-pro';
+
+		// Only create loading indicators if not in silent mode
+		let researchLoadingIndicator = null;
+		if (!isSilent) {
+			researchLoadingIndicator = startLoadingIndicator(
+				'Researching best practices with Perplexity AI...'
+			);
+		}
+
+		// Formulate research query based on task
+		const researchQuery = `I need to implement "${task.title}" which involves: "${task.description}". 
 What are current best practices, libraries, design patterns, and implementation approaches? 
 Include concrete code examples and technical considerations where relevant.`;
-    
-    // Query Perplexity for research
-    const researchResponse = await perplexityClient.chat.completions.create({
-      model: PERPLEXITY_MODEL,
-      messages: [{
-        role: 'user',
-        content: researchQuery
-      }],
-      temperature: 0.1 // Lower temperature for more factual responses
-    });
-    
-    const researchResult = researchResponse.choices[0].message.content;
-    
-    // Only stop loading indicator if it was created
-    if (researchLoadingIndicator) {
-      stopLoadingIndicator(researchLoadingIndicator);
-    }
-    
-    logFn('info', 'Research completed, now generating subtasks with additional context');
-    
-    // Use the research result as additional context for Claude to generate subtasks
-    const combinedContext = `
+
+		// Query Perplexity for research
+		const researchResponse = await perplexityClient.chat.completions.create({
+			model: PERPLEXITY_MODEL,
+			messages: [
+				{
+					role: 'user',
+					content: researchQuery
+				}
+			],
+			temperature: 0.1 // Lower temperature for more factual responses
+		});
+
+		const researchResult = researchResponse.choices[0].message.content;
+
+		// Only stop loading indicator if it was created
+		if (researchLoadingIndicator) {
+			stopLoadingIndicator(researchLoadingIndicator);
+		}
+
+		logFn(
+			'info',
+			'Research completed, now generating subtasks with additional context'
+		);
+
+		// Use the research result as additional context for Claude to generate subtasks
+		const combinedContext = `
 RESEARCH FINDINGS:
 ${researchResult}
 
 ADDITIONAL CONTEXT PROVIDED BY USER:
-${additionalContext || "No additional context provided."}
+${additionalContext || 'No additional context provided.'}
 `;
-    
-    // Now generate subtasks with Claude
-    let loadingIndicator = null;
-    if (!isSilent) {
-      loadingIndicator = startLoadingIndicator(`Generating research-backed subtasks for task ${task.id}...`);
-    }
-    
-    let streamingInterval = null;
-    let responseText = '';
-    
-    const systemPrompt = `You are an AI assistant helping with task breakdown for software development.
+
+		// Now generate subtasks with Claude
+		let loadingIndicator = null;
+		if (!isSilent) {
+			loadingIndicator = startLoadingIndicator(
+				`Generating research-backed subtasks for task ${task.id}...`
+			);
+		}
+
+		let streamingInterval = null;
+		let responseText = '';
+
+		const systemPrompt = `You are an AI assistant helping with task breakdown for software development.
 You need to break down a high-level task into ${numSubtasks} specific subtasks that can be implemented one by one.
 
 You have been provided with research on current best practices and implementation approaches.
@@ -649,7 +771,7 @@ For each subtask, provide:
 
 Each subtask should be implementable in a focused coding session.`;
 
-    const userPrompt = `Please break down this task into ${numSubtasks} specific, well-researched, actionable subtasks:
+		const userPrompt = `Please break down this task into ${numSubtasks} specific, well-researched, actionable subtasks:
 
 Task ID: ${task.id}
 Title: ${task.title}
@@ -672,63 +794,76 @@ Return exactly ${numSubtasks} subtasks with the following JSON structure:
 
 Note on dependencies: Subtasks can depend on other subtasks with lower IDs. Use an empty array if there are no dependencies.`;
 
-    try {
-      // Update loading indicator to show streaming progress
-      // Only create if not in silent mode
-      if (!isSilent) {
-        let dotCount = 0;
-        const readline = await import('readline');
-        streamingInterval = setInterval(() => {
-          readline.cursorTo(process.stdout, 0);
-          process.stdout.write(`Generating research-backed subtasks for task ${task.id}${'.'.repeat(dotCount)}`);
-          dotCount = (dotCount + 1) % 4;
-        }, 500);
-      }
-      
-      // Use streaming API call via our helper function
-      responseText = await _handleAnthropicStream(
-        anthropic, 
-        {
-          model: session?.env?.ANTHROPIC_MODEL || CONFIG.model,
-          max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
-          temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }]
-        }, 
-        { reportProgress, mcpLog, silentMode }, 
-        !isSilent // Only use CLI mode if not in silent mode
-      );
-      
-      // Clean up
-      if (streamingInterval) {
-        clearInterval(streamingInterval);
-        streamingInterval = null;
-      }
-      
-      if (loadingIndicator) {
-        stopLoadingIndicator(loadingIndicator);
-        loadingIndicator = null;
-      }
-      
-      logFn('info', `Completed generating research-backed subtasks for task ${task.id}`);
-      
-      return parseSubtasksFromText(responseText, nextSubtaskId, numSubtasks, task.id);
-    } catch (error) {
-      // Clean up on error
-      if (streamingInterval) {
-        clearInterval(streamingInterval);
-      }
-      
-      if (loadingIndicator) {
-        stopLoadingIndicator(loadingIndicator);
-      }
-      
-      throw error;
-    }
-  } catch (error) {
-    logFn('error', `Error generating research-backed subtasks: ${error.message}`);
-    throw error;
-  }
+		try {
+			// Update loading indicator to show streaming progress
+			// Only create if not in silent mode
+			if (!isSilent) {
+				let dotCount = 0;
+				const readline = await import('readline');
+				streamingInterval = setInterval(() => {
+					readline.cursorTo(process.stdout, 0);
+					process.stdout.write(
+						`Generating research-backed subtasks for task ${task.id}${'.'.repeat(dotCount)}`
+					);
+					dotCount = (dotCount + 1) % 4;
+				}, 500);
+			}
+
+			// Use streaming API call via our helper function
+			responseText = await _handleAnthropicStream(
+				anthropic,
+				{
+					model: session?.env?.ANTHROPIC_MODEL || CONFIG.model,
+					max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
+					temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
+					system: systemPrompt,
+					messages: [{ role: 'user', content: userPrompt }]
+				},
+				{ reportProgress, mcpLog, silentMode },
+				!isSilent // Only use CLI mode if not in silent mode
+			);
+
+			// Clean up
+			if (streamingInterval) {
+				clearInterval(streamingInterval);
+				streamingInterval = null;
+			}
+
+			if (loadingIndicator) {
+				stopLoadingIndicator(loadingIndicator);
+				loadingIndicator = null;
+			}
+
+			logFn(
+				'info',
+				`Completed generating research-backed subtasks for task ${task.id}`
+			);
+
+			return parseSubtasksFromText(
+				responseText,
+				nextSubtaskId,
+				numSubtasks,
+				task.id
+			);
+		} catch (error) {
+			// Clean up on error
+			if (streamingInterval) {
+				clearInterval(streamingInterval);
+			}
+
+			if (loadingIndicator) {
+				stopLoadingIndicator(loadingIndicator);
+			}
+
+			throw error;
+		}
+	} catch (error) {
+		logFn(
+			'error',
+			`Error generating research-backed subtasks: ${error.message}`
+		);
+		throw error;
+	}
 }
 
 /**
@@ -740,78 +875,89 @@ Note on dependencies: Subtasks can depend on other subtasks with lower IDs. Use 
  * @returns {Array} Parsed subtasks
  */
 function parseSubtasksFromText(text, startId, expectedCount, parentTaskId) {
-  try {
-    // Locate JSON array in the text
-    const jsonStartIndex = text.indexOf('[');
-    const jsonEndIndex = text.lastIndexOf(']');
-    
-    if (jsonStartIndex === -1 || jsonEndIndex === -1 || jsonEndIndex < jsonStartIndex) {
-      throw new Error("Could not locate valid JSON array in the response");
-    }
-    
-    // Extract and parse the JSON
-    const jsonText = text.substring(jsonStartIndex, jsonEndIndex + 1);
-    let subtasks = JSON.parse(jsonText);
-    
-    // Validate
-    if (!Array.isArray(subtasks)) {
-      throw new Error("Parsed content is not an array");
-    }
-    
-    // Log warning if count doesn't match expected
-    if (subtasks.length !== expectedCount) {
-      log('warn', `Expected ${expectedCount} subtasks, but parsed ${subtasks.length}`);
-    }
-    
-    // Normalize subtask IDs if they don't match
-    subtasks = subtasks.map((subtask, index) => {
-      // Assign the correct ID if it doesn't match
-      if (subtask.id !== startId + index) {
-        log('warn', `Correcting subtask ID from ${subtask.id} to ${startId + index}`);
-        subtask.id = startId + index;
-      }
-      
-      // Convert dependencies to numbers if they are strings
-      if (subtask.dependencies && Array.isArray(subtask.dependencies)) {
-        subtask.dependencies = subtask.dependencies.map(dep => {
-          return typeof dep === 'string' ? parseInt(dep, 10) : dep;
-        });
-      } else {
-        subtask.dependencies = [];
-      }
-      
-      // Ensure status is 'pending'
-      subtask.status = 'pending';
-      
-      // Add parentTaskId
-      subtask.parentTaskId = parentTaskId;
-      
-      return subtask;
-    });
-    
-    return subtasks;
-  } catch (error) {
-    log('error', `Error parsing subtasks: ${error.message}`);
-    
-    // Create a fallback array of empty subtasks if parsing fails
-    log('warn', 'Creating fallback subtasks');
-    
-    const fallbackSubtasks = [];
-    
-    for (let i = 0; i < expectedCount; i++) {
-      fallbackSubtasks.push({
-        id: startId + i,
-        title: `Subtask ${startId + i}`,
-        description: "Auto-generated fallback subtask",
-        dependencies: [],
-        details: "This is a fallback subtask created because parsing failed. Please update with real details.",
-        status: 'pending',
-        parentTaskId: parentTaskId
-      });
-    }
-    
-    return fallbackSubtasks;
-  }
+	try {
+		// Locate JSON array in the text
+		const jsonStartIndex = text.indexOf('[');
+		const jsonEndIndex = text.lastIndexOf(']');
+
+		if (
+			jsonStartIndex === -1 ||
+			jsonEndIndex === -1 ||
+			jsonEndIndex < jsonStartIndex
+		) {
+			throw new Error('Could not locate valid JSON array in the response');
+		}
+
+		// Extract and parse the JSON
+		const jsonText = text.substring(jsonStartIndex, jsonEndIndex + 1);
+		let subtasks = JSON.parse(jsonText);
+
+		// Validate
+		if (!Array.isArray(subtasks)) {
+			throw new Error('Parsed content is not an array');
+		}
+
+		// Log warning if count doesn't match expected
+		if (subtasks.length !== expectedCount) {
+			log(
+				'warn',
+				`Expected ${expectedCount} subtasks, but parsed ${subtasks.length}`
+			);
+		}
+
+		// Normalize subtask IDs if they don't match
+		subtasks = subtasks.map((subtask, index) => {
+			// Assign the correct ID if it doesn't match
+			if (subtask.id !== startId + index) {
+				log(
+					'warn',
+					`Correcting subtask ID from ${subtask.id} to ${startId + index}`
+				);
+				subtask.id = startId + index;
+			}
+
+			// Convert dependencies to numbers if they are strings
+			if (subtask.dependencies && Array.isArray(subtask.dependencies)) {
+				subtask.dependencies = subtask.dependencies.map((dep) => {
+					return typeof dep === 'string' ? parseInt(dep, 10) : dep;
+				});
+			} else {
+				subtask.dependencies = [];
+			}
+
+			// Ensure status is 'pending'
+			subtask.status = 'pending';
+
+			// Add parentTaskId
+			subtask.parentTaskId = parentTaskId;
+
+			return subtask;
+		});
+
+		return subtasks;
+	} catch (error) {
+		log('error', `Error parsing subtasks: ${error.message}`);
+
+		// Create a fallback array of empty subtasks if parsing fails
+		log('warn', 'Creating fallback subtasks');
+
+		const fallbackSubtasks = [];
+
+		for (let i = 0; i < expectedCount; i++) {
+			fallbackSubtasks.push({
+				id: startId + i,
+				title: `Subtask ${startId + i}`,
+				description: 'Auto-generated fallback subtask',
+				dependencies: [],
+				details:
+					'This is a fallback subtask created because parsing failed. Please update with real details.',
+				status: 'pending',
+				parentTaskId: parentTaskId
+			});
+		}
+
+		return fallbackSubtasks;
+	}
 }
 
 /**
@@ -820,16 +966,20 @@ function parseSubtasksFromText(text, startId, expectedCount, parentTaskId) {
  * @returns {string} Generated prompt
  */
 function generateComplexityAnalysisPrompt(tasksData) {
-  return `Analyze the complexity of the following tasks and provide recommendations for subtask breakdown:
+	return `Analyze the complexity of the following tasks and provide recommendations for subtask breakdown:
 
-${tasksData.tasks.map(task => `
+${tasksData.tasks
+	.map(
+		(task) => `
 Task ID: ${task.id}
 Title: ${task.title}
 Description: ${task.description}
 Details: ${task.details}
 Dependencies: ${JSON.stringify(task.dependencies || [])}
 Priority: ${task.priority || 'medium'}
-`).join('\n---\n')}
+`
+	)
+	.join('\n---\n')}
 
 Analyze each task and return a JSON array with the following structure for each task:
 [
@@ -851,7 +1001,7 @@ IMPORTANT: Make sure to include an analysis for EVERY task listed above, with th
 /**
  * Handles streaming API calls to Anthropic (Claude)
  * This is a common helper function to standardize interaction with Anthropic's streaming API.
- * 
+ *
  * @param {Anthropic} client - Initialized Anthropic client
  * @param {Object} params - Parameters for the API call
  * @param {string} params.model - Claude model to use (e.g., 'claude-3-opus-20240229')
@@ -866,146 +1016,168 @@ IMPORTANT: Make sure to include an analysis for EVERY task listed above, with th
  * @param {boolean} [cliMode=false] - Whether to show CLI-specific output like spinners
  * @returns {Promise<string>} The accumulated response text
  */
-async function _handleAnthropicStream(client, params, { reportProgress, mcpLog, silentMode } = {}, cliMode = false) {
-  // Only set up loading indicator in CLI mode and not in silent mode
-  let loadingIndicator = null;
-  let streamingInterval = null;
-  let responseText = '';
-  
-  // Check both the passed parameter and global silent mode using isSilentMode()
-  const isSilent = silentMode || (typeof silentMode === 'undefined' && isSilentMode());
-  
-  // Only show CLI indicators if in cliMode AND not in silent mode
-  const showCLIOutput = cliMode && !isSilent;
-  
-  if (showCLIOutput) {
-    loadingIndicator = startLoadingIndicator('Processing request with Claude AI...');
-  }
-  
-  try {
-    // Validate required parameters
-    if (!client) {
-      throw new Error('Anthropic client is required');
-    }
-    
-    if (!params.messages || !Array.isArray(params.messages) || params.messages.length === 0) {
-      throw new Error('At least one message is required');
-    }
-    
-    // Ensure the stream parameter is set
-    const streamParams = {
-      ...params,
-      stream: true
-    };
-    
-    // Call Anthropic with streaming enabled
-    const stream = await client.messages.create(streamParams);
-    
-    // Set up streaming progress indicator for CLI (only if not in silent mode)
-    let dotCount = 0;
-    if (showCLIOutput) {
-      const readline = await import('readline');
-      streamingInterval = setInterval(() => {
-        readline.cursorTo(process.stdout, 0);
-        process.stdout.write(`Receiving streaming response from Claude${'.'.repeat(dotCount)}`);
-        dotCount = (dotCount + 1) % 4;
-      }, 500);
-    }
-    
-    // Process the stream
-    let streamIterator = stream[Symbol.asyncIterator]();
-    let streamDone = false;
-    
-    while (!streamDone) {
-      try {
-        const { done, value: chunk } = await streamIterator.next();
-        
-        // Check if we've reached the end of the stream
-        if (done) {
-          streamDone = true;
-          continue;
-        }
-        
-        // Process the chunk
-        if (chunk && chunk.type === 'content_block_delta' && chunk.delta.text) {
-          responseText += chunk.delta.text;
-        }
-        
-        // Report progress - use only mcpLog in MCP context and avoid direct reportProgress calls
-        const maxTokens = params.max_tokens || CONFIG.maxTokens;
-        const progressPercent = Math.min(100, (responseText.length / maxTokens) * 100);
-        
-        // Only use reportProgress in CLI mode, not from MCP context, and not in silent mode
-        if (reportProgress && !mcpLog && !isSilent) {
-          await reportProgress({ 
-            progress: progressPercent,
-            total: maxTokens
-          });
-        }
-        
-        // Log progress if logger is provided (MCP mode)
-        if (mcpLog) {
-          mcpLog.info(`Progress: ${progressPercent}% (${responseText.length} chars generated)`);
-        }
-      } catch (iterError) {
-        // Handle iteration errors
-        if (mcpLog) {
-          mcpLog.error(`Stream iteration error: ${iterError.message}`);
-        } else if (!isSilent) {
-          log('error', `Stream iteration error: ${iterError.message}`);
-        }
-        
-        // If it's a "stream finished" error, just break the loop
-        if (iterError.message?.includes('finished') || iterError.message?.includes('closed')) {
-          streamDone = true;
-        } else {
-          // For other errors, rethrow
-          throw iterError;
-        }
-      }
-    }
-    
-    // Cleanup - ensure intervals are cleared
-    if (streamingInterval) {
-      clearInterval(streamingInterval);
-      streamingInterval = null;
-    }
-    
-    if (loadingIndicator) {
-      stopLoadingIndicator(loadingIndicator);
-      loadingIndicator = null;
-    }
-    
-    // Log completion
-    if (mcpLog) {
-      mcpLog.info("Completed streaming response from Claude API!");
-    } else if (!isSilent) {
-      log('info', "Completed streaming response from Claude API!");
-    }
-    
-    return responseText;
-  } catch (error) {
-    // Cleanup on error
-    if (streamingInterval) {
-      clearInterval(streamingInterval);
-      streamingInterval = null;
-    }
-    
-    if (loadingIndicator) {
-      stopLoadingIndicator(loadingIndicator);
-      loadingIndicator = null;
-    }
-    
-    // Log the error
-    if (mcpLog) {
-      mcpLog.error(`Error in Anthropic streaming: ${error.message}`);
-    } else if (!isSilent) {
-      log('error', `Error in Anthropic streaming: ${error.message}`);
-    }
-    
-    // Re-throw with context
-    throw new Error(`Anthropic streaming error: ${error.message}`);
-  }
+async function _handleAnthropicStream(
+	client,
+	params,
+	{ reportProgress, mcpLog, silentMode } = {},
+	cliMode = false
+) {
+	// Only set up loading indicator in CLI mode and not in silent mode
+	let loadingIndicator = null;
+	let streamingInterval = null;
+	let responseText = '';
+
+	// Check both the passed parameter and global silent mode using isSilentMode()
+	const isSilent =
+		silentMode || (typeof silentMode === 'undefined' && isSilentMode());
+
+	// Only show CLI indicators if in cliMode AND not in silent mode
+	const showCLIOutput = cliMode && !isSilent;
+
+	if (showCLIOutput) {
+		loadingIndicator = startLoadingIndicator(
+			'Processing request with Claude AI...'
+		);
+	}
+
+	try {
+		// Validate required parameters
+		if (!client) {
+			throw new Error('Anthropic client is required');
+		}
+
+		if (
+			!params.messages ||
+			!Array.isArray(params.messages) ||
+			params.messages.length === 0
+		) {
+			throw new Error('At least one message is required');
+		}
+
+		// Ensure the stream parameter is set
+		const streamParams = {
+			...params,
+			stream: true
+		};
+
+		// Call Anthropic with streaming enabled
+		const stream = await client.messages.create(streamParams);
+
+		// Set up streaming progress indicator for CLI (only if not in silent mode)
+		let dotCount = 0;
+		if (showCLIOutput) {
+			const readline = await import('readline');
+			streamingInterval = setInterval(() => {
+				readline.cursorTo(process.stdout, 0);
+				process.stdout.write(
+					`Receiving streaming response from Claude${'.'.repeat(dotCount)}`
+				);
+				dotCount = (dotCount + 1) % 4;
+			}, 500);
+		}
+
+		// Process the stream
+		let streamIterator = stream[Symbol.asyncIterator]();
+		let streamDone = false;
+
+		while (!streamDone) {
+			try {
+				const { done, value: chunk } = await streamIterator.next();
+
+				// Check if we've reached the end of the stream
+				if (done) {
+					streamDone = true;
+					continue;
+				}
+
+				// Process the chunk
+				if (chunk && chunk.type === 'content_block_delta' && chunk.delta.text) {
+					responseText += chunk.delta.text;
+				}
+
+				// Report progress - use only mcpLog in MCP context and avoid direct reportProgress calls
+				const maxTokens = params.max_tokens || CONFIG.maxTokens;
+				const progressPercent = Math.min(
+					100,
+					(responseText.length / maxTokens) * 100
+				);
+
+				// Only use reportProgress in CLI mode, not from MCP context, and not in silent mode
+				if (reportProgress && !mcpLog && !isSilent) {
+					await reportProgress({
+						progress: progressPercent,
+						total: maxTokens
+					});
+				}
+
+				// Log progress if logger is provided (MCP mode)
+				if (mcpLog) {
+					mcpLog.info(
+						`Progress: ${progressPercent}% (${responseText.length} chars generated)`
+					);
+				}
+			} catch (iterError) {
+				// Handle iteration errors
+				if (mcpLog) {
+					mcpLog.error(`Stream iteration error: ${iterError.message}`);
+				} else if (!isSilent) {
+					log('error', `Stream iteration error: ${iterError.message}`);
+				}
+
+				// If it's a "stream finished" error, just break the loop
+				if (
+					iterError.message?.includes('finished') ||
+					iterError.message?.includes('closed')
+				) {
+					streamDone = true;
+				} else {
+					// For other errors, rethrow
+					throw iterError;
+				}
+			}
+		}
+
+		// Cleanup - ensure intervals are cleared
+		if (streamingInterval) {
+			clearInterval(streamingInterval);
+			streamingInterval = null;
+		}
+
+		if (loadingIndicator) {
+			stopLoadingIndicator(loadingIndicator);
+			loadingIndicator = null;
+		}
+
+		// Log completion
+		if (mcpLog) {
+			mcpLog.info('Completed streaming response from Claude API!');
+		} else if (!isSilent) {
+			log('info', 'Completed streaming response from Claude API!');
+		}
+
+		return responseText;
+	} catch (error) {
+		// Cleanup on error
+		if (streamingInterval) {
+			clearInterval(streamingInterval);
+			streamingInterval = null;
+		}
+
+		if (loadingIndicator) {
+			stopLoadingIndicator(loadingIndicator);
+			loadingIndicator = null;
+		}
+
+		// Log the error
+		if (mcpLog) {
+			mcpLog.error(`Error in Anthropic streaming: ${error.message}`);
+		} else if (!isSilent) {
+			log('error', `Error in Anthropic streaming: ${error.message}`);
+		}
+
+		// Re-throw with context
+		throw new Error(`Anthropic streaming error: ${error.message}`);
+	}
 }
 
 /**
@@ -1015,35 +1187,43 @@ async function _handleAnthropicStream(client, params, { reportProgress, mcpLog, 
  * @throws {Error} If parsing fails or required fields are missing
  */
 function parseTaskJsonResponse(responseText) {
-  try {
-    // Check if the response is wrapped in a code block
-    const jsonMatch = responseText.match(/```(?:json)?([^`]+)```/);
-    const jsonContent = jsonMatch ? jsonMatch[1].trim() : responseText;
-    
-    // Find the JSON object bounds
-    const jsonStartIndex = jsonContent.indexOf('{');
-    const jsonEndIndex = jsonContent.lastIndexOf('}');
-    
-    if (jsonStartIndex === -1 || jsonEndIndex === -1 || jsonEndIndex < jsonStartIndex) {
-      throw new Error("Could not locate valid JSON object in the response");
-    }
-    
-    // Extract and parse the JSON
-    const jsonText = jsonContent.substring(jsonStartIndex, jsonEndIndex + 1);
-    const taskData = JSON.parse(jsonText);
-    
-    // Validate required fields
-    if (!taskData.title || !taskData.description) {
-      throw new Error("Missing required fields in the generated task (title or description)");
-    }
-    
-    return taskData;
-  } catch (error) {
-    if (error.name === 'SyntaxError') {
-      throw new Error(`Failed to parse JSON: ${error.message} (Response content may be malformed)`);
-    }
-    throw error;
-  }
+	try {
+		// Check if the response is wrapped in a code block
+		const jsonMatch = responseText.match(/```(?:json)?([^`]+)```/);
+		const jsonContent = jsonMatch ? jsonMatch[1].trim() : responseText;
+
+		// Find the JSON object bounds
+		const jsonStartIndex = jsonContent.indexOf('{');
+		const jsonEndIndex = jsonContent.lastIndexOf('}');
+
+		if (
+			jsonStartIndex === -1 ||
+			jsonEndIndex === -1 ||
+			jsonEndIndex < jsonStartIndex
+		) {
+			throw new Error('Could not locate valid JSON object in the response');
+		}
+
+		// Extract and parse the JSON
+		const jsonText = jsonContent.substring(jsonStartIndex, jsonEndIndex + 1);
+		const taskData = JSON.parse(jsonText);
+
+		// Validate required fields
+		if (!taskData.title || !taskData.description) {
+			throw new Error(
+				'Missing required fields in the generated task (title or description)'
+			);
+		}
+
+		return taskData;
+	} catch (error) {
+		if (error.name === 'SyntaxError') {
+			throw new Error(
+				`Failed to parse JSON: ${error.message} (Response content may be malformed)`
+			);
+		}
+		throw error;
+	}
 }
 
 /**
@@ -1055,19 +1235,20 @@ function parseTaskJsonResponse(responseText) {
  * @returns {Object} Object containing systemPrompt and userPrompt
  */
 function _buildAddTaskPrompt(prompt, contextTasks, { newTaskId } = {}) {
-  // Create the system prompt for Claude
-  const systemPrompt = "You are a helpful assistant that creates well-structured tasks for a software development project. Generate a single new task based on the user's description.";
-  
-  const taskStructure = `
+	// Create the system prompt for Claude
+	const systemPrompt =
+		"You are a helpful assistant that creates well-structured tasks for a software development project. Generate a single new task based on the user's description.";
+
+	const taskStructure = `
   {
     "title": "Task title goes here",
     "description": "A concise one or two sentence description of what the task involves",
     "details": "In-depth details including specifics on implementation, considerations, and anything important for the developer to know. This should be detailed enough to guide implementation.",
     "testStrategy": "A detailed approach for verifying the task has been correctly implemented. Include specific test cases or validation methods."
   }`;
-  
-  const taskIdInfo = newTaskId ? `(Task #${newTaskId})` : '';
-  const userPrompt = `Create a comprehensive new task ${taskIdInfo} for a software development project based on this description: "${prompt}"
+
+	const taskIdInfo = newTaskId ? `(Task #${newTaskId})` : '';
+	const userPrompt = `Create a comprehensive new task ${taskIdInfo} for a software development project based on this description: "${prompt}"
   
   ${contextTasks}
   
@@ -1078,8 +1259,8 @@ function _buildAddTaskPrompt(prompt, contextTasks, { newTaskId } = {}) {
   Make sure the details and test strategy are thorough and specific.
   
   IMPORTANT: Return ONLY the JSON object, nothing else.`;
-  
-  return { systemPrompt, userPrompt };
+
+	return { systemPrompt, userPrompt };
 }
 
 /**
@@ -1088,25 +1269,28 @@ function _buildAddTaskPrompt(prompt, contextTasks, { newTaskId } = {}) {
  * @returns {Anthropic} Anthropic client instance
  */
 function getAnthropicClient(session) {
-  // If we already have a global client and no session, use the global
-  if (!session && anthropic) {
-    return anthropic;
-  }
-  
-  // Initialize a new client with API key from session or environment
-  const apiKey = session?.env?.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error("ANTHROPIC_API_KEY environment variable is missing. Set it to use AI features.");
-  }
-  
-  return new Anthropic({
-    apiKey: apiKey,
-    // Add beta header for 128k token output
-    defaultHeaders: {
-      'anthropic-beta': 'output-128k-2025-02-19'
-    }
-  });
+	// If we already have a global client and no session, use the global
+	if (!session && anthropic) {
+		return anthropic;
+	}
+
+	// Initialize a new client with API key from session or environment
+	const apiKey =
+		session?.env?.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
+
+	if (!apiKey) {
+		throw new Error(
+			'ANTHROPIC_API_KEY environment variable is missing. Set it to use AI features.'
+		);
+	}
+
+	return new Anthropic({
+		apiKey: apiKey,
+		// Add beta header for 128k token output
+		defaultHeaders: {
+			'anthropic-beta': 'output-128k-2025-02-19'
+		}
+	});
 }
 
 /**
@@ -1118,41 +1302,53 @@ function getAnthropicClient(session) {
  * @param {Object} options.session - Session object from MCP server
  * @returns {Object} - The generated task description
  */
-async function generateTaskDescriptionWithPerplexity(prompt, { reportProgress, mcpLog, session } = {}) {
-  try {
-    // First, perform research to get context
-    log('info', `Researching context for task prompt: "${prompt}"`);
-    const perplexityClient = getPerplexityClient();
-    
-    const PERPLEXITY_MODEL = process.env.PERPLEXITY_MODEL || session?.env?.PERPLEXITY_MODEL || 'sonar-pro';
-    const researchLoadingIndicator = startLoadingIndicator('Researching best practices with Perplexity AI...');
-    
-    // Formulate research query based on task prompt
-    const researchQuery = `I need to implement: "${prompt}". 
+async function generateTaskDescriptionWithPerplexity(
+	prompt,
+	{ reportProgress, mcpLog, session } = {}
+) {
+	try {
+		// First, perform research to get context
+		log('info', `Researching context for task prompt: "${prompt}"`);
+		const perplexityClient = getPerplexityClient();
+
+		const PERPLEXITY_MODEL =
+			process.env.PERPLEXITY_MODEL ||
+			session?.env?.PERPLEXITY_MODEL ||
+			'sonar-pro';
+		const researchLoadingIndicator = startLoadingIndicator(
+			'Researching best practices with Perplexity AI...'
+		);
+
+		// Formulate research query based on task prompt
+		const researchQuery = `I need to implement: "${prompt}". 
 What are current best practices, libraries, design patterns, and implementation approaches? 
 Include concrete code examples and technical considerations where relevant.`;
-    
-    // Query Perplexity for research
-    const researchResponse = await perplexityClient.chat.completions.create({
-      model: PERPLEXITY_MODEL,
-      messages: [{
-        role: 'user',
-        content: researchQuery
-      }],
-      temperature: 0.1 // Lower temperature for more factual responses
-    });
-    
-    const researchResult = researchResponse.choices[0].message.content;
-    
-    stopLoadingIndicator(researchLoadingIndicator);
-    log('info', 'Research completed, now generating detailed task description');
-    
-    // Now generate task description with Claude
-    const loadingIndicator = startLoadingIndicator(`Generating research-backed task description...`);
-    let streamingInterval = null;
-    let responseText = '';
-    
-    const systemPrompt = `You are an AI assistant helping with task definition for software development.
+
+		// Query Perplexity for research
+		const researchResponse = await perplexityClient.chat.completions.create({
+			model: PERPLEXITY_MODEL,
+			messages: [
+				{
+					role: 'user',
+					content: researchQuery
+				}
+			],
+			temperature: 0.1 // Lower temperature for more factual responses
+		});
+
+		const researchResult = researchResponse.choices[0].message.content;
+
+		stopLoadingIndicator(researchLoadingIndicator);
+		log('info', 'Research completed, now generating detailed task description');
+
+		// Now generate task description with Claude
+		const loadingIndicator = startLoadingIndicator(
+			`Generating research-backed task description...`
+		);
+		let streamingInterval = null;
+		let responseText = '';
+
+		const systemPrompt = `You are an AI assistant helping with task definition for software development.
 You need to create a detailed task definition based on a brief prompt.
 
 You have been provided with research on current best practices and implementation approaches.
@@ -1164,7 +1360,7 @@ Your task description should include:
 3. Detailed implementation guidelines incorporating best practices from the research
 4. A testing strategy for verifying correct implementation`;
 
-    const userPrompt = `Please create a detailed task description based on this prompt:
+		const userPrompt = `Please create a detailed task description based on this prompt:
 
 "${prompt}"
 
@@ -1179,148 +1375,171 @@ Return a JSON object with the following structure:
   "testStrategy": "A detailed approach for verifying the task has been correctly implemented"
 }`;
 
-    try {
-      // Update loading indicator to show streaming progress
-      let dotCount = 0;
-      const readline = await import('readline');
-      streamingInterval = setInterval(() => {
-        readline.cursorTo(process.stdout, 0);
-        process.stdout.write(`Generating research-backed task description${'.'.repeat(dotCount)}`);
-        dotCount = (dotCount + 1) % 4;
-      }, 500);
-      
-      // Use streaming API call
-      const stream = await anthropic.messages.create({
-        model: session?.env?.ANTHROPIC_MODEL || CONFIG.model,
-        max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
-        temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
-        system: systemPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: userPrompt
-          }
-        ],
-        stream: true
-      });
-      
-      // Process the stream
-      for await (const chunk of stream) {
-        if (chunk.type === 'content_block_delta' && chunk.delta.text) {
-          responseText += chunk.delta.text;
-        }
-        if (reportProgress) {
-          await reportProgress({ progress: (responseText.length / CONFIG.maxTokens) * 100 });
-        }
-        if (mcpLog) {
-          mcpLog.info(`Progress: ${responseText.length / CONFIG.maxTokens * 100}%`);
-        }
-      }
-      
-      if (streamingInterval) clearInterval(streamingInterval);
-      stopLoadingIndicator(loadingIndicator);
-      
-      log('info', `Completed generating research-backed task description`);
-      
-      return parseTaskJsonResponse(responseText);
-    } catch (error) {
-      if (streamingInterval) clearInterval(streamingInterval);
-      stopLoadingIndicator(loadingIndicator);
-      throw error;
-    }
-  } catch (error) {
-    log('error', `Error generating research-backed task description: ${error.message}`);
-    throw error;
-  }
+		try {
+			// Update loading indicator to show streaming progress
+			let dotCount = 0;
+			const readline = await import('readline');
+			streamingInterval = setInterval(() => {
+				readline.cursorTo(process.stdout, 0);
+				process.stdout.write(
+					`Generating research-backed task description${'.'.repeat(dotCount)}`
+				);
+				dotCount = (dotCount + 1) % 4;
+			}, 500);
+
+			// Use streaming API call
+			const stream = await anthropic.messages.create({
+				model: session?.env?.ANTHROPIC_MODEL || CONFIG.model,
+				max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
+				temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
+				system: systemPrompt,
+				messages: [
+					{
+						role: 'user',
+						content: userPrompt
+					}
+				],
+				stream: true
+			});
+
+			// Process the stream
+			for await (const chunk of stream) {
+				if (chunk.type === 'content_block_delta' && chunk.delta.text) {
+					responseText += chunk.delta.text;
+				}
+				if (reportProgress) {
+					await reportProgress({
+						progress: (responseText.length / CONFIG.maxTokens) * 100
+					});
+				}
+				if (mcpLog) {
+					mcpLog.info(
+						`Progress: ${(responseText.length / CONFIG.maxTokens) * 100}%`
+					);
+				}
+			}
+
+			if (streamingInterval) clearInterval(streamingInterval);
+			stopLoadingIndicator(loadingIndicator);
+
+			log('info', `Completed generating research-backed task description`);
+
+			return parseTaskJsonResponse(responseText);
+		} catch (error) {
+			if (streamingInterval) clearInterval(streamingInterval);
+			stopLoadingIndicator(loadingIndicator);
+			throw error;
+		}
+	} catch (error) {
+		log(
+			'error',
+			`Error generating research-backed task description: ${error.message}`
+		);
+		throw error;
+	}
 }
 
 /**
  * Get a configured Anthropic client for MCP
  * @param {Object} session - Session object from MCP
- * @param {Object} log - Logger object 
+ * @param {Object} log - Logger object
  * @returns {Anthropic} - Configured Anthropic client
  */
 function getConfiguredAnthropicClient(session = null, customEnv = null) {
-  // If we have a session with ANTHROPIC_API_KEY in env, use that
-  const apiKey = session?.env?.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || customEnv?.ANTHROPIC_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error("ANTHROPIC_API_KEY environment variable is missing. Set it to use AI features.");
-  }
-  
-  return new Anthropic({
-    apiKey: apiKey,
-    // Add beta header for 128k token output
-    defaultHeaders: {
-      'anthropic-beta': 'output-128k-2025-02-19'
-    }
-  });
+	// If we have a session with ANTHROPIC_API_KEY in env, use that
+	const apiKey =
+		session?.env?.ANTHROPIC_API_KEY ||
+		process.env.ANTHROPIC_API_KEY ||
+		customEnv?.ANTHROPIC_API_KEY;
+
+	if (!apiKey) {
+		throw new Error(
+			'ANTHROPIC_API_KEY environment variable is missing. Set it to use AI features.'
+		);
+	}
+
+	return new Anthropic({
+		apiKey: apiKey,
+		// Add beta header for 128k token output
+		defaultHeaders: {
+			'anthropic-beta': 'output-128k-2025-02-19'
+		}
+	});
 }
 
 /**
- * Send a chat request to Claude with context management 
- * @param {Object} client - Anthropic client 
+ * Send a chat request to Claude with context management
+ * @param {Object} client - Anthropic client
  * @param {Object} params - Chat parameters
  * @param {Object} options - Options containing reportProgress, mcpLog, silentMode, and session
  * @returns {string} - Response text
  */
-async function sendChatWithContext(client, params, { reportProgress, mcpLog, silentMode, session } = {}) {
-  // Use the streaming helper to get the response
-  return await _handleAnthropicStream(client, params, { reportProgress, mcpLog, silentMode }, false);
+async function sendChatWithContext(
+	client,
+	params,
+	{ reportProgress, mcpLog, silentMode, session } = {}
+) {
+	// Use the streaming helper to get the response
+	return await _handleAnthropicStream(
+		client,
+		params,
+		{ reportProgress, mcpLog, silentMode },
+		false
+	);
 }
 
 /**
  * Parse tasks data from Claude's completion
- * @param {string} completionText - Text from Claude completion 
+ * @param {string} completionText - Text from Claude completion
  * @returns {Array} - Array of parsed tasks
  */
 function parseTasksFromCompletion(completionText) {
-  try {
-    // Find JSON in the response
-    const jsonMatch = completionText.match(/```(?:json)?([^`]+)```/);
-    let jsonContent = jsonMatch ? jsonMatch[1].trim() : completionText;
-    
-    // Find opening/closing brackets if not in code block
-    if (!jsonMatch) {
-      const startIdx = jsonContent.indexOf('[');
-      const endIdx = jsonContent.lastIndexOf(']');
-      if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-        jsonContent = jsonContent.substring(startIdx, endIdx + 1);
-      }
-    }
-    
-    // Parse the JSON
-    const tasks = JSON.parse(jsonContent);
-    
-    // Validate it's an array
-    if (!Array.isArray(tasks)) {
-      throw new Error('Parsed content is not a valid task array');
-    }
-    
-    return tasks;
-  } catch (error) {
-    throw new Error(`Failed to parse tasks from completion: ${error.message}`);
-  }
+	try {
+		// Find JSON in the response
+		const jsonMatch = completionText.match(/```(?:json)?([^`]+)```/);
+		let jsonContent = jsonMatch ? jsonMatch[1].trim() : completionText;
+
+		// Find opening/closing brackets if not in code block
+		if (!jsonMatch) {
+			const startIdx = jsonContent.indexOf('[');
+			const endIdx = jsonContent.lastIndexOf(']');
+			if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+				jsonContent = jsonContent.substring(startIdx, endIdx + 1);
+			}
+		}
+
+		// Parse the JSON
+		const tasks = JSON.parse(jsonContent);
+
+		// Validate it's an array
+		if (!Array.isArray(tasks)) {
+			throw new Error('Parsed content is not a valid task array');
+		}
+
+		return tasks;
+	} catch (error) {
+		throw new Error(`Failed to parse tasks from completion: ${error.message}`);
+	}
 }
 
 // Export AI service functions
 export {
-  getAnthropicClient,
-  getPerplexityClient,
-  callClaude,
-  handleStreamingRequest,
-  processClaudeResponse,
-  generateSubtasks,
-  generateSubtasksWithPerplexity,
-  generateTaskDescriptionWithPerplexity,
-  parseSubtasksFromText,
-  generateComplexityAnalysisPrompt,
-  handleClaudeError,
-  getAvailableAIModel,
-  parseTaskJsonResponse,
-  _buildAddTaskPrompt,
-  _handleAnthropicStream,
-  getConfiguredAnthropicClient,
-  sendChatWithContext,
-  parseTasksFromCompletion
-}; 
+	getAnthropicClient,
+	getPerplexityClient,
+	callClaude,
+	handleStreamingRequest,
+	processClaudeResponse,
+	generateSubtasks,
+	generateSubtasksWithPerplexity,
+	generateTaskDescriptionWithPerplexity,
+	parseSubtasksFromText,
+	generateComplexityAnalysisPrompt,
+	handleClaudeError,
+	getAvailableAIModel,
+	parseTaskJsonResponse,
+	_buildAddTaskPrompt,
+	_handleAnthropicStream,
+	getConfiguredAnthropicClient,
+	sendChatWithContext,
+	parseTasksFromCompletion
+};

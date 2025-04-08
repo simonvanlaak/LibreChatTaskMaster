@@ -20,11 +20,11 @@ const args = process.argv.slice(2);
 
 // Spawn the init script with all arguments
 const child = spawn('node', [initScriptPath, ...args], {
-  stdio: 'inherit',
-  cwd: process.cwd()
+	stdio: 'inherit',
+	cwd: process.cwd()
 });
 
 // Handle exit
 child.on('close', (code) => {
-  process.exit(code);
-}); 
+	process.exit(code);
+});

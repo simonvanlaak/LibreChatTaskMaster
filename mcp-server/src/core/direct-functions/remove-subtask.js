@@ -4,7 +4,10 @@
 
 import { removeSubtask } from '../../../../scripts/modules/task-manager.js';
 import { findTasksJsonPath } from '../utils/path-utils.js';
-import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules/utils.js';
+import {
+	enableSilentMode,
+	disableSilentMode
+} from '../../../../scripts/modules/utils.js';
 
 /**
  * Remove a subtask from its parent task
@@ -18,78 +21,86 @@ import { enableSilentMode, disableSilentMode } from '../../../../scripts/modules
  * @returns {Promise<{success: boolean, data?: Object, error?: {code: string, message: string}}>}
  */
 export async function removeSubtaskDirect(args, log) {
-  try {
-    // Enable silent mode to prevent console logs from interfering with JSON response
-    enableSilentMode();
-    
-    log.info(`Removing subtask with args: ${JSON.stringify(args)}`);
-    
-    if (!args.id) {
-      return {
-        success: false,
-        error: {
-          code: 'INPUT_VALIDATION_ERROR',
-          message: 'Subtask ID is required and must be in format "parentId.subtaskId"'
-        }
-      };
-    }
-    
-    // Validate subtask ID format
-    if (!args.id.includes('.')) {
-      return {
-        success: false,
-        error: {
-          code: 'INPUT_VALIDATION_ERROR',
-          message: `Invalid subtask ID format: ${args.id}. Expected format: "parentId.subtaskId"`
-        }
-      };
-    }
+	try {
+		// Enable silent mode to prevent console logs from interfering with JSON response
+		enableSilentMode();
 
-    // Find the tasks.json path
-    const tasksPath = findTasksJsonPath(args, log);
-    
-    // Convert convertToTask to a boolean
-    const convertToTask = args.convert === true;
-    
-    // Determine if we should generate files
-    const generateFiles = !args.skipGenerate;
-    
-    log.info(`Removing subtask ${args.id} (convertToTask: ${convertToTask}, generateFiles: ${generateFiles})`);
-    
-    const result = await removeSubtask(tasksPath, args.id, convertToTask, generateFiles);
-    
-    // Restore normal logging
-    disableSilentMode();
-    
-    if (convertToTask && result) {
-      // Return info about the converted task
-      return {
-        success: true,
-        data: {
-          message: `Subtask ${args.id} successfully converted to task #${result.id}`,
-          task: result
-        }
-      };
-    } else {
-      // Return simple success message for deletion
-      return {
-        success: true,
-        data: {
-          message: `Subtask ${args.id} successfully removed`
-        }
-      };
-    }
-  } catch (error) {
-    // Ensure silent mode is disabled even if an outer error occurs
-    disableSilentMode();
-    
-    log.error(`Error in removeSubtaskDirect: ${error.message}`);
-    return {
-      success: false,
-      error: {
-        code: 'CORE_FUNCTION_ERROR',
-        message: error.message
-      }
-    };
-  }
-} 
+		log.info(`Removing subtask with args: ${JSON.stringify(args)}`);
+
+		if (!args.id) {
+			return {
+				success: false,
+				error: {
+					code: 'INPUT_VALIDATION_ERROR',
+					message:
+						'Subtask ID is required and must be in format "parentId.subtaskId"'
+				}
+			};
+		}
+
+		// Validate subtask ID format
+		if (!args.id.includes('.')) {
+			return {
+				success: false,
+				error: {
+					code: 'INPUT_VALIDATION_ERROR',
+					message: `Invalid subtask ID format: ${args.id}. Expected format: "parentId.subtaskId"`
+				}
+			};
+		}
+
+		// Find the tasks.json path
+		const tasksPath = findTasksJsonPath(args, log);
+
+		// Convert convertToTask to a boolean
+		const convertToTask = args.convert === true;
+
+		// Determine if we should generate files
+		const generateFiles = !args.skipGenerate;
+
+		log.info(
+			`Removing subtask ${args.id} (convertToTask: ${convertToTask}, generateFiles: ${generateFiles})`
+		);
+
+		const result = await removeSubtask(
+			tasksPath,
+			args.id,
+			convertToTask,
+			generateFiles
+		);
+
+		// Restore normal logging
+		disableSilentMode();
+
+		if (convertToTask && result) {
+			// Return info about the converted task
+			return {
+				success: true,
+				data: {
+					message: `Subtask ${args.id} successfully converted to task #${result.id}`,
+					task: result
+				}
+			};
+		} else {
+			// Return simple success message for deletion
+			return {
+				success: true,
+				data: {
+					message: `Subtask ${args.id} successfully removed`
+				}
+			};
+		}
+	} catch (error) {
+		// Ensure silent mode is disabled even if an outer error occurs
+		disableSilentMode();
+
+		log.error(`Error in removeSubtaskDirect: ${error.message}`);
+		return {
+			success: false,
+			error: {
+				code: 'CORE_FUNCTION_ERROR',
+				message: error.message
+			}
+		};
+	}
+}

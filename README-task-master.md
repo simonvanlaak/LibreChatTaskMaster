@@ -58,6 +58,7 @@ This will prompt you for project details and set up a new project with the neces
 ### Important Notes
 
 1. **ES Modules Configuration:**
+
    - This project uses ES Modules (ESM) instead of CommonJS.
    - This is set via `"type": "module"` in your package.json.
    - Use `import/export` syntax instead of `require()`.
