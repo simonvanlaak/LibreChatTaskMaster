@@ -5,6 +5,8 @@ globs: "**/*.test.js,tests/**/*"
 
 # Testing Guidelines for Task Master CLI
 
+*Note:* Never use asynchronous operations in tests. Always mock tests properly based on the way the tested functions are defined and used. Do not arbitrarily create tests. Based them on the low-level details and execution of the underlying code being tested. 
+
 ## Test Organization Structure
 
 - **Unit Tests** (See [`architecture.mdc`](mdc:.cursor/rules/architecture.mdc) for module breakdown)
@@ -552,6 +554,102 @@ npm test -- -t "pattern to match"
   });
   ```
 
+## Testing AI Service Integrations
+
+- **DO NOT import real AI service clients**
+  - ❌ DON'T: Import actual AI clients from their libraries
+  - ✅ DO: Create fully mocked versions that return predictable responses
+
+  ```javascript
+  // ❌ DON'T: Import and instantiate real AI clients
+  import { Anthropic } from '@anthropic-ai/sdk';
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  // ✅ DO: Mock the entire module with controlled behavior
+  jest.mock('@anthropic-ai/sdk', () => ({
+    Anthropic: jest.fn().mockImplementation(() => ({
+      messages: {
+        create: jest.fn().mockResolvedValue({
+          content: [{ type: 'text', text: JSON.stringify({ title: "Test Task" }) }]
+        })
+      }
+    }))
+  }));
+  ```
+
+- **DO NOT rely on environment variables for API keys**
+  - ❌ DON'T: Assume environment variables are set in tests
+  - ✅ DO: Set mock environment variables in test setup
+
+  ```javascript
+  // In tests/setup.js or at the top of test file
+  process.env.ANTHROPIC_API_KEY = 'test-mock-api-key-for-tests';
+  process.env.PERPLEXITY_API_KEY = 'test-mock-perplexity-key-for-tests';
+  ```
+
+- **DO NOT use real AI client initialization logic**
+  - ❌ DON'T: Use code that attempts to initialize or validate real AI clients
+  - ✅ DO: Create test-specific paths that bypass client initialization
+
+  ```javascript
+  // ❌ DON'T: Test functions that require valid AI client initialization
+  // This will fail without proper API keys or network access
+  test('should use AI client', async () => {
+    const result = await functionThatInitializesAIClient();
+    expect(result).toBeDefined();
+  });
+
+  // ✅ DO: Test with bypassed initialization or manual task paths
+  test('should handle manual task creation without AI', () => {
+    // Using a path that doesn't require AI client initialization
+    const result = addTaskDirect({ 
+      title: 'Manual Task', 
+      description: 'Test Description'
+    }, mockLogger);
+    
+    expect(result.success).toBe(true);
+  });
+  ```
+
+## Testing Asynchronous Code
+
+- **DO NOT rely on asynchronous operations in tests**
+  - ❌ DON'T: Use real async/await or Promise resolution in tests
+  - ✅ DO: Make all mocks return synchronous values when possible
+
+  ```javascript
+  // ❌ DON'T: Use real async functions that might fail unpredictably
+  test('should handle async operation', async () => {
+    const result = await realAsyncFunction(); // Can time out or fail for external reasons
+    expect(result).toBe(expectedValue);
+  });
+
+  // ✅ DO: Make async operations synchronous in tests
+  test('should handle operation', () => {
+    mockAsyncFunction.mockReturnValue({ success: true, data: 'test' });
+    const result = functionUnderTest();
+    expect(result).toEqual({ success: true, data: 'test' });
+  });
+  ```
+
+- **DO NOT test exact error messages**
+  - ❌ DON'T: Assert on exact error message text that might change
+  - ✅ DO: Test for error presence and general properties
+
+  ```javascript
+  // ❌ DON'T: Test for exact error message text
+  expect(result.error).toBe('Could not connect to API: Network error');
+
+  // ✅ DO: Test for general error properties or message patterns
+  expect(result.success).toBe(false);
+  expect(result.error).toContain('Could not connect');
+  // Or even better:
+  expect(result).toMatchObject({ 
+    success: false,
+    error: expect.stringContaining('connect')
+  });
+  ```
+
 ## Reliable Testing Techniques
 
 - **Create Simplified Test Functions**
@@ -564,97 +662,20 @@ npm test -- -t "pattern to match"
   const setTaskStatus = async (taskId, newStatus) => {
     const tasksPath = 'tasks/tasks.json';
     const data = await readJSON(tasksPath);
-    // Update task status logic
+    // [implementation]
     await writeJSON(tasksPath, data);
-    return data;
+    return { success: true };
   };
   
-  // Test-friendly simplified function (easy to test)
-  const testSetTaskStatus = (tasksData, taskIdInput, newStatus) => {
-    // Same core logic without file operations
-    // Update task status logic on provided tasksData object
-    return tasksData; // Return updated data for assertions
+  // Test-friendly version (easier to test)
+  const updateTaskStatus = (tasks, taskId, newStatus) => {
+    // Pure logic without side effects
+    const updatedTasks = [...tasks];
+    const taskIndex = findTaskById(updatedTasks, taskId);
+    if (taskIndex === -1) return { success: false, error: 'Task not found' };
+    updatedTasks[taskIndex].status = newStatus;
+    return { success: true, tasks: updatedTasks };
   };
-  ```
-
-- **Avoid Real File System Operations**
-  - Never write to real files during tests
-  - Create test-specific versions of file operation functions
-  - Mock all file system operations including read, write, exists, etc.
-  - Verify function behavior using the in-memory data structures
-  
-  ```javascript
-  // Mock file operations
-  const mockReadJSON = jest.fn();
-  const mockWriteJSON = jest.fn();
-  
-  jest.mock('../../scripts/modules/utils.js', () => ({
-    readJSON: mockReadJSON,
-    writeJSON: mockWriteJSON,
-  }));
-  
-  test('should update task status correctly', () => {
-    // Setup mock data
-    const testData = JSON.parse(JSON.stringify(sampleTasks));
-    mockReadJSON.mockReturnValue(testData);
-    
-    // Call the function that would normally modify files
-    const result = testSetTaskStatus(testData, '1', 'done');
-    
-    // Assert on the in-memory data structure
-    expect(result.tasks[0].status).toBe('done');
-  });
-  ```
-
-- **Data Isolation Between Tests**
-  - Always create fresh copies of test data for each test
-  - Use `JSON.parse(JSON.stringify(original))` for deep cloning
-  - Reset all mocks before each test with `jest.clearAllMocks()`
-  - Avoid state that persists between tests
-  
-  ```javascript
-  beforeEach(() => {
-    jest.clearAllMocks();
-    // Deep clone the test data
-    testTasksData = JSON.parse(JSON.stringify(sampleTasks));
-  });
-  ```
-
-- **Test All Path Variations**
-  - Regular tasks and subtasks
-  - Single items and multiple items
-  - Success paths and error paths
-  - Edge cases (empty data, invalid inputs, etc.)
-  
-  ```javascript
-  // Multiple test cases covering different scenarios
-  test('should update regular task status', () => {
-    /* test implementation */
-  });
-  
-  test('should update subtask status', () => {
-    /* test implementation */
-  });
-  
-  test('should update multiple tasks when given comma-separated IDs', () => {
-    /* test implementation */
-  });
-  
-  test('should throw error for non-existent task ID', () => {
-    /* test implementation */
-  });
-  ```
-
-- **Stabilize Tests With Predictable Input/Output**
-  - Use consistent, predictable test fixtures
-  - Avoid random values or time-dependent data
-  - Make tests deterministic for reliable CI/CD
-  - Control all variables that might affect test outcomes
-  
-  ```javascript
-  // Use a specific known date instead of current date
-  const fixedDate = new Date('2023-01-01T12:00:00Z');
-  jest.spyOn(global, 'Date').mockImplementation(() => fixedDate);
   ```
 
 See [tests/README.md](mdc:tests/README.md) for more details on the testing approach.
