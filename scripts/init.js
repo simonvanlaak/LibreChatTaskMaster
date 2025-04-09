@@ -640,8 +640,7 @@ function createProjectStructure(
 			jsonwebtoken: '^9.0.2',
 			'lru-cache': '^10.2.0',
 			openai: '^4.89.0',
-			ora: '^8.2.0',
-			'task-master-ai': '^0.9.31'
+			ora: '^8.2.0'
 		}
 	};
 
