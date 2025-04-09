@@ -131,6 +131,12 @@ cd claude-task-master
 node scripts/init.js
 ```
 
+## Contributors
+
+<a href="https://github.com/eyaltoledano/claude-task-master/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=eyaltoledano/claude-task-master" alt="Task Master project contributors" />
+</a>
+
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=eyaltoledano/claude-task-master&type=Timeline)](https://www.star-history.com/#eyaltoledano/claude-task-master&Timeline)
