@@ -3120,7 +3120,7 @@ function clearSubtasks(tasksPath, taskIds) {
 /**
  * Add a new task using AI
  * @param {string} tasksPath - Path to the tasks.json file
- * @param {string} prompt - Description of the task to add
+ * @param {string} prompt - Description of the task to add (required for AI-driven creation)
  * @param {Array} dependencies - Task dependencies
  * @param {string} priority - Task priority
  * @param {function} reportProgress - Function to report progress to MCP server (optional)
@@ -3128,6 +3128,7 @@ function clearSubtasks(tasksPath, taskIds) {
  * @param {Object} session - Session object from MCP server (optional)
  * @param {string} outputFormat - Output format (text or json)
  * @param {Object} customEnv - Custom environment variables (optional)
+ * @param {Object} manualTaskData - Manual task data (optional, for direct task creation without AI)
  * @returns {number} The new task ID
  */
 async function addTask(
@@ -3137,7 +3138,8 @@ async function addTask(
 	priority = 'medium',
 	{ reportProgress, mcpLog, session } = {},
 	outputFormat = 'text',
-	customEnv = null
+	customEnv = null,
+	manualTaskData = null
 ) {
 	let loadingIndicator = null; // Keep indicator variable accessible
 
@@ -3195,328 +3197,354 @@ async function addTask(
 			);
 		}
 
-		// Create context string for task creation prompt
-		let contextTasks = '';
-		if (dependencies.length > 0) {
-			// Provide context for the dependent tasks
-			const dependentTasks = data.tasks.filter((t) =>
-				dependencies.includes(t.id)
-			);
-			contextTasks = `\nThis task depends on the following tasks:\n${dependentTasks
-				.map((t) => `- Task ${t.id}: ${t.title} - ${t.description}`)
-				.join('\n')}`;
+		let taskData;
+
+		// Check if manual task data is provided
+		if (manualTaskData) {
+			// Use manual task data directly
+			log('info', 'Using manually provided task data');
+			taskData = manualTaskData;
 		} else {
-			// Provide a few recent tasks as context
-			const recentTasks = [...data.tasks]
-				.sort((a, b) => b.id - a.id)
-				.slice(0, 3);
-			contextTasks = `\nRecent tasks in the project:\n${recentTasks
-				.map((t) => `- Task ${t.id}: ${t.title} - ${t.description}`)
-				.join('\n')}`;
-		}
+			// Use AI to generate task data
+			// Create context string for task creation prompt
+			let contextTasks = '';
+			if (dependencies.length > 0) {
+				// Provide context for the dependent tasks
+				const dependentTasks = data.tasks.filter((t) =>
+					dependencies.includes(t.id)
+				);
+				contextTasks = `\nThis task depends on the following tasks:\n${dependentTasks
+					.map((t) => `- Task ${t.id}: ${t.title} - ${t.description}`)
+					.join('\n')}`;
+			} else {
+				// Provide a few recent tasks as context
+				const recentTasks = [...data.tasks]
+					.sort((a, b) => b.id - a.id)
+					.slice(0, 3);
+				contextTasks = `\nRecent tasks in the project:\n${recentTasks
+					.map((t) => `- Task ${t.id}: ${t.title} - ${t.description}`)
+					.join('\n')}`;
+			}
 
-		// Start the loading indicator - only for text mode
-		if (outputFormat === 'text') {
-			loadingIndicator = startLoadingIndicator(
-				'Generating new task with Claude AI...'
-			);
-		}
+			// Start the loading indicator - only for text mode
+			if (outputFormat === 'text') {
+				loadingIndicator = startLoadingIndicator(
+					'Generating new task with Claude AI...'
+				);
+			}
 
-		try {
-			// Import the AI services - explicitly importing here to avoid circular dependencies
-			const {
-				_handleAnthropicStream,
-				_buildAddTaskPrompt,
-				parseTaskJsonResponse,
-				getAvailableAIModel
-			} = await import('./ai-services.js');
+			try {
+				// Import the AI services - explicitly importing here to avoid circular dependencies
+				const {
+					_handleAnthropicStream,
+					_buildAddTaskPrompt,
+					parseTaskJsonResponse,
+					getAvailableAIModel
+				} = await import('./ai-services.js');
 
-			// Initialize model state variables
-			let claudeOverloaded = false;
-			let modelAttempts = 0;
-			const maxModelAttempts = 2; // Try up to 2 models before giving up
-			let taskData = null;
+				// Initialize model state variables
+				let claudeOverloaded = false;
+				let modelAttempts = 0;
+				const maxModelAttempts = 2; // Try up to 2 models before giving up
+				let aiGeneratedTaskData = null;
 
-			// Loop through model attempts
-			while (modelAttempts < maxModelAttempts && !taskData) {
-				modelAttempts++; // Increment attempt counter
-				const isLastAttempt = modelAttempts >= maxModelAttempts;
-				let modelType = null; // Track which model we're using
+				// Loop through model attempts
+				while (modelAttempts < maxModelAttempts && !aiGeneratedTaskData) {
+					modelAttempts++; // Increment attempt counter
+					const isLastAttempt = modelAttempts >= maxModelAttempts;
+					let modelType = null; // Track which model we're using
 
-				try {
-					// Get the best available model based on our current state
-					const result = getAvailableAIModel({
-						claudeOverloaded,
-						requiresResearch: false // We're not using the research flag here
-					});
-					modelType = result.type;
-					const client = result.client;
-
-					log(
-						'info',
-						`Attempt ${modelAttempts}/${maxModelAttempts}: Generating task using ${modelType}`
-					);
-
-					// Update loading indicator text - only for text output
-					if (outputFormat === 'text') {
-						if (loadingIndicator) {
-							stopLoadingIndicator(loadingIndicator); // Stop previous indicator
-						}
-						loadingIndicator = startLoadingIndicator(
-							`Attempt ${modelAttempts}: Using ${modelType.toUpperCase()}...`
-						);
-					}
-
-					// Build the prompts using the helper
-					const { systemPrompt, userPrompt } = _buildAddTaskPrompt(
-						prompt,
-						contextTasks,
-						{ newTaskId }
-					);
-
-					if (modelType === 'perplexity') {
-						// Use Perplexity AI
-						const perplexityModel =
-							process.env.PERPLEXITY_MODEL ||
-							session?.env?.PERPLEXITY_MODEL ||
-							'sonar-pro';
-						const response = await client.chat.completions.create({
-							model: perplexityModel,
-							messages: [
-								{ role: 'system', content: systemPrompt },
-								{ role: 'user', content: userPrompt }
-							],
-							temperature: parseFloat(
-								process.env.TEMPERATURE ||
-									session?.env?.TEMPERATURE ||
-									CONFIG.temperature
-							),
-							max_tokens: parseInt(
-								process.env.MAX_TOKENS ||
-									session?.env?.MAX_TOKENS ||
-									CONFIG.maxTokens
-							)
+					try {
+						// Get the best available model based on our current state
+						const result = getAvailableAIModel({
+							claudeOverloaded,
+							requiresResearch: false // We're not using the research flag here
 						});
+						modelType = result.type;
+						const client = result.client;
 
-						const responseText = response.choices[0].message.content;
-						taskData = parseTaskJsonResponse(responseText);
-					} else {
-						// Use Claude (default)
-						// Prepare API parameters
-						const apiParams = {
-							model:
-								session?.env?.ANTHROPIC_MODEL ||
-								CONFIG.model ||
-								customEnv?.ANTHROPIC_MODEL,
-							max_tokens:
-								session?.env?.MAX_TOKENS ||
-								CONFIG.maxTokens ||
-								customEnv?.MAX_TOKENS,
-							temperature:
-								session?.env?.TEMPERATURE ||
-								CONFIG.temperature ||
-								customEnv?.TEMPERATURE,
-							system: systemPrompt,
-							messages: [{ role: 'user', content: userPrompt }]
-						};
-
-						// Call the streaming API using our helper
-						try {
-							const fullResponse = await _handleAnthropicStream(
-								client,
-								apiParams,
-								{ reportProgress, mcpLog },
-								outputFormat === 'text' // CLI mode flag
-							);
-
-							log(
-								'debug',
-								`Streaming response length: ${fullResponse.length} characters`
-							);
-
-							// Parse the response using our helper
-							taskData = parseTaskJsonResponse(fullResponse);
-						} catch (streamError) {
-							// Process stream errors explicitly
-							log('error', `Stream error: ${streamError.message}`);
-
-							// Check if this is an overload error
-							let isOverload = false;
-							// Check 1: SDK specific property
-							if (streamError.type === 'overloaded_error') {
-								isOverload = true;
-							}
-							// Check 2: Check nested error property
-							else if (streamError.error?.type === 'overloaded_error') {
-								isOverload = true;
-							}
-							// Check 3: Check status code
-							else if (
-								streamError.status === 429 ||
-								streamError.status === 529
-							) {
-								isOverload = true;
-							}
-							// Check 4: Check message string
-							else if (
-								streamError.message?.toLowerCase().includes('overloaded')
-							) {
-								isOverload = true;
-							}
-
-							if (isOverload) {
-								claudeOverloaded = true;
-								log(
-									'warn',
-									'Claude overloaded. Will attempt fallback model if available.'
-								);
-								// Throw to continue to next model attempt
-								throw new Error('Claude overloaded');
-							} else {
-								// Re-throw non-overload errors
-								throw streamError;
-							}
-						}
-					}
-
-					// If we got here without errors and have task data, we're done
-					if (taskData) {
 						log(
 							'info',
-							`Successfully generated task data using ${modelType} on attempt ${modelAttempts}`
+							`Attempt ${modelAttempts}/${maxModelAttempts}: Generating task using ${modelType}`
 						);
-						break;
+
+						// Update loading indicator text - only for text output
+						if (outputFormat === 'text') {
+							if (loadingIndicator) {
+								stopLoadingIndicator(loadingIndicator); // Stop previous indicator
+							}
+							loadingIndicator = startLoadingIndicator(
+								`Attempt ${modelAttempts}: Using ${modelType.toUpperCase()}...`
+							);
+						}
+
+						// Build the prompts using the helper
+						const { systemPrompt, userPrompt } = _buildAddTaskPrompt(
+							prompt,
+							contextTasks,
+							{ newTaskId }
+						);
+
+						if (modelType === 'perplexity') {
+							// Use Perplexity AI
+							const perplexityModel =
+								process.env.PERPLEXITY_MODEL ||
+								session?.env?.PERPLEXITY_MODEL ||
+								'sonar-pro';
+							const response = await client.chat.completions.create({
+								model: perplexityModel,
+								messages: [
+									{ role: 'system', content: systemPrompt },
+									{ role: 'user', content: userPrompt }
+								],
+								temperature: parseFloat(
+									process.env.TEMPERATURE ||
+										session?.env?.TEMPERATURE ||
+										CONFIG.temperature
+								),
+								max_tokens: parseInt(
+									process.env.MAX_TOKENS ||
+										session?.env?.MAX_TOKENS ||
+										CONFIG.maxTokens
+								)
+							});
+
+							const responseText = response.choices[0].message.content;
+							aiGeneratedTaskData = parseTaskJsonResponse(responseText);
+						} else {
+							// Use Claude (default)
+							// Prepare API parameters
+							const apiParams = {
+								model:
+									session?.env?.ANTHROPIC_MODEL ||
+									CONFIG.model ||
+									customEnv?.ANTHROPIC_MODEL,
+								max_tokens:
+									session?.env?.MAX_TOKENS ||
+									CONFIG.maxTokens ||
+									customEnv?.MAX_TOKENS,
+								temperature:
+									session?.env?.TEMPERATURE ||
+									CONFIG.temperature ||
+									customEnv?.TEMPERATURE,
+								system: systemPrompt,
+								messages: [{ role: 'user', content: userPrompt }]
+							};
+
+							// Call the streaming API using our helper
+							try {
+								const fullResponse = await _handleAnthropicStream(
+									client,
+									apiParams,
+									{ reportProgress, mcpLog },
+									outputFormat === 'text' // CLI mode flag
+								);
+
+								log(
+									'debug',
+									`Streaming response length: ${fullResponse.length} characters`
+								);
+
+								// Parse the response using our helper
+								aiGeneratedTaskData = parseTaskJsonResponse(fullResponse);
+							} catch (streamError) {
+								// Process stream errors explicitly
+								log('error', `Stream error: ${streamError.message}`);
+
+								// Check if this is an overload error
+								let isOverload = false;
+								// Check 1: SDK specific property
+								if (streamError.type === 'overloaded_error') {
+									isOverload = true;
+								}
+								// Check 2: Check nested error property
+								else if (streamError.error?.type === 'overloaded_error') {
+									isOverload = true;
+								}
+								// Check 3: Check status code
+								else if (
+									streamError.status === 429 ||
+									streamError.status === 529
+								) {
+									isOverload = true;
+								}
+								// Check 4: Check message string
+								else if (
+									streamError.message?.toLowerCase().includes('overloaded')
+								) {
+									isOverload = true;
+								}
+
+								if (isOverload) {
+									claudeOverloaded = true;
+									log(
+										'warn',
+										'Claude overloaded. Will attempt fallback model if available.'
+									);
+									// Throw to continue to next model attempt
+									throw new Error('Claude overloaded');
+								} else {
+									// Re-throw non-overload errors
+									throw streamError;
+								}
+							}
+						}
+
+						// If we got here without errors and have task data, we're done
+						if (aiGeneratedTaskData) {
+							log(
+								'info',
+								`Successfully generated task data using ${modelType} on attempt ${modelAttempts}`
+							);
+							break;
+						}
+					} catch (modelError) {
+						const failedModel = modelType || 'unknown model';
+						log(
+							'warn',
+							`Attempt ${modelAttempts} failed using ${failedModel}: ${modelError.message}`
+						);
+
+						// Continue to next attempt if we have more attempts and this was specifically an overload error
+						const wasOverload = modelError.message
+							?.toLowerCase()
+							.includes('overload');
+
+						if (wasOverload && !isLastAttempt) {
+							if (modelType === 'claude') {
+								claudeOverloaded = true;
+								log('info', 'Will attempt with Perplexity AI next');
+							}
+							continue; // Continue to next attempt
+						} else if (isLastAttempt) {
+							log(
+								'error',
+								`Final attempt (${modelAttempts}/${maxModelAttempts}) failed. No fallback possible.`
+							);
+							throw modelError; // Re-throw on last attempt
+						} else {
+							throw modelError; // Re-throw for non-overload errors
+						}
 					}
-				} catch (modelError) {
-					const failedModel = modelType || 'unknown model';
-					log(
-						'warn',
-						`Attempt ${modelAttempts} failed using ${failedModel}: ${modelError.message}`
+				}
+
+				// If we don't have task data after all attempts, throw an error
+				if (!aiGeneratedTaskData) {
+					throw new Error(
+						'Failed to generate task data after all model attempts'
 					);
-
-					// Continue to next attempt if we have more attempts and this was specifically an overload error
-					const wasOverload = modelError.message
-						?.toLowerCase()
-						.includes('overload');
-
-					if (wasOverload && !isLastAttempt) {
-						if (modelType === 'claude') {
-							claudeOverloaded = true;
-							log('info', 'Will attempt with Perplexity AI next');
-						}
-						continue; // Continue to next attempt
-					} else if (isLastAttempt) {
-						log(
-							'error',
-							`Final attempt (${modelAttempts}/${maxModelAttempts}) failed. No fallback possible.`
-						);
-						throw modelError; // Re-throw on last attempt
-					} else {
-						throw modelError; // Re-throw for non-overload errors
-					}
 				}
-			}
 
-			// If we don't have task data after all attempts, throw an error
-			if (!taskData) {
-				throw new Error(
-					'Failed to generate task data after all model attempts'
-				);
-			}
+				// Set the AI-generated task data
+				taskData = aiGeneratedTaskData;
+			} catch (error) {
+				// Handle AI errors
+				log('error', `Error generating task with AI: ${error.message}`);
 
-			// Create the new task object
-			const newTask = {
-				id: newTaskId,
-				title: taskData.title,
-				description: taskData.description,
-				status: 'pending',
-				dependencies: dependencies,
-				priority: priority,
-				details: taskData.details || '',
-				testStrategy:
-					taskData.testStrategy ||
-					'Manually verify the implementation works as expected.'
-			};
-
-			// Add the new task to the tasks array
-			data.tasks.push(newTask);
-
-			// Validate dependencies in the entire task set
-			log('info', 'Validating dependencies after adding new task...');
-			validateAndFixDependencies(data, null);
-
-			// Write the updated tasks back to the file
-			writeJSON(tasksPath, data);
-
-			// Only show success messages for text mode (CLI)
-			if (outputFormat === 'text') {
-				// Show success message
-				const successBox = boxen(
-					chalk.green(`Successfully added new task #${newTaskId}:\n`) +
-						chalk.white.bold(newTask.title) +
-						'\n\n' +
-						chalk.white(newTask.description),
-					{
-						padding: 1,
-						borderColor: 'green',
-						borderStyle: 'round',
-						margin: { top: 1 }
-					}
-				);
-				console.log(successBox);
-
-				// Next steps suggestion
-				console.log(
-					boxen(
-						chalk.white.bold('Next Steps:') +
-							'\n\n' +
-							`${chalk.cyan('1.')} Run ${chalk.yellow('task-master generate')} to update task files\n` +
-							`${chalk.cyan('2.')} Run ${chalk.yellow('task-master expand --id=' + newTaskId)} to break it down into subtasks\n` +
-							`${chalk.cyan('3.')} Run ${chalk.yellow('task-master list --with-subtasks')} to see all tasks`,
-						{
-							padding: 1,
-							borderColor: 'cyan',
-							borderStyle: 'round',
-							margin: { top: 1 }
-						}
-					)
-				);
-			}
-
-			return newTaskId;
-		} catch (error) {
-			// Log the specific error during generation/processing
-			log('error', 'Error generating or processing task:', error.message);
-			// Re-throw the error to be caught by the outer catch block
-			throw error;
-		} finally {
-			// **** THIS IS THE KEY CHANGE ****
-			// Ensure the loading indicator is stopped if it was started
-			if (loadingIndicator) {
-				stopLoadingIndicator(loadingIndicator);
-				// Optional: Clear the line in CLI mode for a cleaner output
-				if (outputFormat === 'text' && process.stdout.isTTY) {
-					try {
-						// Use dynamic import for readline as it might not always be needed
-						const readline = await import('readline');
-						readline.clearLine(process.stdout, 0);
-						readline.cursorTo(process.stdout, 0);
-					} catch (readlineError) {
-						log(
-							'debug',
-							'Could not clear readline for indicator cleanup:',
-							readlineError.message
-						);
-					}
+				// Stop any loading indicator
+				if (outputFormat === 'text' && loadingIndicator) {
+					stopLoadingIndicator(loadingIndicator);
 				}
-				loadingIndicator = null; // Reset indicator variable
+
+				throw error;
 			}
 		}
+
+		// Create the new task object
+		const newTask = {
+			id: newTaskId,
+			title: taskData.title,
+			description: taskData.description,
+			details: taskData.details || '',
+			testStrategy: taskData.testStrategy || '',
+			status: 'pending',
+			dependencies: dependencies,
+			priority: priority
+		};
+
+		// Add the task to the tasks array
+		data.tasks.push(newTask);
+
+		// Write the updated tasks to the file
+		writeJSON(tasksPath, data);
+
+		// Generate markdown task files
+		log('info', 'Generating task files...');
+		await generateTaskFiles(tasksPath, path.dirname(tasksPath));
+
+		// Stop the loading indicator if it's still running
+		if (outputFormat === 'text' && loadingIndicator) {
+			stopLoadingIndicator(loadingIndicator);
+		}
+
+		// Show success message - only for text output (CLI)
+		if (outputFormat === 'text') {
+			const table = new Table({
+				head: [
+					chalk.cyan.bold('ID'),
+					chalk.cyan.bold('Title'),
+					chalk.cyan.bold('Description')
+				],
+				colWidths: [5, 30, 50]
+			});
+
+			table.push([
+				newTask.id,
+				truncate(newTask.title, 27),
+				truncate(newTask.description, 47)
+			]);
+
+			console.log(chalk.green('✅ New task created successfully:'));
+			console.log(table.toString());
+
+			// Show success message
+			console.log(
+				boxen(
+					chalk.white.bold(`Task ${newTaskId} Created Successfully`) +
+						'\n\n' +
+						chalk.white(`Title: ${newTask.title}`) +
+						'\n' +
+						chalk.white(`Status: ${getStatusWithColor(newTask.status)}`) +
+						'\n' +
+						chalk.white(
+							`Priority: ${chalk.keyword(getPriorityColor(newTask.priority))(newTask.priority)}`
+						) +
+						'\n' +
+						(dependencies.length > 0
+							? chalk.white(`Dependencies: ${dependencies.join(', ')}`) + '\n'
+							: '') +
+						'\n' +
+						chalk.white.bold('Next Steps:') +
+						'\n' +
+						chalk.cyan(
+							`1. Run ${chalk.yellow(`task-master show ${newTaskId}`)} to see complete task details`
+						) +
+						'\n' +
+						chalk.cyan(
+							`2. Run ${chalk.yellow(`task-master set-status --id=${newTaskId} --status=in-progress`)} to start working on it`
+						) +
+						'\n' +
+						chalk.cyan(
+							`3. Run ${chalk.yellow(`task-master expand --id=${newTaskId}`)} to break it down into subtasks`
+						),
+					{ padding: 1, borderColor: 'green', borderStyle: 'round' }
+				)
+			);
+		}
+
+		// Return the new task ID
+		return newTaskId;
 	} catch (error) {
-		// General error handling for the whole function
-		// The finally block above already handled the indicator if it was started
-		log('error', 'Error adding task:', error.message);
-		throw error; // Throw error instead of exiting the process
+		// Stop any loading indicator
+		if (outputFormat === 'text' && loadingIndicator) {
+			stopLoadingIndicator(loadingIndicator);
+		}
+
+		log('error', `Error adding task: ${error.message}`);
+		if (outputFormat === 'text') {
+			console.error(chalk.red(`Error: ${error.message}`));
+		}
+		throw error;
 	}
 }
 

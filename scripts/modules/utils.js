@@ -7,6 +7,9 @@ import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
 
+// Global silent mode flag
+let silentMode = false;
+
 // Configuration and constants
 const CONFIG = {
 	model: process.env.MODEL || 'claude-3-7-sonnet-20250219',
@@ -20,9 +23,6 @@ const CONFIG = {
 	projectVersion: '1.5.0' // Hardcoded version - ALWAYS use this value, ignore environment variable
 };
 
-// Global silent mode flag
-let silentMode = false;
-
 // Set up logging based on log level
 const LOG_LEVELS = {
 	debug: 0,
@@ -31,6 +31,14 @@ const LOG_LEVELS = {
 	error: 3,
 	success: 1 // Treat success like info level
 };
+
+/**
+ * Returns the task manager module
+ * @returns {Promise<Object>} The task manager module object
+ */
+async function getTaskManager() {
+	return import('./task-manager.js');
+}
 
 /**
  * Enable silent logging mode
@@ -61,7 +69,7 @@ function isSilentMode() {
  */
 function log(level, ...args) {
 	// Immediately return if silentMode is enabled
-	if (silentMode) {
+	if (isSilentMode()) {
 		return;
 	}
 
@@ -408,5 +416,6 @@ export {
 	detectCamelCaseFlags,
 	enableSilentMode,
 	disableSilentMode,
-	isSilentMode
+	isSilentMode,
+	getTaskManager
 };

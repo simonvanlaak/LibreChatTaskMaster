@@ -2,6 +2,36 @@
 "task-master-ai": patch
 ---
 
+- **Major Usability & Stability Enhancements:**
+  - Taskmaster can now be seamlessly used either via the globally installed `task-master` CLI (npm package) or directly via the MCP server (e.g., within Cursor). Onboarding/initialization is supported through both methods.
+  - MCP implementation is now complete and stable, making it the preferred method for integrated environments.
+- **Bug Fixes & Reliability:**
+  - Fixed MCP server invocation issue in `mcp.json` shipped with `task-master init`.
+  - Resolved issues with CLI error messages for flags and unknown commands, added confirmation prompts for destructive actions (e.g., `remove-task`).
+  - Numerous other CLI and MCP tool bugs fixed across the suite (details may be in other changesets like `@all-parks-sort.md`).
+- **Core Functionality & Commands:**
+  - Added complete `remove-task` functionality for permanent task deletion.
+  - Implemented `initialize_project` MCP tool for easier setup in integrated environments.
+  - Introduced AsyncOperationManager for handling long-running operations (e.g., `expand`, `analyze`) in the background via MCP, with status checking.
+- **Interface & Configuration:**
+  - Renamed MCP tools for intuitive usage (`list-tasks` → `get-tasks`, `show-task` → `get-task`).
+  - Added binary alias `task-master-mcp-server`.
+  - Clarified environment configuration: `.env` for npm package, `.cursor/mcp.json` for MCP.
+  - Updated model configurations (context window, temperature, defaults) for improved performance/consistency.
+- **Internal Refinements & Fixes:**
+  - Refactored AI tool patterns, implemented Logger Wrapper, fixed critical issues in `analyze-project-complexity`, `update-task`, `update-subtask`, `set-task-status`, `update`, `expand-task`, `parse-prd`, `expand-all`.
+  - Standardized and improved silent mode implementation across MCP tools to prevent JSON response issues.
+  - Improved parameter handling and project root detection for MCP tools.
+  - Centralized AI client utilities and refactored AI services.
+  - Optimized `get-task` MCP response payload.
+- **Dependency & Licensing:**
+  - Removed dependency on non-existent package `@model-context-protocol/sdk`.
+  - Updated license to MIT + Commons Clause v1.0.
+- **Documentation & UI:**
+  - Added comprehensive `taskmaster.mdc` command/tool reference and other rule updates (specific rule adjustments may be in other changesets like `@silly-horses-grin.md`).
+  - Enhanced CLI progress bars and status displays. Added "cancelled" status.
+  - Updated README, added tutorial/examples guide, supported client list documentation.
+
 - Adjusts the MCP server invokation in the mcp.json we ship with `task-master init`. Fully functional now.
 - Rename the npx -y command. It's now `npx -y task-master-ai task-master-mcp`
 - Add additional binary alias: `task-master-mcp-server` pointing to the same MCP server script

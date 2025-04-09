@@ -19,7 +19,7 @@
 		"prepare": "chmod +x bin/task-master.js bin/task-master-init.js mcp-server/server.js",
 		"changeset": "changeset",
 		"release": "changeset publish",
-		"inspector": "CLIENT_PORT=8888 SERVER_PORT=9000 npx @modelcontextprotocol/inspector node mcp-server/server.js",
+		"inspector": "npx @modelcontextprotocol/inspector node mcp-server/server.js",
 		"mcp-server": "node mcp-server/server.js",
 		"format-check": "prettier --check .",
 		"format": "prettier --write ."

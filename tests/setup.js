@@ -14,6 +14,9 @@ process.env.DEFAULT_SUBTASKS = '3';
 process.env.DEFAULT_PRIORITY = 'medium';
 process.env.PROJECT_NAME = 'Test Project';
 process.env.PROJECT_VERSION = '1.0.0';
+// Ensure tests don't make real API calls by setting mock API keys
+process.env.ANTHROPIC_API_KEY = 'test-mock-api-key-for-tests';
+process.env.PERPLEXITY_API_KEY = 'test-mock-perplexity-key-for-tests';
 
 // Add global test helpers if needed
 global.wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
