@@ -2856,7 +2856,12 @@ async function expandAllTasks(
 					mcpLog
 				);
 
-				if (aiResponse && aiResponse.subtasks && Array.isArray(aiResponse.subtasks) && aiResponse.subtasks.length > 0) {
+				if (
+					aiResponse &&
+					aiResponse.subtasks &&
+					Array.isArray(aiResponse.subtasks) &&
+					aiResponse.subtasks.length > 0
+				) {
 					// Process and add the subtasks to the task
 					task.subtasks = aiResponse.subtasks.map((subtask, index) => ({
 						id: index + 1,
@@ -2873,15 +2878,18 @@ async function expandAllTasks(
 					// Handle error response
 					const errorMsg = `Failed to generate subtasks for task ${task.id}: ${aiResponse.error}`;
 					report(errorMsg, 'error');
-					
+
 					// Add task ID to error info and provide actionable guidance
 					const suggestion = aiResponse.suggestion.replace('<id>', task.id);
 					report(`Suggestion: ${suggestion}`, 'info');
-					
+
 					expansionErrors++;
 				} else {
 					report(`Failed to generate subtasks for task ${task.id}`, 'error');
-					report(`Suggestion: Run 'task-master update-task --id=${task.id} --prompt="Generate subtasks for this task"' to manually create subtasks.`, 'info');
+					report(
+						`Suggestion: Run 'task-master update-task --id=${task.id} --prompt="Generate subtasks for this task"' to manually create subtasks.`,
+						'info'
+					);
 					expansionErrors++;
 				}
 			} catch (error) {
@@ -5628,7 +5636,7 @@ async function getSubtasksFromAI(
 		}
 
 		let responseText;
-		
+
 		// Call the AI - with research if requested
 		if (useResearch && perplexity) {
 			if (mcpLog) {
@@ -5677,8 +5685,14 @@ async function getSubtasksFromAI(
 		// Try to parse the subtasks
 		try {
 			const parsedSubtasks = parseSubtasksFromText(responseText);
-			if (!parsedSubtasks || !Array.isArray(parsedSubtasks) || parsedSubtasks.length === 0) {
-				throw new Error('Failed to parse valid subtasks array from AI response');
+			if (
+				!parsedSubtasks ||
+				!Array.isArray(parsedSubtasks) ||
+				parsedSubtasks.length === 0
+			) {
+				throw new Error(
+					'Failed to parse valid subtasks array from AI response'
+				);
 			}
 			return { subtasks: parsedSubtasks };
 		} catch (parseError) {
@@ -5689,10 +5703,11 @@ async function getSubtasksFromAI(
 				log('error', `Error parsing subtasks: ${parseError.message}`);
 			}
 			// Return error information instead of fallback subtasks
-			return { 
+			return {
 				error: parseError.message,
 				taskId: null, // This will be filled in by the calling function
-				suggestion: "Use 'task-master update-task --id=<id> --prompt=\"Generate subtasks for this task\"' to manually create subtasks."
+				suggestion:
+					'Use \'task-master update-task --id=<id> --prompt="Generate subtasks for this task"\' to manually create subtasks.'
 			};
 		}
 	} catch (error) {
@@ -5702,10 +5717,11 @@ async function getSubtasksFromAI(
 			log('error', `Error generating subtasks: ${error.message}`);
 		}
 		// Return error information instead of fallback subtasks
-		return { 
+		return {
 			error: error.message,
-			taskId: null, // This will be filled in by the calling function 
-			suggestion: "Use 'task-master update-task --id=<id> --prompt=\"Generate subtasks for this task\"' to manually create subtasks."
+			taskId: null, // This will be filled in by the calling function
+			suggestion:
+				'Use \'task-master update-task --id=<id> --prompt="Generate subtasks for this task"\' to manually create subtasks.'
 		};
 	}
 }
