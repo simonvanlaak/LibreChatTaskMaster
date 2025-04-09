@@ -19,12 +19,12 @@ export function registerParsePRDTool(server) {
 	server.addTool({
 		name: 'parse_prd',
 		description:
-			'Parse a Product Requirements Document (PRD) or text file to automatically generate initial tasks.',
+			'Parse a Product Requirements Document (PRD) text file to automatically generate initial tasks.',
 		parameters: z.object({
 			input: z
 				.string()
-				.default('tasks/tasks.json')
-				.describe('Absolute path to the PRD document file'),
+				.default('scripts/prd.txt')
+				.describe('Absolute path to the PRD document file (.txt, .md, etc.)'),
 			numTasks: z
 				.string()
 				.optional()
