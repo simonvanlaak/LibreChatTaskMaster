@@ -897,8 +897,12 @@ function parseSubtasksFromText(text, startId, expectedCount, parentTaskId) {
 			throw new Error('Parsed content is not an array');
 		}
 
+		// Set default values for optional parameters
+		startId = startId || 1;
+		expectedCount = expectedCount || subtasks.length;
+
 		// Log warning if count doesn't match expected
-		if (subtasks.length !== expectedCount) {
+		if (expectedCount && subtasks.length !== expectedCount) {
 			log(
 				'warn',
 				`Expected ${expectedCount} subtasks, but parsed ${subtasks.length}`
@@ -908,10 +912,10 @@ function parseSubtasksFromText(text, startId, expectedCount, parentTaskId) {
 		// Normalize subtask IDs if they don't match
 		subtasks = subtasks.map((subtask, index) => {
 			// Assign the correct ID if it doesn't match
-			if (subtask.id !== startId + index) {
+			if (!subtask.id || subtask.id !== startId + index) {
 				log(
 					'warn',
-					`Correcting subtask ID from ${subtask.id} to ${startId + index}`
+					`Correcting subtask ID from ${subtask.id || 'undefined'} to ${startId + index}`
 				);
 				subtask.id = startId + index;
 			}
@@ -928,8 +932,10 @@ function parseSubtasksFromText(text, startId, expectedCount, parentTaskId) {
 			// Ensure status is 'pending'
 			subtask.status = 'pending';
 
-			// Add parentTaskId
-			subtask.parentTaskId = parentTaskId;
+			// Add parentTaskId if provided
+			if (parentTaskId) {
+				subtask.parentTaskId = parentTaskId;
+			}
 
 			return subtask;
 		});
@@ -937,26 +943,8 @@ function parseSubtasksFromText(text, startId, expectedCount, parentTaskId) {
 		return subtasks;
 	} catch (error) {
 		log('error', `Error parsing subtasks: ${error.message}`);
-
-		// Create a fallback array of empty subtasks if parsing fails
-		log('warn', 'Creating fallback subtasks');
-
-		const fallbackSubtasks = [];
-
-		for (let i = 0; i < expectedCount; i++) {
-			fallbackSubtasks.push({
-				id: startId + i,
-				title: `Subtask ${startId + i}`,
-				description: 'Auto-generated fallback subtask',
-				dependencies: [],
-				details:
-					'This is a fallback subtask created because parsing failed. Please update with real details.',
-				status: 'pending',
-				parentTaskId: parentTaskId
-			});
-		}
-
-		return fallbackSubtasks;
+		// Re-throw the error to be handled by the caller
+		throw error;
 	}
 }
 
