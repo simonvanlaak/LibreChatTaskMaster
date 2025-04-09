@@ -3434,18 +3434,18 @@ async function addTask(
 						'Failed to generate task data after all model attempts'
 					);
 				}
-				
+
 				// Set the AI-generated task data
 				taskData = aiGeneratedTaskData;
 			} catch (error) {
 				// Handle AI errors
 				log('error', `Error generating task with AI: ${error.message}`);
-				
+
 				// Stop any loading indicator
 				if (outputFormat === 'text' && loadingIndicator) {
 					stopLoadingIndicator(loadingIndicator);
 				}
-				
+
 				throw error;
 			}
 		}
@@ -3506,7 +3506,9 @@ async function addTask(
 						'\n' +
 						chalk.white(`Status: ${getStatusWithColor(newTask.status)}`) +
 						'\n' +
-						chalk.white(`Priority: ${chalk.keyword(getPriorityColor(newTask.priority))(newTask.priority)}`) +
+						chalk.white(
+							`Priority: ${chalk.keyword(getPriorityColor(newTask.priority))(newTask.priority)}`
+						) +
 						'\n' +
 						(dependencies.length > 0
 							? chalk.white(`Dependencies: ${dependencies.join(', ')}`) + '\n'
@@ -3514,11 +3516,17 @@ async function addTask(
 						'\n' +
 						chalk.white.bold('Next Steps:') +
 						'\n' +
-						chalk.cyan(`1. Run ${chalk.yellow(`task-master show ${newTaskId}`)} to see complete task details`) +
+						chalk.cyan(
+							`1. Run ${chalk.yellow(`task-master show ${newTaskId}`)} to see complete task details`
+						) +
 						'\n' +
-						chalk.cyan(`2. Run ${chalk.yellow(`task-master set-status --id=${newTaskId} --status=in-progress`)} to start working on it`) +
+						chalk.cyan(
+							`2. Run ${chalk.yellow(`task-master set-status --id=${newTaskId} --status=in-progress`)} to start working on it`
+						) +
 						'\n' +
-						chalk.cyan(`3. Run ${chalk.yellow(`task-master expand --id=${newTaskId}`)} to break it down into subtasks`),
+						chalk.cyan(
+							`3. Run ${chalk.yellow(`task-master expand --id=${newTaskId}`)} to break it down into subtasks`
+						),
 					{ padding: 1, borderColor: 'green', borderStyle: 'round' }
 				)
 			);

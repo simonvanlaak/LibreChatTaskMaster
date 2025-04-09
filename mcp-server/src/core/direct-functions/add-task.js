@@ -27,7 +27,7 @@ import {
  * @param {string} [args.title] - Task title (for manual task creation)
  * @param {string} [args.description] - Task description (for manual task creation)
  * @param {string} [args.details] - Implementation details (for manual task creation)
- * @param {string} [args.testStrategy] - Test strategy (for manual task creation) 
+ * @param {string} [args.testStrategy] - Test strategy (for manual task creation)
  * @param {string} [args.dependencies] - Comma-separated list of task IDs this task depends on
  * @param {string} [args.priority='medium'] - Task priority (high, medium, low)
  * @param {string} [args.file='tasks/tasks.json'] - Path to the tasks file
@@ -47,16 +47,19 @@ export async function addTaskDirect(args, log, context = {}) {
 
 		// Check if this is manual task creation or AI-driven task creation
 		const isManualCreation = args.title && args.description;
-		
+
 		// Check required parameters
 		if (!args.prompt && !isManualCreation) {
-			log.error('Missing required parameters: either prompt or title+description must be provided');
+			log.error(
+				'Missing required parameters: either prompt or title+description must be provided'
+			);
 			disableSilentMode();
 			return {
 				success: false,
 				error: {
 					code: 'MISSING_PARAMETER',
-					message: 'Either the prompt parameter or both title and description parameters are required for adding a task'
+					message:
+						'Either the prompt parameter or both title and description parameters are required for adding a task'
 				}
 			};
 		}
@@ -76,7 +79,7 @@ export async function addTaskDirect(args, log, context = {}) {
 		const { session } = context;
 
 		let manualTaskData = null;
-		
+
 		if (isManualCreation) {
 			// Create manual task data object
 			manualTaskData = {
@@ -85,11 +88,11 @@ export async function addTaskDirect(args, log, context = {}) {
 				details: args.details || '',
 				testStrategy: args.testStrategy || ''
 			};
-			
+
 			log.info(
 				`Adding new task manually with title: "${args.title}", dependencies: [${dependencies.join(', ')}], priority: ${priority}`
 			);
-			
+
 			// Call the addTask function with manual task data
 			const newTaskId = await addTask(
 				tasksPath,
@@ -104,10 +107,10 @@ export async function addTaskDirect(args, log, context = {}) {
 				null, // No custom environment
 				manualTaskData // Pass the manual task data
 			);
-			
+
 			// Restore normal logging
 			disableSilentMode();
-			
+
 			return {
 				success: true,
 				data: {

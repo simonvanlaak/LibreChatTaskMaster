@@ -22,11 +22,28 @@ export function registerAddTaskTool(server) {
 		name: 'add_task',
 		description: 'Add a new task using AI',
 		parameters: z.object({
-			prompt: z.string().optional().describe('Description of the task to add (required if not using manual fields)'),
-			title: z.string().optional().describe('Task title (for manual task creation)'),
-			description: z.string().optional().describe('Task description (for manual task creation)'),
-			details: z.string().optional().describe('Implementation details (for manual task creation)'),
-			testStrategy: z.string().optional().describe('Test strategy (for manual task creation)'),
+			prompt: z
+				.string()
+				.optional()
+				.describe(
+					'Description of the task to add (required if not using manual fields)'
+				),
+			title: z
+				.string()
+				.optional()
+				.describe('Task title (for manual task creation)'),
+			description: z
+				.string()
+				.optional()
+				.describe('Task description (for manual task creation)'),
+			details: z
+				.string()
+				.optional()
+				.describe('Implementation details (for manual task creation)'),
+			testStrategy: z
+				.string()
+				.optional()
+				.describe('Test strategy (for manual task creation)'),
 			dependencies: z
 				.string()
 				.optional()
@@ -35,11 +52,16 @@ export function registerAddTaskTool(server) {
 				.string()
 				.optional()
 				.describe('Task priority (high, medium, low)'),
-			file: z.string().optional().describe('Path to the tasks file (default: tasks/tasks.json)'),
+			file: z
+				.string()
+				.optional()
+				.describe('Path to the tasks file (default: tasks/tasks.json)'),
 			projectRoot: z
 				.string()
 				.optional()
-				.describe('Root directory of the project (default: current working directory)'),
+				.describe(
+					'Root directory of the project (default: current working directory)'
+				),
 			research: z
 				.boolean()
 				.optional()

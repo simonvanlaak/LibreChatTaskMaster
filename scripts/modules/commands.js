@@ -791,20 +791,46 @@ function registerCommands(programInstance) {
 		.command('add-task')
 		.description('Add a new task using AI or manual input')
 		.option('-f, --file <file>', 'Path to the tasks file', 'tasks/tasks.json')
-		.option('-p, --prompt <prompt>', 'Description of the task to add (required if not using manual fields)')
+		.option(
+			'-p, --prompt <prompt>',
+			'Description of the task to add (required if not using manual fields)'
+		)
 		.option('-t, --title <title>', 'Task title (for manual task creation)')
-		.option('-d, --description <description>', 'Task description (for manual task creation)')
-		.option('--details <details>', 'Implementation details (for manual task creation)')
-		.option('--test-strategy <testStrategy>', 'Test strategy (for manual task creation)')
-		.option('--dependencies <dependencies>', 'Comma-separated list of task IDs this task depends on')
-		.option('--priority <priority>', 'Task priority (high, medium, low)', 'medium')
-		.option('-r, --research', 'Whether to use research capabilities for task creation')
+		.option(
+			'-d, --description <description>',
+			'Task description (for manual task creation)'
+		)
+		.option(
+			'--details <details>',
+			'Implementation details (for manual task creation)'
+		)
+		.option(
+			'--test-strategy <testStrategy>',
+			'Test strategy (for manual task creation)'
+		)
+		.option(
+			'--dependencies <dependencies>',
+			'Comma-separated list of task IDs this task depends on'
+		)
+		.option(
+			'--priority <priority>',
+			'Task priority (high, medium, low)',
+			'medium'
+		)
+		.option(
+			'-r, --research',
+			'Whether to use research capabilities for task creation'
+		)
 		.action(async (options) => {
 			const isManualCreation = options.title && options.description;
-			
+
 			// Validate that either prompt or title+description are provided
 			if (!options.prompt && !isManualCreation) {
-				console.error(chalk.red('Error: Either --prompt or both --title and --description must be provided'));
+				console.error(
+					chalk.red(
+						'Error: Either --prompt or both --title and --description must be provided'
+					)
+				);
 				process.exit(1);
 			}
 
@@ -812,7 +838,9 @@ function registerCommands(programInstance) {
 				// Prepare dependencies if provided
 				let dependencies = [];
 				if (options.dependencies) {
-					dependencies = options.dependencies.split(',').map(id => parseInt(id.trim(), 10));
+					dependencies = options.dependencies
+						.split(',')
+						.map((id) => parseInt(id.trim(), 10));
 				}
 
 				// Create manual task data if title and description are provided
@@ -825,17 +853,27 @@ function registerCommands(programInstance) {
 						testStrategy: options.testStrategy || ''
 					};
 
-					console.log(chalk.blue(`Creating task manually with title: "${options.title}"`));
+					console.log(
+						chalk.blue(`Creating task manually with title: "${options.title}"`)
+					);
 					if (dependencies.length > 0) {
-						console.log(chalk.blue(`Dependencies: [${dependencies.join(', ')}]`));
+						console.log(
+							chalk.blue(`Dependencies: [${dependencies.join(', ')}]`)
+						);
 					}
 					if (options.priority) {
 						console.log(chalk.blue(`Priority: ${options.priority}`));
 					}
 				} else {
-					console.log(chalk.blue(`Creating task with AI using prompt: "${options.prompt}"`));
+					console.log(
+						chalk.blue(
+							`Creating task with AI using prompt: "${options.prompt}"`
+						)
+					);
 					if (dependencies.length > 0) {
-						console.log(chalk.blue(`Dependencies: [${dependencies.join(', ')}]`));
+						console.log(
+							chalk.blue(`Dependencies: [${dependencies.join(', ')}]`)
+						);
 					}
 					if (options.priority) {
 						console.log(chalk.blue(`Priority: ${options.priority}`));
