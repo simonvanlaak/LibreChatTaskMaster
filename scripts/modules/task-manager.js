@@ -2711,6 +2711,9 @@ async function expandAllTasks(
 	}
 
 	report(`Expanding all pending tasks with ${numSubtasks} subtasks each...`);
+	if (useResearch) {
+		report('Using research-backed AI for more detailed subtasks');
+	}
 
 	// Load tasks
 	let data;
@@ -2772,6 +2775,7 @@ async function expandAllTasks(
 	}
 
 	let expandedCount = 0;
+	let expansionErrors = 0;
 	try {
 		// Sort tasks by complexity if report exists, otherwise by ID
 		if (complexityReport && complexityReport.complexityAnalysis) {
@@ -2852,12 +2856,17 @@ async function expandAllTasks(
 					mcpLog
 				);
 
-				if (aiResponse && aiResponse.subtasks) {
+				if (
+					aiResponse &&
+					aiResponse.subtasks &&
+					Array.isArray(aiResponse.subtasks) &&
+					aiResponse.subtasks.length > 0
+				) {
 					// Process and add the subtasks to the task
 					task.subtasks = aiResponse.subtasks.map((subtask, index) => ({
 						id: index + 1,
-						title: subtask.title,
-						description: subtask.description,
+						title: subtask.title || `Subtask ${index + 1}`,
+						description: subtask.description || 'No description provided',
 						status: 'pending',
 						dependencies: subtask.dependencies || [],
 						details: subtask.details || ''
@@ -2865,11 +2874,27 @@ async function expandAllTasks(
 
 					report(`Added ${task.subtasks.length} subtasks to task ${task.id}`);
 					expandedCount++;
+				} else if (aiResponse && aiResponse.error) {
+					// Handle error response
+					const errorMsg = `Failed to generate subtasks for task ${task.id}: ${aiResponse.error}`;
+					report(errorMsg, 'error');
+
+					// Add task ID to error info and provide actionable guidance
+					const suggestion = aiResponse.suggestion.replace('<id>', task.id);
+					report(`Suggestion: ${suggestion}`, 'info');
+
+					expansionErrors++;
 				} else {
 					report(`Failed to generate subtasks for task ${task.id}`, 'error');
+					report(
+						`Suggestion: Run 'task-master update-task --id=${task.id} --prompt="Generate subtasks for this task"' to manually create subtasks.`,
+						'info'
+					);
+					expansionErrors++;
 				}
 			} catch (error) {
 				report(`Error expanding task ${task.id}: ${error.message}`, 'error');
+				expansionErrors++;
 			}
 
 			// Small delay to prevent rate limiting
@@ -2891,7 +2916,8 @@ async function expandAllTasks(
 			success: true,
 			expandedCount,
 			tasksToExpand: tasksToExpand.length,
-			message: `Successfully expanded ${expandedCount} out of ${tasksToExpand.length} tasks`
+			expansionErrors,
+			message: `Successfully expanded ${expandedCount} out of ${tasksToExpand.length} tasks${expansionErrors > 0 ? ` (${expansionErrors} errors)` : ''}`
 		};
 	} catch (error) {
 		report(`Error expanding tasks: ${error.message}`, 'error');
@@ -5609,6 +5635,8 @@ async function getSubtasksFromAI(
 			mcpLog.info('Calling AI to generate subtasks');
 		}
 
+		let responseText;
+
 		// Call the AI - with research if requested
 		if (useResearch && perplexity) {
 			if (mcpLog) {
@@ -5633,8 +5661,7 @@ async function getSubtasksFromAI(
 				max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens
 			});
 
-			const responseText = result.choices[0].message.content;
-			return parseSubtasksFromText(responseText);
+			responseText = result.choices[0].message.content;
 		} else {
 			// Use regular Claude
 			if (mcpLog) {
@@ -5642,14 +5669,46 @@ async function getSubtasksFromAI(
 			}
 
 			// Call the streaming API
-			const responseText = await _handleAnthropicStream(
+			responseText = await _handleAnthropicStream(
 				client,
 				apiParams,
 				{ mcpLog, silentMode: isSilentMode() },
 				!isSilentMode()
 			);
+		}
 
-			return parseSubtasksFromText(responseText);
+		// Ensure we have a valid response
+		if (!responseText) {
+			throw new Error('Empty response from AI');
+		}
+
+		// Try to parse the subtasks
+		try {
+			const parsedSubtasks = parseSubtasksFromText(responseText);
+			if (
+				!parsedSubtasks ||
+				!Array.isArray(parsedSubtasks) ||
+				parsedSubtasks.length === 0
+			) {
+				throw new Error(
+					'Failed to parse valid subtasks array from AI response'
+				);
+			}
+			return { subtasks: parsedSubtasks };
+		} catch (parseError) {
+			if (mcpLog) {
+				mcpLog.error(`Error parsing subtasks: ${parseError.message}`);
+				mcpLog.error(`Response start: ${responseText.substring(0, 200)}...`);
+			} else {
+				log('error', `Error parsing subtasks: ${parseError.message}`);
+			}
+			// Return error information instead of fallback subtasks
+			return {
+				error: parseError.message,
+				taskId: null, // This will be filled in by the calling function
+				suggestion:
+					'Use \'task-master update-task --id=<id> --prompt="Generate subtasks for this task"\' to manually create subtasks.'
+			};
 		}
 	} catch (error) {
 		if (mcpLog) {
@@ -5657,7 +5716,13 @@ async function getSubtasksFromAI(
 		} else {
 			log('error', `Error generating subtasks: ${error.message}`);
 		}
-		throw error;
+		// Return error information instead of fallback subtasks
+		return {
+			error: error.message,
+			taskId: null, // This will be filled in by the calling function
+			suggestion:
+				'Use \'task-master update-task --id=<id> --prompt="Generate subtasks for this task"\' to manually create subtasks.'
+		};
 	}
 }
 

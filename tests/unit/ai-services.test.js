@@ -196,29 +196,12 @@ These subtasks will help you implement the parent task efficiently.`;
 			expect(result[2].dependencies).toEqual([1, 2]);
 		});
 
-		test('should create fallback subtasks for empty text', () => {
+		test('should throw an error for empty text', () => {
 			const emptyText = '';
 
-			const result = parseSubtasksFromText(emptyText, 1, 2, 5);
-
-			// Verify fallback subtasks structure
-			expect(result).toHaveLength(2);
-			expect(result[0]).toMatchObject({
-				id: 1,
-				title: 'Subtask 1',
-				description: 'Auto-generated fallback subtask',
-				status: 'pending',
-				dependencies: [],
-				parentTaskId: 5
-			});
-			expect(result[1]).toMatchObject({
-				id: 2,
-				title: 'Subtask 2',
-				description: 'Auto-generated fallback subtask',
-				status: 'pending',
-				dependencies: [],
-				parentTaskId: 5
-			});
+			expect(() => parseSubtasksFromText(emptyText, 1, 2, 5)).toThrow(
+				'Empty text provided, cannot parse subtasks'
+			);
 		});
 
 		test('should normalize subtask IDs', () => {
@@ -272,29 +255,12 @@ These subtasks will help you implement the parent task efficiently.`;
 			expect(typeof result[1].dependencies[0]).toBe('number');
 		});
 
-		test('should create fallback subtasks for invalid JSON', () => {
+		test('should throw an error for invalid JSON', () => {
 			const text = `This is not valid JSON and cannot be parsed`;
 
-			const result = parseSubtasksFromText(text, 1, 2, 5);
-
-			// Verify fallback subtasks structure
-			expect(result).toHaveLength(2);
-			expect(result[0]).toMatchObject({
-				id: 1,
-				title: 'Subtask 1',
-				description: 'Auto-generated fallback subtask',
-				status: 'pending',
-				dependencies: [],
-				parentTaskId: 5
-			});
-			expect(result[1]).toMatchObject({
-				id: 2,
-				title: 'Subtask 2',
-				description: 'Auto-generated fallback subtask',
-				status: 'pending',
-				dependencies: [],
-				parentTaskId: 5
-			});
+			expect(() => parseSubtasksFromText(text, 1, 2, 5)).toThrow(
+				'Could not locate valid JSON array in the response'
+			);
 		});
 	});
 

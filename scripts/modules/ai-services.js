@@ -873,91 +873,86 @@ Note on dependencies: Subtasks can depend on other subtasks with lower IDs. Use 
  * @param {number} expectedCount - Expected number of subtasks
  * @param {number} parentTaskId - Parent task ID
  * @returns {Array} Parsed subtasks
+ * @throws {Error} If parsing fails or JSON is invalid
  */
 function parseSubtasksFromText(text, startId, expectedCount, parentTaskId) {
+	// Set default values for optional parameters
+	startId = startId || 1;
+	expectedCount = expectedCount || 2; // Default to 2 subtasks if not specified
+
+	// Handle empty text case
+	if (!text || text.trim() === '') {
+		throw new Error('Empty text provided, cannot parse subtasks');
+	}
+
+	// Locate JSON array in the text
+	const jsonStartIndex = text.indexOf('[');
+	const jsonEndIndex = text.lastIndexOf(']');
+
+	// If no valid JSON array found, throw error
+	if (
+		jsonStartIndex === -1 ||
+		jsonEndIndex === -1 ||
+		jsonEndIndex < jsonStartIndex
+	) {
+		throw new Error('Could not locate valid JSON array in the response');
+	}
+
+	// Extract and parse the JSON
+	const jsonText = text.substring(jsonStartIndex, jsonEndIndex + 1);
+	let subtasks;
+
 	try {
-		// Locate JSON array in the text
-		const jsonStartIndex = text.indexOf('[');
-		const jsonEndIndex = text.lastIndexOf(']');
+		subtasks = JSON.parse(jsonText);
+	} catch (parseError) {
+		throw new Error(`Failed to parse JSON: ${parseError.message}`);
+	}
 
-		if (
-			jsonStartIndex === -1 ||
-			jsonEndIndex === -1 ||
-			jsonEndIndex < jsonStartIndex
-		) {
-			throw new Error('Could not locate valid JSON array in the response');
-		}
+	// Validate array
+	if (!Array.isArray(subtasks)) {
+		throw new Error('Parsed content is not an array');
+	}
 
-		// Extract and parse the JSON
-		const jsonText = text.substring(jsonStartIndex, jsonEndIndex + 1);
-		let subtasks = JSON.parse(jsonText);
+	// Log warning if count doesn't match expected
+	if (expectedCount && subtasks.length !== expectedCount) {
+		log(
+			'warn',
+			`Expected ${expectedCount} subtasks, but parsed ${subtasks.length}`
+		);
+	}
 
-		// Validate
-		if (!Array.isArray(subtasks)) {
-			throw new Error('Parsed content is not an array');
-		}
-
-		// Log warning if count doesn't match expected
-		if (subtasks.length !== expectedCount) {
+	// Normalize subtask IDs if they don't match
+	subtasks = subtasks.map((subtask, index) => {
+		// Assign the correct ID if it doesn't match
+		if (!subtask.id || subtask.id !== startId + index) {
 			log(
 				'warn',
-				`Expected ${expectedCount} subtasks, but parsed ${subtasks.length}`
+				`Correcting subtask ID from ${subtask.id || 'undefined'} to ${startId + index}`
 			);
+			subtask.id = startId + index;
 		}
 
-		// Normalize subtask IDs if they don't match
-		subtasks = subtasks.map((subtask, index) => {
-			// Assign the correct ID if it doesn't match
-			if (subtask.id !== startId + index) {
-				log(
-					'warn',
-					`Correcting subtask ID from ${subtask.id} to ${startId + index}`
-				);
-				subtask.id = startId + index;
-			}
-
-			// Convert dependencies to numbers if they are strings
-			if (subtask.dependencies && Array.isArray(subtask.dependencies)) {
-				subtask.dependencies = subtask.dependencies.map((dep) => {
-					return typeof dep === 'string' ? parseInt(dep, 10) : dep;
-				});
-			} else {
-				subtask.dependencies = [];
-			}
-
-			// Ensure status is 'pending'
-			subtask.status = 'pending';
-
-			// Add parentTaskId
-			subtask.parentTaskId = parentTaskId;
-
-			return subtask;
-		});
-
-		return subtasks;
-	} catch (error) {
-		log('error', `Error parsing subtasks: ${error.message}`);
-
-		// Create a fallback array of empty subtasks if parsing fails
-		log('warn', 'Creating fallback subtasks');
-
-		const fallbackSubtasks = [];
-
-		for (let i = 0; i < expectedCount; i++) {
-			fallbackSubtasks.push({
-				id: startId + i,
-				title: `Subtask ${startId + i}`,
-				description: 'Auto-generated fallback subtask',
-				dependencies: [],
-				details:
-					'This is a fallback subtask created because parsing failed. Please update with real details.',
-				status: 'pending',
-				parentTaskId: parentTaskId
+		// Convert dependencies to numbers if they are strings
+		if (subtask.dependencies && Array.isArray(subtask.dependencies)) {
+			subtask.dependencies = subtask.dependencies.map((dep) => {
+				return typeof dep === 'string' ? parseInt(dep, 10) : dep;
 			});
+		} else {
+			subtask.dependencies = [];
 		}
 
-		return fallbackSubtasks;
-	}
+		// Ensure status is 'pending'
+		subtask.status = 'pending';
+
+		// Add parentTaskId if provided
+		if (parentTaskId) {
+			subtask.parentTaskId = parentTaskId;
+		}
+
+		return subtask;
+	});
+
+	return subtasks;
 }
 
 /**
