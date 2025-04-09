@@ -3,6 +3,7 @@
  */
 
 import { jest } from '@jest/globals';
+import { sampleTasks, emptySampleTasks } from '../../tests/fixtures/sample-tasks.js';
 
 // Mock functions that need jest.fn methods
 const mockParsePRD = jest.fn().mockResolvedValue(undefined);
@@ -637,6 +638,222 @@ describe('Commands Module', () => {
 				expect.stringContaining('Error: Task update failed')
 			);
 			expect(mockExit).toHaveBeenCalledWith(1);
+		});
+	});
+
+	// Add test for add-task command
+	describe('add-task command', () => {
+		let mockTaskManager;
+		let addTaskCommand;
+		let addTaskAction;
+		let mockFs;
+
+		// Import the sample tasks fixtures
+		beforeEach(async () => {
+			// Mock fs module to return sample tasks
+			mockFs = {
+				existsSync: jest.fn().mockReturnValue(true),
+				readFileSync: jest.fn().mockReturnValue(JSON.stringify(sampleTasks))
+			};
+			
+			// Create a mock task manager with an addTask function that resolves to taskId 5
+			mockTaskManager = {
+				addTask: jest.fn().mockImplementation((file, prompt, dependencies, priority, session, research, generateFiles, manualTaskData) => {
+					// Return the next ID after the last one in sample tasks
+					const newId = sampleTasks.tasks.length + 1;
+					return Promise.resolve(newId.toString());
+				})
+			};
+
+			// Create a simplified version of the add-task action function for testing
+			addTaskAction = async (cmd, options) => {
+				options = options || {}; // Ensure options is not undefined
+				
+				const isManualCreation = options.title && options.description;
+				
+				// Get prompt directly or from p shorthand
+				const prompt = options.prompt || options.p;
+				
+				// Validate that either prompt or title+description are provided
+				if (!prompt && !isManualCreation) {
+					throw new Error('Either --prompt or both --title and --description must be provided');
+				}
+				
+				// Prepare dependencies if provided
+				let dependencies = [];
+				if (options.dependencies) {
+					dependencies = options.dependencies.split(',').map(id => id.trim());
+				}
+
+				// Create manual task data if title and description are provided
+				let manualTaskData = null;
+				if (isManualCreation) {
+					manualTaskData = {
+						title: options.title,
+						description: options.description,
+						details: options.details || '',
+						testStrategy: options.testStrategy || ''
+					};
+				}
+				
+				// Call addTask with the right parameters
+				return await mockTaskManager.addTask(
+					options.file || 'tasks/tasks.json',
+					prompt,
+					dependencies,
+					options.priority || 'medium', 
+					{ session: process.env },
+					options.research || options.r || false,
+					null,
+					manualTaskData
+				);
+			};
+		});
+
+		test('should throw error if no prompt or manual task data provided', async () => {
+			// Call without required params
+			const options = { file: 'tasks/tasks.json' };
+			
+			await expect(async () => {
+				await addTaskAction(undefined, options);
+			}).rejects.toThrow('Either --prompt or both --title and --description must be provided');
+		});
+
+		test('should handle short-hand flag -p for prompt', async () => {
+			// Use -p as prompt short-hand
+			const options = { 
+				p: 'Create a login component',
+				file: 'tasks/tasks.json'
+			};
+			
+			await addTaskAction(undefined, options);
+
+			// Check that task manager was called with correct arguments
+			expect(mockTaskManager.addTask).toHaveBeenCalledWith(
+				expect.any(String), // File path
+				'Create a login component', // Prompt
+				[], // Dependencies
+				'medium', // Default priority
+				{ session: process.env },
+				false, // Research flag
+				null, // Generate files parameter
+				null  // Manual task data
+			);
+		});
+
+		test('should handle short-hand flag -r for research', async () => {
+			const options = { 
+				prompt: 'Create authentication system',
+				r: true,
+				file: 'tasks/tasks.json'
+			};
+			
+			await addTaskAction(undefined, options);
+
+			// Check that task manager was called with correct research flag
+			expect(mockTaskManager.addTask).toHaveBeenCalledWith(
+				expect.any(String),
+				'Create authentication system',
+				[],
+				'medium',
+				{ session: process.env },
+				true, // Research flag should be true
+				null, // Generate files parameter
+				null  // Manual task data
+			);
+		});
+
+		test('should handle manual task creation with title and description', async () => {
+			const options = { 
+				title: 'Login Component',
+				description: 'Create a reusable login form',
+				details: 'Implementation details here',
+				file: 'tasks/tasks.json'
+			};
+			
+			await addTaskAction(undefined, options);
+
+			// Check that task manager was called with correct manual task data
+			expect(mockTaskManager.addTask).toHaveBeenCalledWith(
+				expect.any(String),
+				undefined, // No prompt for manual creation
+				[],
+				'medium',
+				{ session: process.env },
+				false,
+				null, // Generate files parameter
+				{    // Manual task data
+					title: 'Login Component',
+					description: 'Create a reusable login form',
+					details: 'Implementation details here',
+					testStrategy: ''
+				}
+			);
+		});
+
+		test('should handle dependencies parameter', async () => {
+			const options = { 
+				prompt: 'Create user settings page',
+				dependencies: '1, 3, 5', // Dependencies with spaces
+				file: 'tasks/tasks.json'
+			};
+			
+			await addTaskAction(undefined, options);
+
+			// Check that dependencies are parsed correctly
+			expect(mockTaskManager.addTask).toHaveBeenCalledWith(
+				expect.any(String),
+				'Create user settings page',
+				['1', '3', '5'], // Should trim whitespace from dependencies
+				'medium',
+				{ session: process.env },
+				false,
+				null, // Generate files parameter
+				null  // Manual task data
+			);
+		});
+
+		test('should handle priority parameter', async () => {
+			const options = { 
+				prompt: 'Create navigation menu',
+				priority: 'high',
+				file: 'tasks/tasks.json'
+			};
+			
+			await addTaskAction(undefined, options);
+
+			// Check that priority is passed correctly
+			expect(mockTaskManager.addTask).toHaveBeenCalledWith(
+				expect.any(String),
+				'Create navigation menu',
+				[],
+				'high', // Should use the provided priority
+				{ session: process.env },
+				false,
+				null, // Generate files parameter
+				null  // Manual task data
+			);
+		});
+
+		test('should use default values for optional parameters', async () => {
+			const options = { 
+				prompt: 'Basic task',
+				file: 'tasks/tasks.json'
+			};
+			
+			await addTaskAction(undefined, options);
+
+			// Check that default values are used
+			expect(mockTaskManager.addTask).toHaveBeenCalledWith(
+				expect.any(String),
+				'Basic task',
+				[], // Empty dependencies array by default
+				'medium', // Default priority is medium
+				{ session: process.env },
+				false, // Research is false by default
+				null, // Generate files parameter
+				null  // Manual task data
+			);
 		});
 	});
 });

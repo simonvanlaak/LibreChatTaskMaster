@@ -789,44 +789,81 @@ function registerCommands(programInstance) {
 	// add-task command
 	programInstance
 		.command('add-task')
-		.description('Add a new task using AI')
+		.description('Add a new task using AI or manual input')
 		.option('-f, --file <file>', 'Path to the tasks file', 'tasks/tasks.json')
-		.option('-p, --prompt <text>', 'Description of the task to add (required)')
-		.option(
-			'-d, --dependencies <ids>',
-			'Comma-separated list of task IDs this task depends on'
-		)
-		.option(
-			'--priority <priority>',
-			'Task priority (high, medium, low)',
-			'medium'
-		)
+		.option('-p, --prompt <prompt>', 'Description of the task to add (required if not using manual fields)')
+		.option('-t, --title <title>', 'Task title (for manual task creation)')
+		.option('-d, --description <description>', 'Task description (for manual task creation)')
+		.option('--details <details>', 'Implementation details (for manual task creation)')
+		.option('--test-strategy <testStrategy>', 'Test strategy (for manual task creation)')
+		.option('--dependencies <dependencies>', 'Comma-separated list of task IDs this task depends on')
+		.option('--priority <priority>', 'Task priority (high, medium, low)', 'medium')
+		.option('-r, --research', 'Whether to use research capabilities for task creation')
 		.action(async (options) => {
-			const tasksPath = options.file;
-			const prompt = options.prompt;
-			const dependencies = options.dependencies
-				? options.dependencies.split(',').map((id) => parseInt(id.trim(), 10))
-				: [];
-			const priority = options.priority;
-
-			if (!prompt) {
-				console.error(
-					chalk.red(
-						'Error: --prompt parameter is required. Please provide a task description.'
-					)
-				);
+			const isManualCreation = options.title && options.description;
+			
+			// Validate that either prompt or title+description are provided
+			if (!options.prompt && !isManualCreation) {
+				console.error(chalk.red('Error: Either --prompt or both --title and --description must be provided'));
 				process.exit(1);
 			}
 
-			console.log(chalk.blue(`Adding new task with description: "${prompt}"`));
-			console.log(
-				chalk.blue(
-					`Dependencies: ${dependencies.length > 0 ? dependencies.join(', ') : 'None'}`
-				)
-			);
-			console.log(chalk.blue(`Priority: ${priority}`));
+			try {
+				// Prepare dependencies if provided
+				let dependencies = [];
+				if (options.dependencies) {
+					dependencies = options.dependencies.split(',').map(id => parseInt(id.trim(), 10));
+				}
 
-			await addTask(tasksPath, prompt, dependencies, priority);
+				// Create manual task data if title and description are provided
+				let manualTaskData = null;
+				if (isManualCreation) {
+					manualTaskData = {
+						title: options.title,
+						description: options.description,
+						details: options.details || '',
+						testStrategy: options.testStrategy || ''
+					};
+
+					console.log(chalk.blue(`Creating task manually with title: "${options.title}"`));
+					if (dependencies.length > 0) {
+						console.log(chalk.blue(`Dependencies: [${dependencies.join(', ')}]`));
+					}
+					if (options.priority) {
+						console.log(chalk.blue(`Priority: ${options.priority}`));
+					}
+				} else {
+					console.log(chalk.blue(`Creating task with AI using prompt: "${options.prompt}"`));
+					if (dependencies.length > 0) {
+						console.log(chalk.blue(`Dependencies: [${dependencies.join(', ')}]`));
+					}
+					if (options.priority) {
+						console.log(chalk.blue(`Priority: ${options.priority}`));
+					}
+				}
+
+				const newTaskId = await addTask(
+					options.file,
+					options.prompt,
+					dependencies,
+					options.priority,
+					{
+						session: process.env
+					},
+					options.research || false,
+					null,
+					manualTaskData
+				);
+
+				console.log(chalk.green(`✓ Added new task #${newTaskId}`));
+				console.log(chalk.gray('Next: Complete this task or add more tasks'));
+			} catch (error) {
+				console.error(chalk.red(`Error adding task: ${error.message}`));
+				if (error.stack && CONFIG.debug) {
+					console.error(error.stack);
+				}
+				process.exit(1);
+			}
 		});
 
 	// next command
