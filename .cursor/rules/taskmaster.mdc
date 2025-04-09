@@ -36,8 +36,8 @@ This document provides a detailed reference for interacting with Taskmaster, cov
     *   `skipInstall`: `Skip installing dependencies (default: false).` (CLI: `--skip-install`)
     *   `addAliases`: `Add shell aliases (tm, taskmaster) (default: false).` (CLI: `--aliases`)
     *   `yes`: `Skip prompts and use defaults/provided arguments (default: false).` (CLI: `-y, --yes`)
-*   **Usage:** Run this once at the beginning of a new project, typically via an integrated tool like Cursor. Operates on the current working directory of the MCP server.
-
+*   **Usage:** Run this once at the beginning of a new project, typically via an integrated tool like Cursor. Operates on the current working directory of the MCP server. 
+*   **Important:** Once complete, you *MUST* parse a prd in order to generate tasks. There will be no tasks files until then. The next step after initializing should be to create a PRD using the example PRD in scripts/example_prd.txt. 
 
 ### 2. Parse PRD (`parse_prd`)
 
@@ -51,7 +51,7 @@ This document provides a detailed reference for interacting with Taskmaster, cov
     *   `force`: `Use this to allow Taskmaster to overwrite an existing 'tasks.json' without asking for confirmation.` (CLI: `-f, --force`)
 *   **Usage:** Useful for bootstrapping a project from an existing requirements document.
 *   **Notes:** Task Master will strictly adhere to any specific requirements mentioned in the PRD (libraries, database schemas, frameworks, tech stacks, etc.) while filling in any gaps where the PRD isn't fully specified. Tasks are designed to provide the most direct implementation path while avoiding over-engineering.
-*   **Important:** This MCP tool makes AI calls and can take up to a minute to complete. Please inform users to hang tight while the operation is in progress.
+*   **Important:** This MCP tool makes AI calls and can take up to a minute to complete. Please inform users to hang tight while the operation is in progress. If the user does not have a PRD, suggest discussing their idea and then use the example PRD in scripts/example_prd.txt as a template for creating the PRD based on their idea, for use with parse-prd.
 
 ---
 
