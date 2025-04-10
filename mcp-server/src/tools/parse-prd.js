@@ -29,7 +29,7 @@ export function registerParsePRDTool(server) {
 				.string()
 				.optional()
 				.describe(
-					'Approximate number of top-level tasks to generate (default: 10)'
+					'Approximate number of top-level tasks to generate (default: 10). As the agent, if you have enough information, ensure to enter a number of tasks that would logically scale with project complexity. Avoid entering numbers above 50 due to context window limitations.'
 				),
 			output: z
 				.string()
