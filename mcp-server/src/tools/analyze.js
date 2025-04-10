@@ -33,8 +33,10 @@ export function registerAnalyzeTool(server) {
 				.describe(
 					'LLM model to use for analysis (defaults to configured model)'
 				),
-			threshold: z
-				.union([z.number(), z.string()])
+			threshold: z.coerce
+				.number()
+				.min(1)
+				.max(10)
 				.optional()
 				.describe(
 					'Minimum complexity score to recommend expansion (1-10) (default: 5)'
