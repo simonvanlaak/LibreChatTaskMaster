@@ -80,10 +80,11 @@ export function registerInitializeProjectTool(server) {
 				log.info(`Initialization output:\n${output}`);
 
 				// Return a standard success response manually
-				return createContentResponse(
-					'Project initialized successfully.',
-					{ output: output } // Include output in the data payload
-				);
+				return createContentResponse({
+					message: 'Taskmaster successfully initialized for this project.',
+					next_step:
+						'Now that the project is initialized, the next step is to create the tasks by parsing a PRD. This will create the tasks folder and the initial task files. The parse-prd tool will required a prd.txt file as input in scripts/prd.txt. You can create a prd.txt file by asking the user about their idea, and then using the scripts/example_prd.txt file as a template to genrate a prd.txt file in scripts/. Before creating the PRD for the user, make sure you understand the idea fully and ask questions to eliminate ambiguity. You can then use the parse-prd tool to create the tasks. So: step 1 after initialization is to create a prd.txt file in scripts/prd.txt. Step 2 is to use the parse-prd tool to create the tasks. Do not bother looking for tasks after initialization, just use the parse-prd tool to create the tasks after creating a prd.txt from which to parse the tasks. '
+				});
 			} catch (error) {
 				// Catch errors from execSync or timeouts
 				const errorMessage = `Project initialization failed: ${error.message}`;
