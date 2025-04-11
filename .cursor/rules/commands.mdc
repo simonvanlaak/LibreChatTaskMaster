@@ -24,7 +24,7 @@ While this document details the implementation of Task Master's **CLI commands**
   programInstance
     .command('command-name')
     .description('Clear, concise description of what the command does')
-    .option('-s, --short-option <value>', 'Option description', 'default value')
+    .option('-o, --option <value>', 'Option description', 'default value')
     .option('--long-option <value>', 'Option description')
     .action(async (options) => {
       // Command implementation
@@ -34,7 +34,8 @@ While this document details the implementation of Task Master's **CLI commands**
 - **Command Handler Organization**:
   - ✅ DO: Keep action handlers concise and focused
   - ✅ DO: Extract core functionality to appropriate modules
-  - ✅ DO: Include validation for required parameters
+  - ✅ DO: Have the action handler import and call the relevant function(s) from core modules (e.g., `task-manager.js`, `init.js`), passing the parsed `options`.
+  - ✅ DO: Perform basic parameter validation (e.g., checking for required options) within the action handler or at the start of the called core function.
   - ❌ DON'T: Implement business logic in command handlers
 
 ## Best Practices for Removal/Delete Commands
