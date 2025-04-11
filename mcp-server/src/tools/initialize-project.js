@@ -1,16 +1,16 @@
 import { z } from 'zod';
-import { execSync } from 'child_process';
 import {
 	createContentResponse,
 	createErrorResponse,
-	getProjectRootFromSession
+	handleApiResult
 } from './utils.js';
+import { initializeProjectDirect } from '../core/task-master-core.js';
 
 export function registerInitializeProjectTool(server) {
 	server.addTool({
 		name: 'initialize_project',
 		description:
-			"Initializes a new Task Master project structure in the specified project directory by running 'task-master init'. If the project information required for the initialization is not available or provided by the user, prompt if the user wishes to provide them (name, description, author) or skip them. If the user wishes to skip, set the 'yes' flag to true and do not set any other parameters. DO NOT run the initialize_project tool without parameters.",
+			"Initializes a new Task Master project structure by calling the core initialization logic. Derives target directory from client session. If project details (name, description, author) are not provided, prompts the user or skips if 'yes' flag is true. DO NOT run without parameters.",
 		parameters: z.object({
 			projectName: z
 				.string()
@@ -59,93 +59,35 @@ export function registerInitializeProjectTool(server) {
 				),
 			projectRoot: z
 				.string()
-				.optional()
 				.describe(
-					'Optional fallback project root if session data is unavailable. Setting a value is not needed unless you are running the tool from a different directory than the project root.'
+					'The root directory for the project. ALWAYS SET THIS TO THE PROJECT ROOT DIRECTORY. IF NOT SET, THE TOOL WILL NOT WORK.'
 				)
 		}),
-		execute: async (args, { log, session }) => {
+		execute: async (args, context) => {
+			const { log } = context;
+			const session = context.session;
+
+			log.info(
+				'>>> Full Context Received by Tool:',
+				JSON.stringify(context, null, 2)
+			);
+			log.info(`Context received in tool function: ${context}`);
+			log.info(
+				`Session received in tool function: ${session ? session : 'undefined'}`
+			);
+
 			try {
 				log.info(
-					`Executing initialize_project with args: ${JSON.stringify(args)}`
+					`Executing initialize_project tool with args: ${JSON.stringify(args)}`
 				);
 
-				let targetDirectory = getProjectRootFromSession(session, log);
-				if (!targetDirectory) {
-					if (args.projectRoot) {
-						targetDirectory = args.projectRoot;
-						log.warn(
-							`Using projectRoot argument as fallback: ${targetDirectory}`
-						);
-					} else {
-						log.error(
-							'Could not determine target directory for initialization from session or arguments.'
-						);
-						return createErrorResponse(
-							'Failed to determine target directory for initialization.'
-						);
-					}
-				}
-				log.info(`Target directory for initialization: ${targetDirectory}`);
+				const result = await initializeProjectDirect(args, log, { session });
 
-				let commandBase = 'npx task-master init';
-				const cliArgs = [];
-				if (args.projectName)
-					cliArgs.push(`--name "${args.projectName.replace(/"/g, '\\"')}"`);
-				if (args.projectDescription)
-					cliArgs.push(
-						`--description "${args.projectDescription.replace(/"/g, '\\"')}"`
-					);
-				if (args.projectVersion)
-					cliArgs.push(
-						`--version "${args.projectVersion.replace(/"/g, '\\"')}"`
-					);
-				if (args.authorName)
-					cliArgs.push(`--author "${args.authorName.replace(/"/g, '\\"')}"`);
-				if (args.skipInstall) cliArgs.push('--skip-install');
-				if (args.addAliases) cliArgs.push('--aliases');
-
-				log.debug(
-					`Value of args.yes before check: ${args.yes} (Type: ${typeof args.yes})`
-				);
-				if (args.yes === true) {
-					cliArgs.push('--yes');
-					log.info('Added --yes flag to cliArgs.');
-				} else {
-					log.info(`Did NOT add --yes flag. args.yes value: ${args.yes}`);
-				}
-
-				const command =
-					cliArgs.length > 0
-						? `${commandBase} ${cliArgs.join(' ')}`
-						: commandBase;
-
-				log.info(`FINAL Constructed command for execSync: ${command}`);
-
-				const output = execSync(command, {
-					encoding: 'utf8',
-					stdio: 'pipe',
-					timeout: 300000,
-					cwd: targetDirectory
-				});
-
-				log.info(`Initialization output:\n${output}`);
-
-				return createContentResponse({
-					message: `Taskmaster successfully initialized in ${targetDirectory}.`,
-					next_step:
-						'Now that the project is initialized, the next step is to create the tasks by parsing a PRD. This will create the tasks folder and the initial task files. The parse-prd tool will required a prd.txt file as input in scripts/prd.txt. You can create a prd.txt file by asking the user about their idea, and then using the scripts/example_prd.txt file as a template to genrate a prd.txt file in scripts/. Before creating the PRD for the user, make sure you understand the idea fully and ask questions to eliminate ambiguity. You can then use the parse-prd tool to create the tasks. So: step 1 after initialization is to create a prd.txt file in scripts/prd.txt. Step 2 is to use the parse-prd tool to create the tasks. Do not bother looking for tasks after initialization, just use the parse-prd tool to create the tasks after creating a prd.txt from which to parse the tasks. ',
-					output: output
-				});
+				return handleApiResult(result, log, 'Initialization failed');
 			} catch (error) {
-				const errorMessage = `Project initialization failed: ${
-					error.message || 'Unknown error'
-				}`;
-				const errorDetails =
-					error.stderr?.toString() || error.stdout?.toString() || error.message;
-				log.error(`${errorMessage}\nDetails: ${errorDetails}`);
-
-				return createErrorResponse(errorMessage, { details: errorDetails });
+				const errorMessage = `Project initialization tool failed: ${error.message || 'Unknown error'}`;
+				log.error(errorMessage, error);
+				return createErrorResponse(errorMessage, { details: error.stack });
 			}
 		}
 	});

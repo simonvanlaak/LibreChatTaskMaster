@@ -13,8 +13,6 @@
  * For the full license text, see the LICENSE file in the root directory.
  */
 
-console.log('Starting task-master-ai...');
-
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
@@ -25,11 +23,23 @@ import chalk from 'chalk';
 import figlet from 'figlet';
 import boxen from 'boxen';
 import gradient from 'gradient-string';
+import {
+	isSilentMode,
+	enableSilentMode,
+	disableSilentMode
+} from './modules/utils.js';
 
-// Debug information
-console.log('Node version:', process.version);
-console.log('Current directory:', process.cwd());
-console.log('Script path:', import.meta.url);
+// Only log if not in silent mode
+if (!isSilentMode()) {
+	console.log('Starting task-master-ai...');
+}
+
+// Debug information - only log if not in silent mode
+if (!isSilentMode()) {
+	console.log('Node version:', process.version);
+	console.log('Current directory:', process.cwd());
+	console.log('Script path:', import.meta.url);
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -54,6 +64,8 @@ const warmGradient = gradient(['#fb8b24', '#e36414', '#9a031e']);
 
 // Display a fancy banner
 function displayBanner() {
+	if (isSilentMode()) return;
+
 	console.clear();
 	const bannerText = figlet.textSync('Task Master AI', {
 		font: 'Standard',
@@ -91,16 +103,19 @@ function log(level, ...args) {
 	if (LOG_LEVELS[level] >= LOG_LEVEL) {
 		const icon = icons[level] || '';
 
-		if (level === 'error') {
-			console.error(icon, chalk.red(...args));
-		} else if (level === 'warn') {
-			console.warn(icon, chalk.yellow(...args));
-		} else if (level === 'success') {
-			console.log(icon, chalk.green(...args));
-		} else if (level === 'info') {
-			console.log(icon, chalk.blue(...args));
-		} else {
-			console.log(icon, ...args);
+		// Only output to console if not in silent mode
+		if (!isSilentMode()) {
+			if (level === 'error') {
+				console.error(icon, chalk.red(...args));
+			} else if (level === 'warn') {
+				console.warn(icon, chalk.yellow(...args));
+			} else if (level === 'success') {
+				console.log(icon, chalk.green(...args));
+			} else if (level === 'info') {
+				console.log(icon, chalk.blue(...args));
+			} else {
+				console.log(icon, ...args);
+			}
 		}
 	}
 
@@ -381,25 +396,37 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 }
 
 // Main function to initialize a new project (Now relies solely on passed options)
-async function initializeProject(options = {}) { // Receives options as argument
-	displayBanner();
+async function initializeProject(options = {}) {
+	// Receives options as argument
+	// Only display banner if not in silent mode
+	if (!isSilentMode()) {
+		displayBanner();
+	}
 
-	console.log('===== DEBUG: INITIALIZE PROJECT OPTIONS RECEIVED =====');
-	console.log('Full options object:', JSON.stringify(options));
-	console.log('options.yes:', options.yes);
-	console.log('options.name:', options.name);
-	console.log('==================================================');
+	// Debug logging only if not in silent mode
+	if (!isSilentMode()) {
+		console.log('===== DEBUG: INITIALIZE PROJECT OPTIONS RECEIVED =====');
+		console.log('Full options object:', JSON.stringify(options));
+		console.log('options.yes:', options.yes);
+		console.log('options.name:', options.name);
+		console.log('==================================================');
+	}
 
 	// Determine if we should skip prompts based on the passed options
 	const skipPrompts = options.yes || (options.name && options.description);
-	console.log('Skip prompts determined:', skipPrompts);
+	if (!isSilentMode()) {
+		console.log('Skip prompts determined:', skipPrompts);
+	}
 
 	if (skipPrompts) {
-		console.log('SKIPPING PROMPTS - Using defaults or provided values');
+		if (!isSilentMode()) {
+			console.log('SKIPPING PROMPTS - Using defaults or provided values');
+		}
 
 		// Use provided options or defaults
 		const projectName = options.name || 'task-master-project';
-		const projectDescription = options.description || 'A project managed with Task Master AI';
+		const projectDescription =
+			options.description || 'A project managed with Task Master AI';
 		const projectVersion = options.version || '0.1.0'; // Default from commands.js or here
 		const authorName = options.author || 'Vibe coder'; // Default if not provided
 		const dryRun = options.dryRun || false;
@@ -408,7 +435,10 @@ async function initializeProject(options = {}) { // Receives options as argument
 
 		if (dryRun) {
 			log('info', 'DRY RUN MODE: No files will be modified');
-			log('info', `Would initialize project: ${projectName} (${projectVersion})`);
+			log(
+				'info',
+				`Would initialize project: ${projectName} (${projectVersion})`
+			);
 			log('info', `Description: ${projectDescription}`);
 			log('info', `Author: ${authorName || 'Not specified'}`);
 			log('info', 'Would create/update necessary project files');
@@ -446,13 +476,30 @@ async function initializeProject(options = {}) { // Receives options as argument
 
 		try {
 			// Prompt user for input...
-			const projectName = await promptQuestion(rl, chalk.cyan('Enter project name: '));
-			const projectDescription = await promptQuestion(rl, chalk.cyan('Enter project description: '));
-			const projectVersionInput = await promptQuestion(rl, chalk.cyan('Enter project version (default: 1.0.0): ')); // Use a default for prompt
-			const authorName = await promptQuestion(rl, chalk.cyan('Enter your name: '));
-			const addAliasesInput = await promptQuestion(rl, chalk.cyan('Add shell aliases for task-master? (Y/n): '));
+			const projectName = await promptQuestion(
+				rl,
+				chalk.cyan('Enter project name: ')
+			);
+			const projectDescription = await promptQuestion(
+				rl,
+				chalk.cyan('Enter project description: ')
+			);
+			const projectVersionInput = await promptQuestion(
+				rl,
+				chalk.cyan('Enter project version (default: 1.0.0): ')
+			); // Use a default for prompt
+			const authorName = await promptQuestion(
+				rl,
+				chalk.cyan('Enter your name: ')
+			);
+			const addAliasesInput = await promptQuestion(
+				rl,
+				chalk.cyan('Add shell aliases for task-master? (Y/n): ')
+			);
 			const addAliasesPrompted = addAliasesInput.trim().toLowerCase() !== 'n';
-			const projectVersion = projectVersionInput.trim() ? projectVersionInput : '1.0.0';
+			const projectVersion = projectVersionInput.trim()
+				? projectVersionInput
+				: '1.0.0';
 
 			// Confirm settings...
 			console.log('\nProject settings:');
@@ -464,11 +511,16 @@ async function initializeProject(options = {}) { // Receives options as argument
 				chalk.white(authorName || 'Not specified')
 			);
 			console.log(
-				chalk.blue('Add shell aliases (so you can use "tm" instead of "task-master"):'),
+				chalk.blue(
+					'Add shell aliases (so you can use "tm" instead of "task-master"):'
+				),
 				chalk.white(addAliasesPrompted ? 'Yes' : 'No')
 			);
 
-			const confirmInput = await promptQuestion(rl, chalk.yellow('\nDo you want to continue with these settings? (Y/n): '));
+			const confirmInput = await promptQuestion(
+				rl,
+				chalk.yellow('\nDo you want to continue with these settings? (Y/n): ')
+			);
 			const shouldContinue = confirmInput.trim().toLowerCase() !== 'n';
 			rl.close();
 
@@ -484,7 +536,10 @@ async function initializeProject(options = {}) { // Receives options as argument
 
 			if (dryRun) {
 				log('info', 'DRY RUN MODE: No files will be modified');
-				log('info', `Would initialize project: ${projectName} (${projectVersion})`);
+				log(
+					'info',
+					`Would initialize project: ${projectName} (${projectVersion})`
+				);
 				log('info', `Description: ${projectDescription}`);
 				log('info', `Author: ${authorName || 'Not specified'}`);
 				log('info', 'Would create/update necessary project files');
@@ -512,7 +567,6 @@ async function initializeProject(options = {}) { // Receives options as argument
 				skipInstall, // Use value from initial options
 				addAliasesPrompted // Use value from prompt
 			);
-
 		} catch (error) {
 			rl.close();
 			log('error', `Error during prompting: ${error.message}`); // Use log function
@@ -727,14 +781,16 @@ function createProjectStructure(
 	}
 
 	// Run npm install automatically
-	console.log(
-		boxen(chalk.cyan('Installing dependencies...'), {
-			padding: 0.5,
-			margin: 0.5,
-			borderStyle: 'round',
-			borderColor: 'blue'
-		})
-	);
+	if (!isSilentMode()) {
+		console.log(
+			boxen(chalk.cyan('Installing dependencies...'), {
+				padding: 0.5,
+				margin: 0.5,
+				borderStyle: 'round',
+				borderColor: 'blue'
+			})
+		);
+	}
 
 	try {
 		if (!skipInstall) {
@@ -749,21 +805,23 @@ function createProjectStructure(
 	}
 
 	// Display success message
-	console.log(
-		boxen(
-			warmGradient.multiline(
-				figlet.textSync('Success!', { font: 'Standard' })
-			) +
-				'\n' +
-				chalk.green('Project initialized successfully!'),
-			{
-				padding: 1,
-				margin: 1,
-				borderStyle: 'double',
-				borderColor: 'green'
-			}
-		)
-	);
+	if (!isSilentMode()) {
+		console.log(
+			boxen(
+				warmGradient.multiline(
+					figlet.textSync('Success!', { font: 'Standard' })
+				) +
+					'\n' +
+					chalk.green('Project initialized successfully!'),
+				{
+					padding: 1,
+					margin: 1,
+					borderStyle: 'double',
+					borderColor: 'green'
+				}
+			)
+		);
+	}
 
 	// Add shell aliases if requested
 	if (addAliases) {
@@ -771,68 +829,70 @@ function createProjectStructure(
 	}
 
 	// Display next steps in a nice box
-	console.log(
-		boxen(
-			chalk.cyan.bold('Things you can now do:') +
-				'\n\n' +
-				chalk.white('1. ') +
-				chalk.yellow(
-					'Rename .env.example to .env and add your ANTHROPIC_API_KEY and PERPLEXITY_API_KEY'
-				) +
-				'\n' +
-				chalk.white('2. ') +
-				chalk.yellow(
-					'Discuss your idea with AI, and once ready ask for a PRD using the example_prd.txt file, and save what you get to scripts/PRD.txt'
-				) +
-				'\n' +
-				chalk.white('3. ') +
-				chalk.yellow(
-					'Ask Cursor Agent to parse your PRD.txt and generate tasks'
-				) +
-				'\n' +
-				chalk.white('   └─ ') +
-				chalk.dim('You can also run ') +
-				chalk.cyan('task-master parse-prd <your-prd-file.txt>') +
-				'\n' +
-				chalk.white('4. ') +
-				chalk.yellow('Ask Cursor to analyze the complexity of your tasks') +
-				'\n' +
-				chalk.white('5. ') +
-				chalk.yellow(
-					'Ask Cursor which task is next to determine where to start'
-				) +
-				'\n' +
-				chalk.white('6. ') +
-				chalk.yellow(
-					'Ask Cursor to expand any complex tasks that are too large or complex.'
-				) +
-				'\n' +
-				chalk.white('7. ') +
-				chalk.yellow(
-					'Ask Cursor to set the status of a task, or multiple tasks. Use the task id from the task lists.'
-				) +
-				'\n' +
-				chalk.white('8. ') +
-				chalk.yellow(
-					'Ask Cursor to update all tasks from a specific task id based on new learnings or pivots in your project.'
-				) +
-				'\n' +
-				chalk.white('9. ') +
-				chalk.green.bold('Ship it!') +
-				'\n\n' +
-				chalk.dim(
-					'* Review the README.md file to learn how to use other commands via Cursor Agent.'
-				),
-			{
-				padding: 1,
-				margin: 1,
-				borderStyle: 'round',
-				borderColor: 'yellow',
-				title: 'Getting Started',
-				titleAlignment: 'center'
-			}
-		)
-	);
+	if (!isSilentMode()) {
+		console.log(
+			boxen(
+				chalk.cyan.bold('Things you can now do:') +
+					'\n\n' +
+					chalk.white('1. ') +
+					chalk.yellow(
+						'Rename .env.example to .env and add your ANTHROPIC_API_KEY and PERPLEXITY_API_KEY'
+					) +
+					'\n' +
+					chalk.white('2. ') +
+					chalk.yellow(
+						'Discuss your idea with AI, and once ready ask for a PRD using the example_prd.txt file, and save what you get to scripts/PRD.txt'
+					) +
+					'\n' +
+					chalk.white('3. ') +
+					chalk.yellow(
+						'Ask Cursor Agent to parse your PRD.txt and generate tasks'
+					) +
+					'\n' +
+					chalk.white('   └─ ') +
+					chalk.dim('You can also run ') +
+					chalk.cyan('task-master parse-prd <your-prd-file.txt>') +
+					'\n' +
+					chalk.white('4. ') +
+					chalk.yellow('Ask Cursor to analyze the complexity of your tasks') +
+					'\n' +
+					chalk.white('5. ') +
+					chalk.yellow(
+						'Ask Cursor which task is next to determine where to start'
+					) +
+					'\n' +
+					chalk.white('6. ') +
+					chalk.yellow(
+						'Ask Cursor to expand any complex tasks that are too large or complex.'
+					) +
+					'\n' +
+					chalk.white('7. ') +
+					chalk.yellow(
+						'Ask Cursor to set the status of a task, or multiple tasks. Use the task id from the task lists.'
+					) +
+					'\n' +
+					chalk.white('8. ') +
+					chalk.yellow(
+						'Ask Cursor to update all tasks from a specific task id based on new learnings or pivots in your project.'
+					) +
+					'\n' +
+					chalk.white('9. ') +
+					chalk.green.bold('Ship it!') +
+					'\n\n' +
+					chalk.dim(
+						'* Review the README.md file to learn how to use other commands via Cursor Agent.'
+					),
+				{
+					padding: 1,
+					margin: 1,
+					borderStyle: 'round',
+					borderColor: 'yellow',
+					title: 'Getting Started',
+					titleAlignment: 'center'
+				}
+			)
+		);
+	}
 }
 
 // Function to setup MCP configuration for Cursor integration
