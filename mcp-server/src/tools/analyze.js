@@ -10,6 +10,8 @@ import {
 	getProjectRootFromSession
 } from './utils.js';
 import { analyzeTaskComplexityDirect } from '../core/task-master-core.js';
+import { findTasksJsonPath } from '../core/utils/path-utils.js';
+import path from 'path';
 
 /**
  * Register the analyze tool with the MCP server
@@ -53,10 +55,7 @@ export function registerAnalyzeTool(server) {
 				.describe('Use Perplexity AI for research-backed complexity analysis'),
 			projectRoot: z
 				.string()
-				.optional()
-				.describe(
-					'Root directory of the project (default: current working directory)'
-				)
+				.describe('The directory of the project. Must be an absolute path.')
 		}),
 		execute: async (args, { log, session }) => {
 			try {
@@ -64,17 +63,40 @@ export function registerAnalyzeTool(server) {
 					`Analyzing task complexity with args: ${JSON.stringify(args)}`
 				);
 
-				let rootFolder = getProjectRootFromSession(session, log);
+				// Get project root from args or session
+				const rootFolder =
+					args.projectRoot || getProjectRootFromSession(session, log);
 
-				if (!rootFolder && args.projectRoot) {
-					rootFolder = args.projectRoot;
-					log.info(`Using project root from args as fallback: ${rootFolder}`);
+				if (!rootFolder) {
+					return createErrorResponse(
+						'Could not determine project root. Please provide it explicitly or ensure your session contains valid root information.'
+					);
 				}
+
+				let tasksJsonPath;
+				try {
+					tasksJsonPath = findTasksJsonPath(
+						{ projectRoot: rootFolder, file: args.file },
+						log
+					);
+				} catch (error) {
+					log.error(`Error finding tasks.json: ${error.message}`);
+					return createErrorResponse(
+						`Failed to find tasks.json: ${error.message}`
+					);
+				}
+
+				const outputPath = args.output
+					? path.resolve(rootFolder, args.output)
+					: path.resolve(rootFolder, 'scripts', 'task-complexity-report.json');
 
 				const result = await analyzeTaskComplexityDirect(
 					{
-						projectRoot: rootFolder,
-						...args
+						tasksJsonPath: tasksJsonPath,
+						outputPath: outputPath,
+						model: args.model,
+						threshold: args.threshold,
+						research: args.research
 					},
 					log,
 					{ session }
