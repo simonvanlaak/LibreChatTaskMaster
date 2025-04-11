@@ -7,10 +7,10 @@
 // Mock environment variables
 process.env.MODEL = 'sonar-pro';
 process.env.MAX_TOKENS = '64000';
-process.env.TEMPERATURE = '0.4';
+process.env.TEMPERATURE = '0.2';
 process.env.DEBUG = 'false';
 process.env.LOG_LEVEL = 'error'; // Set to error to reduce noise in tests
-process.env.DEFAULT_SUBTASKS = '3';
+process.env.DEFAULT_SUBTASKS = '5';
 process.env.DEFAULT_PRIORITY = 'medium';
 process.env.PROJECT_NAME = 'Test Project';
 process.env.PROJECT_VERSION = '1.0.0';

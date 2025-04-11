@@ -37,7 +37,6 @@
 - Add additional binary alias: `task-master-mcp-server` pointing to the same MCP server script
 
 - **Significant improvements to model configuration:**
-  - Increase context window from 64k to 128k tokens (MAX_TOKENS=128000) for handling larger codebases
   - Reduce temperature from 0.4 to 0.2 for more consistent, deterministic outputs
   - Set default model to "claude-3-7-sonnet-20250219" in configuration
   - Update Perplexity model to "sonar-pro" for research operations
