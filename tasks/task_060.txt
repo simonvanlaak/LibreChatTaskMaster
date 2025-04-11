@@ -1,0 +1,39 @@
+# Task ID: 60
+# Title: Implement isValidTaskId Utility Function
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Create a utility function that validates whether a given string conforms to the project's task ID format specification.
+# Details:
+Develop a function named `isValidTaskId` that takes a string parameter and returns a boolean indicating whether the string matches our task ID format. The task ID format follows these rules:
+
+1. Must start with 'TASK-' prefix (case-sensitive)
+2. Followed by a numeric value (at least 1 digit)
+3. The numeric portion should not have leading zeros (unless it's just zero)
+4. The total length should be between 6 and 12 characters inclusive
+
+Example valid IDs: 'TASK-1', 'TASK-42', 'TASK-1000'
+Example invalid IDs: 'task-1' (wrong case), 'TASK-' (missing number), 'TASK-01' (leading zero), 'TASK-A1' (non-numeric), 'TSK-1' (wrong prefix)
+
+The function should be placed in the utilities directory and properly exported. Include JSDoc comments for clear documentation of parameters and return values.
+
+# Test Strategy:
+Testing should include the following cases:
+
+1. Valid task IDs:
+   - 'TASK-1'
+   - 'TASK-123'
+   - 'TASK-9999'
+
+2. Invalid task IDs:
+   - Null or undefined input
+   - Empty string
+   - 'task-1' (lowercase prefix)
+   - 'TASK-' (missing number)
+   - 'TASK-01' (leading zero)
+   - 'TASK-ABC' (non-numeric suffix)
+   - 'TSK-1' (incorrect prefix)
+   - 'TASK-12345678901' (too long)
+   - 'TASK1' (missing hyphen)
+
+Implement unit tests using the project's testing framework. Each test case should have a clear assertion message explaining why the test failed if it does. Also include edge cases such as strings with whitespace ('TASK- 1') or special characters ('TASK-1#').
