@@ -909,7 +909,7 @@ function setupMCPConfiguration(targetDir, projectName) {
 	const newMCPServer = {
 		'task-master-ai': {
 			command: 'npx',
-			args: ['-y', '--package', 'task-master-ai', 'task-master-mcp'],
+			args: ['-y', 'task-master-mcp'],
 			env: {
 				ANTHROPIC_API_KEY: '%ANTHROPIC_API_KEY%',
 				PERPLEXITY_API_KEY: '%PERPLEXITY_API_KEY%',
@@ -925,7 +925,10 @@ function setupMCPConfiguration(targetDir, projectName) {
 
 	// Check if mcp.json already exists
 	if (fs.existsSync(mcpJsonPath)) {
-		log('info', 'MCP configuration file already exists, updating...');
+		log(
+			'info',
+			'MCP configuration file already exists, checking for existing task-master-mcp...'
+		);
 		try {
 			// Read existing config
 			const mcpConfig = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf8'));
@@ -933,6 +936,23 @@ function setupMCPConfiguration(targetDir, projectName) {
 			// Initialize mcpServers if it doesn't exist
 			if (!mcpConfig.mcpServers) {
 				mcpConfig.mcpServers = {};
+			}
+
+			// Check if any existing server configuration already has task-master-mcp in its args
+			const hasMCPString = Object.values(mcpConfig.mcpServers).some(
+				(server) =>
+					server.args &&
+					server.args.some(
+						(arg) => typeof arg === 'string' && arg.includes('task-master-mcp')
+					)
+			);
+
+			if (hasMCPString) {
+				log(
+					'info',
+					'Found existing task-master-mcp configuration in mcp.json, leaving untouched'
+				);
+				return; // Exit early, don't modify the existing configuration
 			}
 
 			// Add the task-master-ai server if it doesn't exist
