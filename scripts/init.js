@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * Task Master
  * Copyright (c) 2025 Eyal Toledano, Ralph Khreish
@@ -27,7 +25,6 @@ import chalk from 'chalk';
 import figlet from 'figlet';
 import boxen from 'boxen';
 import gradient from 'gradient-string';
-import { Command } from 'commander';
 
 // Debug information
 console.log('Node version:', process.version);
@@ -36,42 +33,6 @@ console.log('Script path:', import.meta.url);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-// Configure the CLI program
-const program = new Command();
-program
-	.name('task-master-init')
-	.description('Initialize a new Claude Task Master project')
-	.version('1.0.0') // Will be replaced by prepare-package script
-	.option('-y, --yes', 'Skip prompts and use default values')
-	.option('-n, --name <name>', 'Project name')
-	.option('-my_name <name>', 'Project name (alias for --name)')
-	.option('-d, --description <description>', 'Project description')
-	.option(
-		'-my_description <description>',
-		'Project description (alias for --description)'
-	)
-	.option('-v, --version <version>', 'Project version')
-	.option('-my_version <version>', 'Project version (alias for --version)')
-	.option('--my_name <name>', 'Project name (alias for --name)')
-	.option('-a, --author <author>', 'Author name')
-	.option('--skip-install', 'Skip installing dependencies')
-	.option('--dry-run', 'Show what would be done without making changes')
-	.option('--aliases', 'Add shell aliases (tm, taskmaster)')
-	.parse(process.argv);
-
-const options = program.opts();
-
-// Map custom aliases to standard options
-if (options.my_name && !options.name) {
-	options.name = options.my_name;
-}
-if (options.my_description && !options.description) {
-	options.description = options.my_description;
-}
-if (options.my_version && !options.version) {
-	options.version = options.my_version;
-}
 
 // Define log levels
 const LOG_LEVELS = {
@@ -419,27 +380,35 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 	log('info', `Created file: ${targetPath}`);
 }
 
-// Main function to initialize a new project
-async function initializeProject(options = {}) {
-	// Display the banner
+// Main function to initialize a new project (Now relies solely on passed options)
+async function initializeProject(options = {}) { // Receives options as argument
 	displayBanner();
 
-	// If options are provided, use them directly without prompting
-	if (options.projectName && options.projectDescription) {
-		const projectName = options.projectName;
-		const projectDescription = options.projectDescription;
-		const projectVersion = options.projectVersion || '1.0.0';
-		const authorName = options.authorName || '';
+	console.log('===== DEBUG: INITIALIZE PROJECT OPTIONS RECEIVED =====');
+	console.log('Full options object:', JSON.stringify(options));
+	console.log('options.yes:', options.yes);
+	console.log('options.name:', options.name);
+	console.log('==================================================');
+
+	// Determine if we should skip prompts based on the passed options
+	const skipPrompts = options.yes || (options.name && options.description);
+	console.log('Skip prompts determined:', skipPrompts);
+
+	if (skipPrompts) {
+		console.log('SKIPPING PROMPTS - Using defaults or provided values');
+
+		// Use provided options or defaults
+		const projectName = options.name || 'task-master-project';
+		const projectDescription = options.description || 'A project managed with Task Master AI';
+		const projectVersion = options.version || '0.1.0'; // Default from commands.js or here
+		const authorName = options.author || 'Vibe coder'; // Default if not provided
 		const dryRun = options.dryRun || false;
 		const skipInstall = options.skipInstall || false;
-		const addAliases = options.addAliases || false;
+		const addAliases = options.aliases || false;
 
 		if (dryRun) {
 			log('info', 'DRY RUN MODE: No files will be modified');
-			log(
-				'info',
-				`Would initialize project: ${projectName} (${projectVersion})`
-			);
+			log('info', `Would initialize project: ${projectName} (${projectVersion})`);
 			log('info', `Description: ${projectDescription}`);
 			log('info', `Author: ${authorName || 'Not specified'}`);
 			log('info', 'Would create/update necessary project files');
@@ -458,6 +427,7 @@ async function initializeProject(options = {}) {
 			};
 		}
 
+		// Create structure using determined values
 		createProjectStructure(
 			projectName,
 			projectDescription,
@@ -466,120 +436,88 @@ async function initializeProject(options = {}) {
 			skipInstall,
 			addAliases
 		);
-		return {
-			projectName,
-			projectDescription,
-			projectVersion,
-			authorName
-		};
-	}
+	} else {
+		// Prompting logic (only runs if skipPrompts is false)
+		log('info', 'Required options not provided, proceeding with prompts.');
+		const rl = readline.createInterface({
+			input: process.stdin,
+			output: process.stdout
+		});
 
-	// Otherwise, prompt the user for input
-	// Create readline interface only when needed
-	const rl = readline.createInterface({
-		input: process.stdin,
-		output: process.stdout
-	});
+		try {
+			// Prompt user for input...
+			const projectName = await promptQuestion(rl, chalk.cyan('Enter project name: '));
+			const projectDescription = await promptQuestion(rl, chalk.cyan('Enter project description: '));
+			const projectVersionInput = await promptQuestion(rl, chalk.cyan('Enter project version (default: 1.0.0): ')); // Use a default for prompt
+			const authorName = await promptQuestion(rl, chalk.cyan('Enter your name: '));
+			const addAliasesInput = await promptQuestion(rl, chalk.cyan('Add shell aliases for task-master? (Y/n): '));
+			const addAliasesPrompted = addAliasesInput.trim().toLowerCase() !== 'n';
+			const projectVersion = projectVersionInput.trim() ? projectVersionInput : '1.0.0';
 
-	try {
-		const projectName = await promptQuestion(
-			rl,
-			chalk.cyan('Enter project name: ')
-		);
-		const projectDescription = await promptQuestion(
-			rl,
-			chalk.cyan('Enter project description: ')
-		);
-		const projectVersionInput = await promptQuestion(
-			rl,
-			chalk.cyan('Enter project version (default: 1.0.0): ')
-		);
-		const authorName = await promptQuestion(
-			rl,
-			chalk.cyan('Enter your name: ')
-		);
+			// Confirm settings...
+			console.log('\nProject settings:');
+			console.log(chalk.blue('Name:'), chalk.white(projectName));
+			console.log(chalk.blue('Description:'), chalk.white(projectDescription));
+			console.log(chalk.blue('Version:'), chalk.white(projectVersion));
+			console.log(
+				chalk.blue('Author:'),
+				chalk.white(authorName || 'Not specified')
+			);
+			console.log(
+				chalk.blue('Add shell aliases (so you can use "tm" instead of "task-master"):'),
+				chalk.white(addAliasesPrompted ? 'Yes' : 'No')
+			);
 
-		// Ask about shell aliases
-		const addAliasesInput = await promptQuestion(
-			rl,
-			chalk.cyan('Add shell aliases for task-master? (Y/n): ')
-		);
-		const addAliases = addAliasesInput.trim().toLowerCase() !== 'n';
+			const confirmInput = await promptQuestion(rl, chalk.yellow('\nDo you want to continue with these settings? (Y/n): '));
+			const shouldContinue = confirmInput.trim().toLowerCase() !== 'n';
+			rl.close();
 
-		// Set default version if not provided
-		const projectVersion = projectVersionInput.trim()
-			? projectVersionInput
-			: '1.0.0';
-
-		// Confirm settings
-		console.log('\nProject settings:');
-		console.log(chalk.blue('Name:'), chalk.white(projectName));
-		console.log(chalk.blue('Description:'), chalk.white(projectDescription));
-		console.log(chalk.blue('Version:'), chalk.white(projectVersion));
-		console.log(
-			chalk.blue('Author:'),
-			chalk.white(authorName || 'Not specified')
-		);
-		console.log(
-			chalk.blue('Add shell aliases:'),
-			chalk.white(addAliases ? 'Yes' : 'No')
-		);
-
-		const confirmInput = await promptQuestion(
-			rl,
-			chalk.yellow('\nDo you want to continue with these settings? (Y/n): ')
-		);
-		const shouldContinue = confirmInput.trim().toLowerCase() !== 'n';
-
-		// Close the readline interface
-		rl.close();
-
-		if (!shouldContinue) {
-			log('info', 'Project initialization cancelled by user');
-			return null;
-		}
-
-		const dryRun = options.dryRun || false;
-		const skipInstall = options.skipInstall || false;
-
-		if (dryRun) {
-			log('info', 'DRY RUN MODE: No files will be modified');
-			log('info', 'Would create/update necessary project files');
-			if (addAliases) {
-				log('info', 'Would add shell aliases for task-master');
+			if (!shouldContinue) {
+				log('info', 'Project initialization cancelled by user');
+				process.exit(0); // Exit if cancelled
+				return; // Added return for clarity
 			}
-			if (!skipInstall) {
-				log('info', 'Would install dependencies');
+
+			// Still respect dryRun/skipInstall if passed initially even when prompting
+			const dryRun = options.dryRun || false;
+			const skipInstall = options.skipInstall || false;
+
+			if (dryRun) {
+				log('info', 'DRY RUN MODE: No files will be modified');
+				log('info', `Would initialize project: ${projectName} (${projectVersion})`);
+				log('info', `Description: ${projectDescription}`);
+				log('info', `Author: ${authorName || 'Not specified'}`);
+				log('info', 'Would create/update necessary project files');
+				if (addAliasesPrompted) {
+					log('info', 'Would add shell aliases for task-master');
+				}
+				if (!skipInstall) {
+					log('info', 'Would install dependencies');
+				}
+				return {
+					projectName,
+					projectDescription,
+					projectVersion,
+					authorName,
+					dryRun: true
+				};
 			}
-			return {
+
+			// Create structure using prompted values, respecting initial options where relevant
+			createProjectStructure(
 				projectName,
 				projectDescription,
 				projectVersion,
 				authorName,
-				dryRun: true
-			};
+				skipInstall, // Use value from initial options
+				addAliasesPrompted // Use value from prompt
+			);
+
+		} catch (error) {
+			rl.close();
+			log('error', `Error during prompting: ${error.message}`); // Use log function
+			process.exit(1); // Exit on error during prompts
 		}
-
-		// Create the project structure
-		createProjectStructure(
-			projectName,
-			projectDescription,
-			projectVersion,
-			authorName,
-			skipInstall,
-			addAliases
-		);
-
-		return {
-			projectName,
-			projectDescription,
-			projectVersion,
-			authorName
-		};
-	} catch (error) {
-		// Make sure to close readline on error
-		rl.close();
-		throw error;
 	}
 }
 
@@ -985,51 +923,5 @@ function setupMCPConfiguration(targetDir, projectName) {
 	log('info', 'MCP server will use the installed task-master-ai package');
 }
 
-// Run the initialization if this script is executed directly
-// The original check doesn't work with npx and global commands
-// if (process.argv[1] === fileURLToPath(import.meta.url)) {
-// Instead, we'll always run the initialization if this file is the main module
-console.log('Checking if script should run initialization...');
-console.log('import.meta.url:', import.meta.url);
-console.log('process.argv:', process.argv);
-
-// Always run initialization when this file is loaded directly
-// This works with both direct node execution and npx/global commands
-(async function main() {
-	try {
-		console.log('Starting initialization...');
-
-		// Check if we should use the CLI options or prompt for input
-		if (options.yes || (options.name && options.description)) {
-			// When using --yes flag or providing name and description, use CLI options
-			await initializeProject({
-				projectName: options.name || 'task-master-project',
-				projectDescription:
-					options.description ||
-					'A task management system for AI-driven development',
-				projectVersion: options.version || '1.0.0',
-				authorName: options.author || '',
-				dryRun: options.dryRun || false,
-				skipInstall: options.skipInstall || false,
-				addAliases: options.aliases || false
-			});
-		} else {
-			// Otherwise, prompt for input normally
-			await initializeProject({
-				dryRun: options.dryRun || false,
-				skipInstall: options.skipInstall || false
-			});
-		}
-
-		// Process should exit naturally after completion
-		console.log('Initialization completed, exiting...');
-		process.exit(0);
-	} catch (error) {
-		console.error('Failed to initialize project:', error);
-		log('error', 'Failed to initialize project:', error);
-		process.exit(1);
-	}
-})();
-
-// Export functions for programmatic use
-export { initializeProject, createProjectStructure, log };
+// Ensure necessary functions are exported
+export { initializeProject, log }; // Only export what's needed by commands.js

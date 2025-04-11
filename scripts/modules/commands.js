@@ -10,8 +10,9 @@ import boxen from 'boxen';
 import fs from 'fs';
 import https from 'https';
 import inquirer from 'inquirer';
+import ora from 'ora';
 
-import { CONFIG, log, readJSON } from './utils.js';
+import { CONFIG, log, readJSON, writeJSON } from './utils.js';
 import {
 	parsePRD,
 	updateTasks,
@@ -50,6 +51,8 @@ import {
 	startLoadingIndicator,
 	stopLoadingIndicator
 } from './ui.js';
+
+import { initializeProject } from '../init.js';
 
 /**
  * Configure and register CLI commands
@@ -1368,44 +1371,6 @@ function registerCommands(programInstance) {
 		);
 	}
 
-	// init command (documentation only, implementation is in init.js)
-	programInstance
-		.command('init')
-		.description('Initialize a new project with Task Master structure')
-		.option('-n, --name <name>', 'Project name')
-		.option('-my_name <name>', 'Project name (alias for --name)')
-		.option('--my_name <name>', 'Project name (alias for --name)')
-		.option('-d, --description <description>', 'Project description')
-		.option(
-			'-my_description <description>',
-			'Project description (alias for --description)'
-		)
-		.option('-v, --version <version>', 'Project version')
-		.option('-my_version <version>', 'Project version (alias for --version)')
-		.option('-a, --author <author>', 'Author name')
-		.option('-y, --yes', 'Skip prompts and use default values')
-		.option('--skip-install', 'Skip installing dependencies')
-		.action(() => {
-			console.log(
-				chalk.yellow(
-					'The init command must be run as a standalone command: task-master init'
-				)
-			);
-			console.log(chalk.cyan('Example usage:'));
-			console.log(
-				chalk.white(
-					'  task-master init -n "My Project" -d "Project description"'
-				)
-			);
-			console.log(
-				chalk.white(
-					'  task-master init -my_name "My Project" -my_description "Project description"'
-				)
-			);
-			console.log(chalk.white('  task-master init -y'));
-			process.exit(0);
-		});
-
 	// remove-task command
 	programInstance
 		.command('remove-task')
@@ -1547,6 +1512,37 @@ function registerCommands(programInstance) {
 			} catch (error) {
 				console.error(
 					chalk.red(`Error: ${error.message || 'An unknown error occurred'}`)
+				);
+				process.exit(1);
+			}
+		});
+
+	// init command (Directly calls the implementation from init.js)
+	programInstance
+		.command('init')
+		.description('Initialize a new project with Task Master structure')
+		.option('-y, --yes', 'Skip prompts and use default values')
+		.option('-n, --name <name>', 'Project name')
+		.option('-d, --description <description>', 'Project description')
+		.option('-v, --version <version>', 'Project version', '0.1.0') // Set default here
+		.option('-a, --author <author>', 'Author name')
+		.option('--skip-install', 'Skip installing dependencies')
+		.option('--dry-run', 'Show what would be done without making changes')
+		.option('--aliases', 'Add shell aliases (tm, taskmaster)')
+		.action(async (cmdOptions) => {
+			// cmdOptions contains parsed arguments
+			try {
+				console.log('DEBUG: Running init command action in commands.js');
+				console.log(
+					'DEBUG: Options received by action:',
+					JSON.stringify(cmdOptions)
+				);
+				// Directly call the initializeProject function, passing the parsed options
+				await initializeProject(cmdOptions);
+				// initializeProject handles its own flow, including potential process.exit()
+			} catch (error) {
+				console.error(
+					chalk.red(`Error during initialization: ${error.message}`)
 				);
 				process.exit(1);
 			}
