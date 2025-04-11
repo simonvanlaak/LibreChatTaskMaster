@@ -1,99 +1,93 @@
 import { z } from 'zod';
-import { execSync } from 'child_process';
-import { createContentResponse, createErrorResponse } from './utils.js'; // Only need response creators
+import {
+	createContentResponse,
+	createErrorResponse,
+	handleApiResult
+} from './utils.js';
+import { initializeProjectDirect } from '../core/task-master-core.js';
 
 export function registerInitializeProjectTool(server) {
 	server.addTool({
-		name: 'initialize_project', // snake_case for tool name
+		name: 'initialize_project',
 		description:
-			"Initializes a new Task Master project structure in the current working directory by running 'task-master init'.",
+			"Initializes a new Task Master project structure by calling the core initialization logic. Derives target directory from client session. If project details (name, description, author) are not provided, prompts the user or skips if 'yes' flag is true. DO NOT run without parameters.",
 		parameters: z.object({
 			projectName: z
 				.string()
 				.optional()
-				.describe('The name for the new project.'),
+				.describe(
+					'The name for the new project. If not provided, prompt the user for it.'
+				),
 			projectDescription: z
 				.string()
 				.optional()
-				.describe('A brief description for the project.'),
+				.describe(
+					'A brief description for the project. If not provided, prompt the user for it.'
+				),
 			projectVersion: z
 				.string()
 				.optional()
-				.describe("The initial version for the project (e.g., '0.1.0')."),
-			authorName: z.string().optional().describe("The author's name."),
+				.describe(
+					"The initial version for the project (e.g., '0.1.0'). User input not needed unless user requests to override."
+				),
+			authorName: z
+				.string()
+				.optional()
+				.describe(
+					"The author's name. User input not needed unless user requests to override."
+				),
 			skipInstall: z
 				.boolean()
 				.optional()
 				.default(false)
-				.describe('Skip installing dependencies automatically.'),
+				.describe(
+					'Skip installing dependencies automatically. Never do this unless you are sure the project is already installed.'
+				),
 			addAliases: z
 				.boolean()
 				.optional()
 				.default(false)
-				.describe('Add shell aliases (tm, taskmaster) to shell config file.'),
+				.describe(
+					'Add shell aliases (tm, taskmaster) to shell config file. User input not needed.'
+				),
 			yes: z
 				.boolean()
 				.optional()
 				.default(false)
-				.describe('Skip prompts and use default values or provided arguments.')
-			// projectRoot is not needed here as 'init' works on the current directory
+				.describe(
+					"Skip prompts and use default values or provided arguments. Use true if you wish to skip details like the project name, etc. If the project information required for the initialization is not available or provided by the user, prompt if the user wishes to provide them (name, description, author) or skip them. If the user wishes to skip, set the 'yes' flag to true and do not set any other parameters."
+				),
+			projectRoot: z
+				.string()
+				.describe(
+					'The root directory for the project. ALWAYS SET THIS TO THE PROJECT ROOT DIRECTORY. IF NOT SET, THE TOOL WILL NOT WORK.'
+				)
 		}),
-		execute: async (args, { log }) => {
-			// Destructure context to get log
+		execute: async (args, context) => {
+			const { log } = context;
+			const session = context.session;
+
+			log.info(
+				'>>> Full Context Received by Tool:',
+				JSON.stringify(context, null, 2)
+			);
+			log.info(`Context received in tool function: ${context}`);
+			log.info(
+				`Session received in tool function: ${session ? session : 'undefined'}`
+			);
+
 			try {
 				log.info(
-					`Executing initialize_project with args: ${JSON.stringify(args)}`
+					`Executing initialize_project tool with args: ${JSON.stringify(args)}`
 				);
 
-				// Construct the command arguments carefully
-				// Using npx ensures it uses the locally installed version if available, or fetches it
-				let command = 'npx task-master init';
-				const cliArgs = [];
-				if (args.projectName)
-					cliArgs.push(`--name "${args.projectName.replace(/"/g, '\\"')}"`); // Escape quotes
-				if (args.projectDescription)
-					cliArgs.push(
-						`--description "${args.projectDescription.replace(/"/g, '\\"')}"`
-					);
-				if (args.projectVersion)
-					cliArgs.push(
-						`--version "${args.projectVersion.replace(/"/g, '\\"')}"`
-					);
-				if (args.authorName)
-					cliArgs.push(`--author "${args.authorName.replace(/"/g, '\\"')}"`);
-				if (args.skipInstall) cliArgs.push('--skip-install');
-				if (args.addAliases) cliArgs.push('--aliases');
-				if (args.yes) cliArgs.push('--yes');
+				const result = await initializeProjectDirect(args, log, { session });
 
-				command += ' ' + cliArgs.join(' ');
-
-				log.info(`Constructed command: ${command}`);
-
-				// Execute the command in the current working directory of the server process
-				// Capture stdout/stderr. Use a reasonable timeout (e.g., 5 minutes)
-				const output = execSync(command, {
-					encoding: 'utf8',
-					stdio: 'pipe',
-					timeout: 300000
-				});
-
-				log.info(`Initialization output:\n${output}`);
-
-				// Return a standard success response manually
-				return createContentResponse({
-					message: 'Taskmaster successfully initialized for this project.',
-					next_step:
-						'Now that the project is initialized, the next step is to create the tasks by parsing a PRD. This will create the tasks folder and the initial task files. The parse-prd tool will required a prd.txt file as input in scripts/prd.txt. You can create a prd.txt file by asking the user about their idea, and then using the scripts/example_prd.txt file as a template to genrate a prd.txt file in scripts/. Before creating the PRD for the user, make sure you understand the idea fully and ask questions to eliminate ambiguity. You can then use the parse-prd tool to create the tasks. So: step 1 after initialization is to create a prd.txt file in scripts/prd.txt. Step 2 is to use the parse-prd tool to create the tasks. Do not bother looking for tasks after initialization, just use the parse-prd tool to create the tasks after creating a prd.txt from which to parse the tasks. '
-				});
+				return handleApiResult(result, log, 'Initialization failed');
 			} catch (error) {
-				// Catch errors from execSync or timeouts
-				const errorMessage = `Project initialization failed: ${error.message}`;
-				const errorDetails =
-					error.stderr?.toString() || error.stdout?.toString() || error.message; // Provide stderr/stdout if available
-				log.error(`${errorMessage}\nDetails: ${errorDetails}`);
-
-				// Return a standard error response manually
-				return createErrorResponse(errorMessage, { details: errorDetails });
+				const errorMessage = `Project initialization tool failed: ${error.message || 'Unknown error'}`;
+				log.error(errorMessage, error);
+				return createErrorResponse(errorMessage, { details: error.stack });
 			}
 		}
 	});

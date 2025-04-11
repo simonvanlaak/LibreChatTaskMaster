@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env node --trace-deprecation
 
 /**
  * Task Master
@@ -225,47 +225,47 @@ function createDevScriptAction(commandName) {
 	};
 }
 
-// Special case for the 'init' command which uses a different script
-function registerInitCommand(program) {
-	program
-		.command('init')
-		.description('Initialize a new project')
-		.option('-y, --yes', 'Skip prompts and use default values')
-		.option('-n, --name <name>', 'Project name')
-		.option('-d, --description <description>', 'Project description')
-		.option('-v, --version <version>', 'Project version')
-		.option('-a, --author <author>', 'Author name')
-		.option('--skip-install', 'Skip installing dependencies')
-		.option('--dry-run', 'Show what would be done without making changes')
-		.action((options) => {
-			// Pass through any options to the init script
-			const args = [
-				'--yes',
-				'name',
-				'description',
-				'version',
-				'author',
-				'skip-install',
-				'dry-run'
-			]
-				.filter((opt) => options[opt])
-				.map((opt) => {
-					if (opt === 'yes' || opt === 'skip-install' || opt === 'dry-run') {
-						return `--${opt}`;
-					}
-					return `--${opt}=${options[opt]}`;
-				});
+// // Special case for the 'init' command which uses a different script
+// function registerInitCommand(program) {
+// 	program
+// 		.command('init')
+// 		.description('Initialize a new project')
+// 		.option('-y, --yes', 'Skip prompts and use default values')
+// 		.option('-n, --name <name>', 'Project name')
+// 		.option('-d, --description <description>', 'Project description')
+// 		.option('-v, --version <version>', 'Project version')
+// 		.option('-a, --author <author>', 'Author name')
+// 		.option('--skip-install', 'Skip installing dependencies')
+// 		.option('--dry-run', 'Show what would be done without making changes')
+// 		.action((options) => {
+// 			// Pass through any options to the init script
+// 			const args = [
+// 				'--yes',
+// 				'name',
+// 				'description',
+// 				'version',
+// 				'author',
+// 				'skip-install',
+// 				'dry-run'
+// 			]
+// 				.filter((opt) => options[opt])
+// 				.map((opt) => {
+// 					if (opt === 'yes' || opt === 'skip-install' || opt === 'dry-run') {
+// 						return `--${opt}`;
+// 					}
+// 					return `--${opt}=${options[opt]}`;
+// 				});
 
-			const child = spawn('node', [initScriptPath, ...args], {
-				stdio: 'inherit',
-				cwd: process.cwd()
-			});
+// 			const child = spawn('node', [initScriptPath, ...args], {
+// 				stdio: 'inherit',
+// 				cwd: process.cwd()
+// 			});
 
-			child.on('close', (code) => {
-				process.exit(code);
-			});
-		});
-}
+// 			child.on('close', (code) => {
+// 				process.exit(code);
+// 			});
+// 		});
+// }
 
 // Set up the command-line interface
 const program = new Command();
@@ -286,8 +286,8 @@ program.on('--help', () => {
 	displayHelp();
 });
 
-// Add special case commands
-registerInitCommand(program);
+// // Add special case commands
+// registerInitCommand(program);
 
 program
 	.command('dev')
@@ -303,7 +303,7 @@ registerCommands(tempProgram);
 
 // For each command in the temp instance, add a modified version to our actual program
 tempProgram.commands.forEach((cmd) => {
-	if (['init', 'dev'].includes(cmd.name())) {
+	if (['dev'].includes(cmd.name())) {
 		// Skip commands we've already defined specially
 		return;
 	}
