@@ -10,7 +10,13 @@ There are two ways to set up Task Master: using MCP (recommended) or via npm ins
 
 MCP (Model Control Protocol) provides the easiest way to get started with Task Master directly in your editor.
 
-1. **Add the MCP config to your editor** (Cursor recommended, but it works with other text editors):
+1. **Install the package**
+
+```bash
+npm i -g task-master-ai
+```
+
+2. **Add the MCP config to your editor** (Cursor recommended, but it works with other text editors):
 
 ```json
 {
