@@ -587,15 +587,18 @@ Note on dependencies: Subtasks can depend on other subtasks with lower IDs. Use 
 
 		try {
 			// Update loading indicator to show streaming progress
-			let dotCount = 0;
-			const readline = await import('readline');
-			streamingInterval = setInterval(() => {
-				readline.cursorTo(process.stdout, 0);
-				process.stdout.write(
-					`Generating subtasks for task ${task.id}${'.'.repeat(dotCount)}`
-				);
-				dotCount = (dotCount + 1) % 4;
-			}, 500);
+			// Only create interval if not silent and stdout is a TTY
+			if (!isSilentMode() && process.stdout.isTTY) {
+				let dotCount = 0;
+				const readline = await import('readline');
+				streamingInterval = setInterval(() => {
+					readline.cursorTo(process.stdout, 0);
+					process.stdout.write(
+						`Generating subtasks for task ${task.id}${'.'.repeat(dotCount)}`
+					);
+					dotCount = (dotCount + 1) % 4;
+				}, 500);
+			}
 
 			// TODO: MOVE THIS TO THE STREAM REQUEST FUNCTION (DRY)
 
@@ -808,8 +811,8 @@ Note on dependencies: Subtasks can depend on other subtasks with lower IDs. Use 
 
 		try {
 			// Update loading indicator to show streaming progress
-			// Only create if not in silent mode
-			if (!isSilent) {
+			// Only create interval if not silent and stdout is a TTY
+			if (!isSilentMode() && process.stdout.isTTY) {
 				let dotCount = 0;
 				const readline = await import('readline');
 				streamingInterval = setInterval(() => {
@@ -1389,15 +1392,18 @@ Return a JSON object with the following structure:
 
 		try {
 			// Update loading indicator to show streaming progress
-			let dotCount = 0;
-			const readline = await import('readline');
-			streamingInterval = setInterval(() => {
-				readline.cursorTo(process.stdout, 0);
-				process.stdout.write(
-					`Generating research-backed task description${'.'.repeat(dotCount)}`
-				);
-				dotCount = (dotCount + 1) % 4;
-			}, 500);
+			// Only create interval if not silent and stdout is a TTY
+			if (!isSilentMode() && process.stdout.isTTY) {
+				let dotCount = 0;
+				const readline = await import('readline');
+				streamingInterval = setInterval(() => {
+					readline.cursorTo(process.stdout, 0);
+					process.stdout.write(
+						`Generating research-backed task description${'.'.repeat(dotCount)}`
+					);
+					dotCount = (dotCount + 1) % 4;
+				}, 500);
+			}
 
 			// Use streaming API call
 			const stream = await anthropic.messages.create({

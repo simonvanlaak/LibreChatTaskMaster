@@ -142,7 +142,7 @@ export function getClient(model) {
    - Test compatibility with serverless and edge deployments.
 
 # Subtasks:
-## 1. Create Configuration Management Module [pending]
+## 1. Create Configuration Management Module [in-progress]
 ### Dependencies: None
 ### Description: Develop a centralized configuration module to manage AI model settings and preferences, leveraging the Strategy pattern for model selection.
 ### Details:
@@ -186,6 +186,77 @@ The configuration management module should:
 9. Include error handling for file operations and invalid configurations
 ```
 </info added on 2025-04-14T21:54:28.887Z>
+
+<info added on 2025-04-14T22:52:29.551Z>
+```
+The configuration management module should be updated to:
+
+1. Separate model configuration into provider and modelId components:
+   ```javascript
+   // Example config structure
+   {
+     "models": {
+       "main": {
+         "provider": "openai",
+         "modelId": "gpt-3.5-turbo"
+       },
+       "research": {
+         "provider": "openai",
+         "modelId": "gpt-4"
+       }
+     }
+   }
+   ```
+
+2. Define provider constants:
+   ```javascript
+   const VALID_MAIN_PROVIDERS = ['openai', 'anthropic', 'local'];
+   const VALID_RESEARCH_PROVIDERS = ['openai', 'anthropic', 'cohere'];
+   const DEFAULT_MAIN_PROVIDER = 'openai';
+   const DEFAULT_RESEARCH_PROVIDER = 'openai';
+   ```
+
+3. Implement optional MODEL_MAP for validation:
+   ```javascript
+   const MODEL_MAP = {
+     'openai': ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo'],
+     'anthropic': ['claude-2', 'claude-instant'],
+     'cohere': ['command', 'command-light'],
+     'local': ['llama2', 'mistral']
+   };
+   ```
+
+4. Update getter functions to handle provider/modelId separation:
+   ```javascript
+   function getMainProvider() { /* return provider with fallbacks */ }
+   function getMainModelId() { /* return modelId with fallbacks */ }
+   function getResearchProvider() { /* return provider with fallbacks */ }
+   function getResearchModelId() { /* return modelId with fallbacks */ }
+   ```
+
+5. Update setter functions to validate both provider and modelId:
+   ```javascript
+   function setMainModel(provider, modelId) {
+     // Validate provider is in VALID_MAIN_PROVIDERS
+     // Optionally validate modelId is valid for provider using MODEL_MAP
+     // Update config file with new values
+   }
+   ```
+
+6. Add utility functions for provider-specific validation:
+   ```javascript
+   function isValidProviderModelCombination(provider, modelId) {
+     return MODEL_MAP[provider]?.includes(modelId) || false;
+   }
+   ```
+
+7. Extend unit tests to cover provider/modelId separation, including:
+   - Testing provider validation
+   - Testing provider-modelId combination validation
+   - Verifying getters return correct provider and modelId values
+   - Confirming setters properly validate and store both components
+```
+</info added on 2025-04-14T22:52:29.551Z>
 
 ## 2. Implement CLI Command Parser for Model Management [pending]
 ### Dependencies: 61.1
