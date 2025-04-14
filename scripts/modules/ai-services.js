@@ -710,11 +710,23 @@ Include concrete code examples and technical considerations where relevant.`;
 			model: PERPLEXITY_MODEL,
 			messages: [
 				{
+					role: 'system',
+					content: `You are a helpful assistant that provides research on current best practices and implementation approaches for software development.
+					You are given a task and a description of the task.
+					You need to provide a list of best practices, libraries, design patterns, and implementation approaches that are relevant to the task.
+					You should provide concrete code examples and technical considerations where relevant.`
+				},
+				{
 					role: 'user',
 					content: researchQuery
 				}
 			],
-			temperature: 0.1 // Lower temperature for more factual responses
+			temperature: 0.1, // Lower temperature for more factual responses
+			max_tokens: 8700, // Respect maximum input tokens for Perplexity (8719 max)
+			web_search_options: {
+				search_context_size: 'high'
+			},
+			search_recency_filter: 'day' // Filter for results that are as recent as today to capture new releases
 		});
 
 		const researchResult = researchResponse.choices[0].message.content;
@@ -814,7 +826,7 @@ Note on dependencies: Subtasks can depend on other subtasks with lower IDs. Use 
 				anthropic,
 				{
 					model: session?.env?.ANTHROPIC_MODEL || CONFIG.model,
-					max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
+					max_tokens: 8700,
 					temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
 					system: systemPrompt,
 					messages: [{ role: 'user', content: userPrompt }]
@@ -1328,7 +1340,12 @@ Include concrete code examples and technical considerations where relevant.`;
 					content: researchQuery
 				}
 			],
-			temperature: 0.1 // Lower temperature for more factual responses
+			temperature: 0.1, // Lower temperature for more factual responses
+			max_tokens: 8700, // Respect maximum input tokens for Perplexity (8719 max)
+			web_search_options: {
+				search_context_size: 'high'
+			},
+			search_recency_filter: 'day' // Filter for results that are as recent as today to capture new releases
 		});
 
 		const researchResult = researchResponse.choices[0].message.content;

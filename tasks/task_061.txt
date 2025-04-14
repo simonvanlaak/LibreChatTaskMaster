@@ -1,0 +1,142 @@
+# Task ID: 61
+# Title: Implement Flexible AI Model Management
+# Status: pending
+# Dependencies: None
+# Priority: high
+# Description: Currently, Task Master only supports Claude for main operations and Perplexity for research. Users are limited in flexibility when managing AI models. Adding comprehensive support for multiple popular AI models (OpenAI, Ollama, Gemini, OpenRouter, Grok) and providing intuitive CLI commands for model management will significantly enhance usability, transparency, and adaptability to user preferences and project-specific needs. This task will now leverage Vercel's AI SDK to streamline integration and management of these models.
+# Details:
+### Proposed Solution
+Implement an intuitive CLI command for AI model management, leveraging Vercel's AI SDK for seamless integration:
+
+- `task-master models`: Lists currently configured models for main operations and research.
+- `task-master models --set-main="<model_name>" --set-research="<model_name>"`: Sets the desired models for main operations and research tasks respectively.
+
+Supported AI Models:
+- **Main Operations:** Claude (current default), OpenAI, Ollama, Gemini, OpenRouter
+- **Research Operations:** Perplexity (current default), OpenAI, Ollama, Grok
+
+If a user specifies an invalid model, the CLI lists available models clearly.
+
+### Example CLI Usage
+
+List current models:
+```shell
+task-master models
+```
+Output example:
+```
+Current AI Model Configuration:
+- Main Operations: Claude
+- Research Operations: Perplexity
+```
+
+Set new models:
+```shell
+task-master models --set-main="gemini" --set-research="grok"
+```
+
+Attempt invalid model:
+```shell
+task-master models --set-main="invalidModel"
+```
+Output example:
+```
+Error: "invalidModel" is not a valid model.
+
+Available models for Main Operations:
+- claude
+- openai
+- ollama
+- gemini
+- openrouter
+```
+
+### High-Level Workflow
+1. Update CLI parsing logic to handle new `models` command and associated flags.
+2. Consolidate all AI calls into `ai-services.js` for centralized management.
+3. Utilize Vercel's AI SDK to implement robust wrapper functions for each AI API:
+   - Claude (existing)
+   - Perplexity (existing)
+   - OpenAI
+   - Ollama
+   - Gemini
+   - OpenRouter
+   - Grok
+4. Update environment variables and provide clear documentation in `.env_example`:
+```env
+# MAIN_MODEL options: claude, openai, ollama, gemini, openrouter
+MAIN_MODEL=claude
+
+# RESEARCH_MODEL options: perplexity, openai, ollama, grok
+RESEARCH_MODEL=perplexity
+```
+5. Ensure dynamic model switching via environment variables or configuration management.
+6. Provide clear CLI feedback and validation of model names.
+
+### Vercel AI SDK Integration
+- Use Vercel's AI SDK to abstract API calls for supported models, ensuring consistent error handling and response formatting.
+- Implement a configuration layer to map model names to their respective Vercel SDK integrations.
+- Example pattern for integration:
+```javascript
+import { createClient } from '@vercel/ai';
+
+const clients = {
+  claude: createClient({ provider: 'anthropic', apiKey: process.env.ANTHROPIC_API_KEY }),
+  openai: createClient({ provider: 'openai', apiKey: process.env.OPENAI_API_KEY }),
+  ollama: createClient({ provider: 'ollama', apiKey: process.env.OLLAMA_API_KEY }),
+  gemini: createClient({ provider: 'gemini', apiKey: process.env.GEMINI_API_KEY }),
+  openrouter: createClient({ provider: 'openrouter', apiKey: process.env.OPENROUTER_API_KEY }),
+  perplexity: createClient({ provider: 'perplexity', apiKey: process.env.PERPLEXITY_API_KEY }),
+  grok: createClient({ provider: 'grok', apiKey: process.env.GROK_API_KEY })
+};
+
+export function getClient(model) {
+  if (!clients[model]) {
+    throw new Error(`Invalid model: ${model}`);
+  }
+  return clients[model];
+}
+```
+- Leverage `generateText` and `streamText` functions from the SDK for text generation and streaming capabilities.
+- Ensure compatibility with serverless and edge deployments using Vercel's infrastructure.
+
+### Key Elements
+- Enhanced model visibility and intuitive management commands.
+- Centralized and robust handling of AI API integrations via Vercel AI SDK.
+- Clear CLI responses with detailed validation feedback.
+- Flexible, easy-to-understand environment configuration.
+
+### Implementation Considerations
+- Centralize all AI interactions through a single, maintainable module (`ai-services.js`).
+- Ensure comprehensive error handling for invalid model selections.
+- Clearly document environment variable options and their purposes.
+- Validate model names rigorously to prevent runtime errors.
+
+### Out of Scope (Future Considerations)
+- Automatic benchmarking or model performance comparison.
+- Dynamic runtime switching of models based on task type or complexity.
+
+# Test Strategy:
+### Test Strategy
+1. **Unit Tests**:
+   - Test CLI commands for listing, setting, and validating models.
+   - Mock Vercel AI SDK calls to ensure proper integration and error handling.
+
+2. **Integration Tests**:
+   - Validate end-to-end functionality of model management commands.
+   - Test dynamic switching of models via environment variables.
+
+3. **Error Handling Tests**:
+   - Simulate invalid model names and verify error messages.
+   - Test API failures for each model provider and ensure graceful degradation.
+
+4. **Documentation Validation**:
+   - Verify that `.env_example` and CLI usage examples are accurate and comprehensive.
+
+5. **Performance Tests**:
+   - Measure response times for API calls through Vercel AI SDK.
+   - Ensure no significant latency is introduced by model switching.
+
+6. **SDK-Specific Tests**:
+   - Validate the behavior of `generateText` and `streamText` functions for supported models.
+   - Test compatibility with serverless and edge deployments.

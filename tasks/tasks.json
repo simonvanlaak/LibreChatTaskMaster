@@ -1339,7 +1339,7 @@
       "id": 23,
       "title": "Complete MCP Server Implementation for Task Master using FastMCP",
       "description": "Finalize the MCP server functionality for Task Master by leveraging FastMCP's capabilities, transitioning from CLI-based execution to direct function imports, and optimizing performance, authentication, and context management. Ensure the server integrates seamlessly with Cursor via `mcp.json` and supports proper tool registration, efficient context handling, and transport type handling (focusing on stdio). Additionally, ensure the server can be instantiated properly when installed via `npx` or `npm i -g`. Evaluate and address gaps in the current implementation, including function imports, context management, caching, tool registration, and adherence to FastMCP best practices.",
-      "status": "in-progress",
+      "status": "done",
       "dependencies": [
         22
       ],
@@ -1389,7 +1389,7 @@
             3
           ],
           "details": "Implementation steps:\n1. Replace manual tool registration with ModelContextProtocol SDK methods.\n2. Use SDK utilities to simplify resource and template management.\n3. Ensure compatibility with FastMCP's transport mechanisms.\n4. Update server initialization to include SDK-based configurations.\n\nTesting approach:\n- Verify SDK integration with all MCP endpoints.\n- Test resource and template registration using SDK methods.\n- Validate compatibility with existing MCP clients.\n- Benchmark performance improvements from SDK integration.\n\n<info added on 2025-03-31T18:49:14.439Z>\nThe subtask is being cancelled because FastMCP already serves as a higher-level abstraction over the Model Context Protocol SDK. Direct integration with the MCP SDK would be redundant and potentially counterproductive since:\n\n1. FastMCP already encapsulates the necessary SDK functionality for tool registration and resource handling\n2. The existing FastMCP abstractions provide a more streamlined developer experience\n3. Adding another layer of SDK integration would increase complexity without clear benefits\n4. The transport mechanisms in FastMCP are already optimized for the current architecture\n\nInstead, we should focus on extending and enhancing the existing FastMCP abstractions where needed, rather than attempting to bypass them with direct SDK integration.\n</info added on 2025-03-31T18:49:14.439Z>",
-          "status": "cancelled",
+          "status": "done",
           "parentTaskId": 23
         },
         {
@@ -1423,7 +1423,7 @@
             "23.8"
           ],
           "details": "1. Update registerTaskMasterTools function to use FastMCP's decorator pattern\n2. Implement @mcp.tool() decorators for all existing tools\n3. Add proper type annotations and documentation for all tools\n4. Create resource handlers for task templates using @mcp.resource()\n5. Implement resource templates for common task patterns\n6. Update the server initialization to properly register all tools and resources\n7. Add validation for tool inputs using FastMCP's built-in validation\n8. Create comprehensive tests for tool registration and resource access\n\n<info added on 2025-03-31T18:35:21.513Z>\nHere is additional information to enhance the subtask regarding resources and resource templates in FastMCP:\n\nResources in FastMCP are used to expose static or dynamic data to LLM clients. For the Task Master MCP server, we should implement resources to provide:\n\n1. Task templates: Predefined task structures that can be used as starting points\n2. Workflow definitions: Reusable workflow patterns for common task sequences\n3. User preferences: Stored user settings for task management\n4. Project metadata: Information about active projects and their attributes\n\nResource implementation should follow this structure:\n\n```python\n@mcp.resource(\"tasks://templates/{template_id}\")\ndef get_task_template(template_id: str) -> dict:\n    # Fetch and return the specified task template\n    ...\n\n@mcp.resource(\"workflows://definitions/{workflow_id}\")\ndef get_workflow_definition(workflow_id: str) -> dict:\n    # Fetch and return the specified workflow definition\n    ...\n\n@mcp.resource(\"users://{user_id}/preferences\")\ndef get_user_preferences(user_id: str) -> dict:\n    # Fetch and return user preferences\n    ...\n\n@mcp.resource(\"projects://metadata\")\ndef get_project_metadata() -> List[dict]:\n    # Fetch and return metadata for all active projects\n    ...\n```\n\nResource templates in FastMCP allow for dynamic generation of resources based on patterns. For Task Master, we can implement:\n\n1. Dynamic task creation templates\n2. Customizable workflow templates\n3. User-specific resource views\n\nExample implementation:\n\n```python\n@mcp.resource(\"tasks://create/{task_type}\")\ndef get_task_creation_template(task_type: str) -> dict:\n    # Generate and return a task creation template based on task_type\n    ...\n\n@mcp.resource(\"workflows://custom/{user_id}/{workflow_name}\")\ndef get_custom_workflow_template(user_id: str, workflow_name: str) -> dict:\n    # Generate and return a custom workflow template for the user\n    ...\n\n@mcp.resource(\"users://{user_id}/dashboard\")\ndef get_user_dashboard(user_id: str) -> dict:\n    # Generate and return a personalized dashboard view for the user\n    ...\n```\n\nBest practices for integrating resources with Task Master functionality:\n\n1. Use resources to provide context and data for tools\n2. Implement caching for frequently accessed resources\n3. Ensure proper error handling and not-found cases for all resources\n4. Use resource templates to generate dynamic, personalized views of data\n5. Implement access control to ensure users only access authorized resources\n\nBy properly implementing these resources and resource templates, we can provide rich, contextual data to LLM clients, enhancing the Task Master's capabilities and user experience.\n</info added on 2025-03-31T18:35:21.513Z>",
-          "status": "deferred",
+          "status": "done",
           "parentTaskId": 23
         },
         {
@@ -1431,7 +1431,7 @@
           "title": "Implement Comprehensive Error Handling",
           "description": "Implement robust error handling using FastMCP's MCPError, including custom error types for different categories and standardized error responses.",
           "details": "1. Create custom error types extending MCPError for different categories (validation, auth, etc.)\\n2. Implement standardized error responses following MCP protocol\\n3. Add error handling middleware for all MCP endpoints\\n4. Ensure proper error propagation from tools to client\\n5. Add debug mode with detailed error information\\n6. Document error types and handling patterns",
-          "status": "deferred",
+          "status": "done",
           "dependencies": [
             "23.1",
             "23.3"
@@ -1455,7 +1455,7 @@
           "title": "Create Testing Framework and Test Suite",
           "description": "Implement a comprehensive testing framework for the MCP server, including unit tests, integration tests, and end-to-end tests.",
           "details": "1. Set up Jest testing framework with proper configuration\\n2. Create MCPTestClient for testing FastMCP server interaction\\n3. Implement unit tests for individual tool functions\\n4. Create integration tests for end-to-end request/response cycles\\n5. Set up test fixtures and mock data\\n6. Implement test coverage reporting\\n7. Document testing guidelines and examples",
-          "status": "deferred",
+          "status": "done",
           "dependencies": [
             "23.1",
             "23.3"
@@ -1479,7 +1479,7 @@
           "title": "Implement SSE Support for Real-time Updates",
           "description": "Add Server-Sent Events (SSE) capabilities to the MCP server to enable real-time updates and streaming of task execution progress, logs, and status changes to clients",
           "details": "1. Research and implement SSE protocol for the MCP server\\n2. Create dedicated SSE endpoints for event streaming\\n3. Implement event emitter pattern for internal event management\\n4. Add support for different event types (task status, logs, errors)\\n5. Implement client connection management with proper keep-alive handling\\n6. Add filtering capabilities to allow subscribing to specific event types\\n7. Create in-memory event buffer for clients reconnecting\\n8. Document SSE endpoint usage and client implementation examples\\n9. Add robust error handling for dropped connections\\n10. Implement rate limiting and backpressure mechanisms\\n11. Add authentication for SSE connections",
-          "status": "deferred",
+          "status": "done",
           "dependencies": [
             "23.1",
             "23.3",
@@ -1656,7 +1656,7 @@
           "title": "Review functionality of all MCP direct functions",
           "description": "Verify that all implemented MCP direct functions work correctly with edge cases",
           "details": "Perform comprehensive testing of all MCP direct function implementations to ensure they handle various input scenarios correctly and return appropriate responses. Check edge cases, error handling, and parameter validation.",
-          "status": "in-progress",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 23
         },
@@ -1759,7 +1759,7 @@
           "title": "Implement init MCP command",
           "description": "Create MCP tool implementation for the init command",
           "details": "",
-          "status": "deferred",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 23
         },
@@ -1768,7 +1768,7 @@
           "title": "Support setting env variables through mcp server",
           "description": "currently we need to access the env variables through the env file present in the project (that we either create or find and append to). we could abstract this by allowing users to define the env vars in the mcp.json directly as folks currently do. mcp.json should then be in gitignore if thats the case. but for this i think in fastmcp all we need is to access ENV in a specific way. we need to find that way and then implement it",
           "details": "\n\n<info added on 2025-04-01T01:57:24.160Z>\nTo access environment variables defined in the mcp.json config file when using FastMCP, you can utilize the `Config` class from the `fastmcp` module. Here's how to implement this:\n\n1. Import the necessary module:\n```python\nfrom fastmcp import Config\n```\n\n2. Access environment variables:\n```python\nconfig = Config()\nenv_var = config.env.get(\"VARIABLE_NAME\")\n```\n\nThis approach allows you to retrieve environment variables defined in the mcp.json file directly in your code. The `Config` class automatically loads the configuration, including environment variables, from the mcp.json file.\n\nFor security, ensure that sensitive information in mcp.json is not committed to version control. You can add mcp.json to your .gitignore file to prevent accidental commits.\n\nIf you need to access multiple environment variables, you can do so like this:\n```python\ndb_url = config.env.get(\"DATABASE_URL\")\napi_key = config.env.get(\"API_KEY\")\ndebug_mode = config.env.get(\"DEBUG_MODE\", False)  # With a default value\n```\n\nThis method provides a clean and consistent way to access environment variables defined in the mcp.json configuration file within your FastMCP project.\n</info added on 2025-04-01T01:57:24.160Z>\n\n<info added on 2025-04-01T01:57:49.848Z>\nTo access environment variables defined in the mcp.json config file when using FastMCP in a JavaScript environment, you can use the `fastmcp` npm package. Here's how to implement this:\n\n1. Install the `fastmcp` package:\n```bash\nnpm install fastmcp\n```\n\n2. Import the necessary module:\n```javascript\nconst { Config } = require('fastmcp');\n```\n\n3. Access environment variables:\n```javascript\nconst config = new Config();\nconst envVar = config.env.get('VARIABLE_NAME');\n```\n\nThis approach allows you to retrieve environment variables defined in the mcp.json file directly in your JavaScript code. The `Config` class automatically loads the configuration, including environment variables, from the mcp.json file.\n\nYou can access multiple environment variables like this:\n```javascript\nconst dbUrl = config.env.get('DATABASE_URL');\nconst apiKey = config.env.get('API_KEY');\nconst debugMode = config.env.get('DEBUG_MODE', false); // With a default value\n```\n\nThis method provides a consistent way to access environment variables defined in the mcp.json configuration file within your FastMCP project in a JavaScript environment.\n</info added on 2025-04-01T01:57:49.848Z>",
-          "status": "pending",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 23
         },
@@ -2736,6 +2736,16 @@
       "status": "pending",
       "dependencies": [],
       "priority": "medium"
+    },
+    {
+      "id": 61,
+      "title": "Implement Flexible AI Model Management",
+      "description": "Currently, Task Master only supports Claude for main operations and Perplexity for research. Users are limited in flexibility when managing AI models. Adding comprehensive support for multiple popular AI models (OpenAI, Ollama, Gemini, OpenRouter, Grok) and providing intuitive CLI commands for model management will significantly enhance usability, transparency, and adaptability to user preferences and project-specific needs. This task will now leverage Vercel's AI SDK to streamline integration and management of these models.",
+      "details": "### Proposed Solution\nImplement an intuitive CLI command for AI model management, leveraging Vercel's AI SDK for seamless integration:\n\n- `task-master models`: Lists currently configured models for main operations and research.\n- `task-master models --set-main=\"<model_name>\" --set-research=\"<model_name>\"`: Sets the desired models for main operations and research tasks respectively.\n\nSupported AI Models:\n- **Main Operations:** Claude (current default), OpenAI, Ollama, Gemini, OpenRouter\n- **Research Operations:** Perplexity (current default), OpenAI, Ollama, Grok\n\nIf a user specifies an invalid model, the CLI lists available models clearly.\n\n### Example CLI Usage\n\nList current models:\n```shell\ntask-master models\n```\nOutput example:\n```\nCurrent AI Model Configuration:\n- Main Operations: Claude\n- Research Operations: Perplexity\n```\n\nSet new models:\n```shell\ntask-master models --set-main=\"gemini\" --set-research=\"grok\"\n```\n\nAttempt invalid model:\n```shell\ntask-master models --set-main=\"invalidModel\"\n```\nOutput example:\n```\nError: \"invalidModel\" is not a valid model.\n\nAvailable models for Main Operations:\n- claude\n- openai\n- ollama\n- gemini\n- openrouter\n```\n\n### High-Level Workflow\n1. Update CLI parsing logic to handle new `models` command and associated flags.\n2. Consolidate all AI calls into `ai-services.js` for centralized management.\n3. Utilize Vercel's AI SDK to implement robust wrapper functions for each AI API:\n   - Claude (existing)\n   - Perplexity (existing)\n   - OpenAI\n   - Ollama\n   - Gemini\n   - OpenRouter\n   - Grok\n4. Update environment variables and provide clear documentation in `.env_example`:\n```env\n# MAIN_MODEL options: claude, openai, ollama, gemini, openrouter\nMAIN_MODEL=claude\n\n# RESEARCH_MODEL options: perplexity, openai, ollama, grok\nRESEARCH_MODEL=perplexity\n```\n5. Ensure dynamic model switching via environment variables or configuration management.\n6. Provide clear CLI feedback and validation of model names.\n\n### Vercel AI SDK Integration\n- Use Vercel's AI SDK to abstract API calls for supported models, ensuring consistent error handling and response formatting.\n- Implement a configuration layer to map model names to their respective Vercel SDK integrations.\n- Example pattern for integration:\n```javascript\nimport { createClient } from '@vercel/ai';\n\nconst clients = {\n  claude: createClient({ provider: 'anthropic', apiKey: process.env.ANTHROPIC_API_KEY }),\n  openai: createClient({ provider: 'openai', apiKey: process.env.OPENAI_API_KEY }),\n  ollama: createClient({ provider: 'ollama', apiKey: process.env.OLLAMA_API_KEY }),\n  gemini: createClient({ provider: 'gemini', apiKey: process.env.GEMINI_API_KEY }),\n  openrouter: createClient({ provider: 'openrouter', apiKey: process.env.OPENROUTER_API_KEY }),\n  perplexity: createClient({ provider: 'perplexity', apiKey: process.env.PERPLEXITY_API_KEY }),\n  grok: createClient({ provider: 'grok', apiKey: process.env.GROK_API_KEY })\n};\n\nexport function getClient(model) {\n  if (!clients[model]) {\n    throw new Error(`Invalid model: ${model}`);\n  }\n  return clients[model];\n}\n```\n- Leverage `generateText` and `streamText` functions from the SDK for text generation and streaming capabilities.\n- Ensure compatibility with serverless and edge deployments using Vercel's infrastructure.\n\n### Key Elements\n- Enhanced model visibility and intuitive management commands.\n- Centralized and robust handling of AI API integrations via Vercel AI SDK.\n- Clear CLI responses with detailed validation feedback.\n- Flexible, easy-to-understand environment configuration.\n\n### Implementation Considerations\n- Centralize all AI interactions through a single, maintainable module (`ai-services.js`).\n- Ensure comprehensive error handling for invalid model selections.\n- Clearly document environment variable options and their purposes.\n- Validate model names rigorously to prevent runtime errors.\n\n### Out of Scope (Future Considerations)\n- Automatic benchmarking or model performance comparison.\n- Dynamic runtime switching of models based on task type or complexity.",
+      "testStrategy": "### Test Strategy\n1. **Unit Tests**:\n   - Test CLI commands for listing, setting, and validating models.\n   - Mock Vercel AI SDK calls to ensure proper integration and error handling.\n\n2. **Integration Tests**:\n   - Validate end-to-end functionality of model management commands.\n   - Test dynamic switching of models via environment variables.\n\n3. **Error Handling Tests**:\n   - Simulate invalid model names and verify error messages.\n   - Test API failures for each model provider and ensure graceful degradation.\n\n4. **Documentation Validation**:\n   - Verify that `.env_example` and CLI usage examples are accurate and comprehensive.\n\n5. **Performance Tests**:\n   - Measure response times for API calls through Vercel AI SDK.\n   - Ensure no significant latency is introduced by model switching.\n\n6. **SDK-Specific Tests**:\n   - Validate the behavior of `generateText` and `streamText` functions for supported models.\n   - Test compatibility with serverless and edge deployments.",
+      "status": "pending",
+      "dependencies": [],
+      "priority": "high"
     }
   ]
 }

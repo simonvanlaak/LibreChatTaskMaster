@@ -131,7 +131,7 @@ This document provides a detailed reference for interacting with Taskmaster, cov
     *   `prompt`: `Required. Explain the change or new context for Taskmaster to apply to the tasks (e.g., "We are now using React Query instead of Redux Toolkit for data fetching").` (CLI: `-p, --prompt <text>`)
     *   `research`: `Enable Taskmaster to use Perplexity AI for more informed updates based on external knowledge (requires PERPLEXITY_API_KEY).` (CLI: `-r, --research`)
     *   `file`: `Path to your Taskmaster 'tasks.json' file (default relies on auto-detection).` (CLI: `-f, --file <file>`)
-*   **Usage:** Handle significant implementation changes or pivots that affect multiple future tasks. Example CLI: `task-master update --from='18' --prompt='Switching to React Query.\nNeed to refactor data fetching...'`
+*   **Usage:** Handle significant implementation changes or pivots that affect multiple future tasks. Example CLI: `task-master update --from='18' --prompt=$'Switching to React Query.\nNeed to refactor data fetching...'`
 *   **Important:** This MCP tool makes AI calls and can take up to a minute to complete. Please inform users to hang tight while the operation is in progress.
 
 ### 9. Update Task (`update_task`)
@@ -144,7 +144,7 @@ This document provides a detailed reference for interacting with Taskmaster, cov
     *   `prompt`: `Required. Explain the specific changes or provide the new information Taskmaster should incorporate into this task.` (CLI: `-p, --prompt <text>`)
     *   `research`: `Enable Taskmaster to use Perplexity AI for more informed updates (requires PERPLEXITY_API_KEY).` (CLI: `-r, --research`)
     *   `file`: `Path to your Taskmaster 'tasks.json' file (default relies on auto-detection).` (CLI: `-f, --file <file>`)
-*   **Usage:** Refine a specific task based on new understanding or feedback. Example CLI: `task-master update-task --id='15' --prompt='Clarification: Use PostgreSQL instead of MySQL.\nUpdate schema details...'`
+*   **Usage:** Refine a specific task based on new understanding or feedback. Example CLI: `task-master update-task --id='15' --prompt=$'Clarification: Use PostgreSQL instead of MySQL.\nUpdate schema details...'`
 *   **Important:** This MCP tool makes AI calls and can take up to a minute to complete. Please inform users to hang tight while the operation is in progress.
 
 ### 10. Update Subtask (`update_subtask`)
@@ -157,7 +157,7 @@ This document provides a detailed reference for interacting with Taskmaster, cov
     *   `prompt`: `Required. Provide the information or notes Taskmaster should append to the subtask's details. Ensure this adds *new* information not already present.` (CLI: `-p, --prompt <text>`)
     *   `research`: `Enable Taskmaster to use Perplexity AI for more informed updates (requires PERPLEXITY_API_KEY).` (CLI: `-r, --research`)
     *   `file`: `Path to your Taskmaster 'tasks.json' file (default relies on auto-detection).` (CLI: `-f, --file <file>`)
-*   **Usage:** Add implementation notes, code snippets, or clarifications to a subtask during development. Before calling, review the subtask's current details to append only fresh insights, helping to build a detailed log of the implementation journey and avoid redundancy. Example CLI: `task-master update-subtask --id='15.2' --prompt='Discovered that the API requires header X.\nImplementation needs adjustment...'`
+*   **Usage:** Add implementation notes, code snippets, or clarifications to a subtask during development. Before calling, review the subtask's current details to append only fresh insights, helping to build a detailed log of the implementation journey and avoid redundancy. Example CLI: `task-master update-subtask --id='15.2' --prompt=$'Discovered that the API requires header X.\nImplementation needs adjustment...'`
 *   **Important:** This MCP tool makes AI calls and can take up to a minute to complete. Please inform users to hang tight while the operation is in progress.
 
 ### 11. Set Task Status (`set_task_status`)
