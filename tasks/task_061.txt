@@ -284,6 +284,124 @@ The configuration management module should be updated to:
 7. Implement client validation to ensure proper initialization
 8. Testing approach: Mock API responses to test client creation and error handling
 
+<info added on 2025-04-14T23:02:30.519Z>
+Here's additional information for the client factory implementation:
+
+For the client factory implementation:
+
+1. Structure the factory with a modular approach:
+```javascript
+// ai-client-factory.js
+import { createOpenAI } from '@ai-sdk/openai';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createGoogle } from '@ai-sdk/google';
+import { createPerplexity } from '@ai-sdk/perplexity';
+
+const clientCache = new Map();
+
+export function createClientInstance(providerName, options = {}) {
+  // Implementation details below
+}
+```
+
+2. For OpenAI-compatible providers (Ollama), implement specific configuration:
+```javascript
+case 'ollama':
+  const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+  return createOpenAI({
+    baseURL: ollamaBaseUrl,
+    apiKey: 'ollama', // Ollama doesn't require a real API key
+    ...options
+  });
+```
+
+3. Add provider-specific model mapping:
+```javascript
+// Model mapping helper
+const getModelForProvider = (provider, requestedModel) => {
+  const modelMappings = {
+    openai: {
+      default: 'gpt-3.5-turbo',
+      // Add other mappings
+    },
+    anthropic: {
+      default: 'claude-3-opus-20240229',
+      // Add other mappings
+    },
+    // Add mappings for other providers
+  };
+  
+  return (modelMappings[provider] && modelMappings[provider][requestedModel]) 
+    || modelMappings[provider]?.default 
+    || requestedModel;
+};
+```
+
+4. Implement caching with provider+model as key:
+```javascript
+export function getClient(providerName, model) {
+  const cacheKey = `${providerName}:${model || 'default'}`;
+  
+  if (clientCache.has(cacheKey)) {
+    return clientCache.get(cacheKey);
+  }
+  
+  const modelName = getModelForProvider(providerName, model);
+  const client = createClientInstance(providerName, { model: modelName });
+  clientCache.set(cacheKey, client);
+  
+  return client;
+}
+```
+
+5. Add detailed environment variable validation:
+```javascript
+function validateEnvironment(provider) {
+  const requirements = {
+    openai: ['OPENAI_API_KEY'],
+    anthropic: ['ANTHROPIC_API_KEY'],
+    google: ['GOOGLE_API_KEY'],
+    perplexity: ['PERPLEXITY_API_KEY'],
+    openrouter: ['OPENROUTER_API_KEY'],
+    ollama: ['OLLAMA_BASE_URL'],
+    grok: ['GROK_API_KEY', 'GROK_BASE_URL']
+  };
+  
+  const missing = requirements[provider]?.filter(env => !process.env[env]) || [];
+  
+  if (missing.length > 0) {
+    throw new Error(`Missing environment variables for ${provider}: ${missing.join(', ')}`);
+  }
+}
+```
+
+6. Add Jest test examples:
+```javascript
+// ai-client-factory.test.js
+describe('AI Client Factory', () => {
+  beforeEach(() => {
+    // Mock environment variables
+    process.env.OPENAI_API_KEY = 'test-openai-key';
+    process.env.ANTHROPIC_API_KEY = 'test-anthropic-key';
+    // Add other mocks
+  });
+  
+  test('creates OpenAI client with correct configuration', () => {
+    const client = getClient('openai');
+    expect(client).toBeDefined();
+    // Add assertions for client configuration
+  });
+  
+  test('throws error when environment variables are missing', () => {
+    delete process.env.OPENAI_API_KEY;
+    expect(() => getClient('openai')).toThrow(/Missing environment variables/);
+  });
+  
+  // Add tests for other providers
+});
+```
+</info added on 2025-04-14T23:02:30.519Z>
+
 ## 4. Develop Centralized AI Services Module [pending]
 ### Dependencies: 61.3
 ### Description: Create a centralized AI services module that abstracts all AI interactions through a unified interface, using the Decorator pattern for adding functionality like logging and retries.
