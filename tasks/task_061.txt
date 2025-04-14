@@ -155,6 +155,38 @@ export function getClient(model) {
 7. Include default fallback models
 8. Testing approach: Write unit tests to verify config reading/writing and model validation logic
 
+<info added on 2025-04-14T21:54:28.887Z>
+Here's the additional information to add:
+
+```
+The configuration management module should:
+
+1. Use a `.taskmasterconfig` JSON file in the project root directory to store model settings
+2. Structure the config file with two main keys: `main` and `research` for respective model selections
+3. Implement functions to locate the project root directory (using package.json as reference)
+4. Define constants for valid models:
+   ```javascript
+   const VALID_MAIN_MODELS = ['gpt-4', 'gpt-3.5-turbo', 'gpt-4-turbo'];
+   const VALID_RESEARCH_MODELS = ['gpt-4', 'gpt-4-turbo', 'claude-2'];
+   const DEFAULT_MAIN_MODEL = 'gpt-3.5-turbo';
+   const DEFAULT_RESEARCH_MODEL = 'gpt-4';
+   ```
+5. Implement model getters with priority order:
+   - First check `.taskmasterconfig` file
+   - Fall back to environment variables if config file missing/invalid
+   - Use defaults as last resort
+6. Implement model setters that validate input against valid model lists before updating config
+7. Keep API key management in `ai-services.js` using environment variables (don't store keys in config file)
+8. Add helper functions for config file operations:
+   ```javascript
+   function getConfigPath() { /* locate .taskmasterconfig */ }
+   function readConfig() { /* read and parse config file */ }
+   function writeConfig(config) { /* stringify and write config */ }
+   ```
+9. Include error handling for file operations and invalid configurations
+```
+</info added on 2025-04-14T21:54:28.887Z>
+
 ## 2. Implement CLI Command Parser for Model Management [pending]
 ### Dependencies: 61.1
 ### Description: Extend the CLI command parser to handle the new 'models' command and associated flags for model management.

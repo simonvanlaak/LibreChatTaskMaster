@@ -1038,8 +1038,8 @@ async function _handleAnthropicStream(
 	const isSilent =
 		silentMode || (typeof silentMode === 'undefined' && isSilentMode());
 
-	// Only show CLI indicators if in cliMode AND not in silent mode
-	const showCLIOutput = cliMode && !isSilent;
+	// Only show CLI indicators if in cliMode AND not in silent mode AND stdout is a TTY
+	const showCLIOutput = cliMode && !isSilent && process.stdout.isTTY;
 
 	if (showCLIOutput) {
 		loadingIndicator = startLoadingIndicator(
