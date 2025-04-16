@@ -2764,7 +2764,7 @@
             1
           ],
           "details": "1. Update the CLI command parser to recognize the 'models' command\n2. Add support for '--set-main' and '--set-research' flags\n3. Implement validation for command arguments\n4. Create help text and usage examples for the models command\n5. Add error handling for invalid command usage\n6. Connect CLI parser to the configuration manager\n7. Implement command output formatting for model listings\n8. Testing approach: Create integration tests that verify CLI commands correctly interact with the configuration manager",
-          "status": "pending",
+          "status": "done",
           "parentTaskId": 61
         },
         {
