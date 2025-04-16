@@ -59,7 +59,8 @@ const DEFAULT_CONFIG = {
 const VALID_CUSTOM_CONFIG = {
 	models: {
 		main: { provider: 'openai', modelId: 'gpt-4o' },
-		research: { provider: 'google', modelId: 'gemini-1.5-pro-latest' }
+		research: { provider: 'google', modelId: 'gemini-1.5-pro-latest' },
+		fallback: { provider: undefined, modelId: undefined }
 	}
 };
 
@@ -67,6 +68,7 @@ const PARTIAL_CONFIG = {
 	models: {
 		main: { provider: 'openai', modelId: 'gpt-4-turbo' }
 		// research missing
+		// fallback will be added by readConfig
 	}
 };
 
@@ -90,9 +92,66 @@ const resetMocks = () => {
 	mockWriteFileSync.mockReset();
 	mockMkdirSync.mockReset();
 
-	// Default behaviors
-	mockExistsSync.mockReturnValue(true);
-	mockReadFileSync.mockReturnValue(JSON.stringify(DEFAULT_CONFIG));
+	// Default behaviors - CRITICAL: Mock supported-models.json read
+	mockReadFileSync.mockImplementation((filePath) => {
+		if (filePath.endsWith('supported-models.json')) {
+			// Return a mock structure including allowed_roles
+			return JSON.stringify({
+				openai: [
+					{
+						id: 'gpt-4o',
+						swe_score: 0,
+						cost_per_1m_tokens: null,
+						allowed_roles: ['main', 'fallback']
+					},
+					{
+						id: 'gpt-4',
+						swe_score: 0,
+						cost_per_1m_tokens: null,
+						allowed_roles: ['main', 'fallback']
+					}
+				],
+				google: [
+					{
+						id: 'gemini-1.5-pro-latest',
+						swe_score: 0,
+						cost_per_1m_tokens: null,
+						allowed_roles: ['main', 'fallback']
+					}
+				],
+				perplexity: [
+					{
+						id: 'sonar-pro',
+						swe_score: 0,
+						cost_per_1m_tokens: null,
+						allowed_roles: ['main', 'fallback', 'research']
+					}
+				],
+				anthropic: [
+					{
+						id: 'claude-3-opus-20240229',
+						swe_score: 0,
+						cost_per_1m_tokens: null,
+						allowed_roles: ['main', 'fallback']
+					},
+					{
+						id: 'claude-3.5-sonnet-20240620',
+						swe_score: 0,
+						cost_per_1m_tokens: null,
+						allowed_roles: ['main', 'fallback']
+					}
+				]
+				// Add other providers/models as needed for specific tests
+			});
+		} else if (filePath === MOCK_CONFIG_PATH) {
+			// Default for .taskmasterconfig reads
+			return JSON.stringify(DEFAULT_CONFIG);
+		}
+		// Handle other potential reads or throw an error for unexpected paths
+		throw new Error(`Unexpected readFileSync call in test: ${filePath}`);
+	});
+
+	mockExistsSync.mockReturnValue(true); // Default to file existing
 };
 
 // Set up module before tests
@@ -253,10 +312,9 @@ describe('readConfig', () => {
 // --- writeConfig Tests ---
 describe('writeConfig', () => {
 	test('should write valid config to file', () => {
-		mockExistsSync.mockReturnValue(true);
 		const success = configManager.writeConfig(
 			VALID_CUSTOM_CONFIG,
-			MOCK_PROJECT_ROOT
+			MOCK_CONFIG_PATH
 		);
 		expect(success).toBe(true);
 		expect(mockExistsSync).toHaveBeenCalledWith(MOCK_CONFIG_PATH);
@@ -265,34 +323,29 @@ describe('writeConfig', () => {
 			JSON.stringify(VALID_CUSTOM_CONFIG, null, 2),
 			'utf-8'
 		);
+		expect(console.error).not.toHaveBeenCalled();
 	});
 
 	test('should return false and log error if write fails', () => {
-		mockExistsSync.mockReturnValue(true);
-		const writeError = new Error('Disk full');
 		mockWriteFileSync.mockImplementation(() => {
-			throw writeError;
+			throw new Error('Disk full');
 		});
-
 		const success = configManager.writeConfig(
 			VALID_CUSTOM_CONFIG,
-			MOCK_PROJECT_ROOT
+			MOCK_CONFIG_PATH
 		);
 
 		expect(success).toBe(false);
 		expect(console.error).toHaveBeenCalledWith(
 			expect.stringContaining(
-				'Error writing to /mock/project/.taskmasterconfig: Disk full.'
+				`Error writing configuration to ${MOCK_CONFIG_PATH}: Disk full`
 			)
 		);
 	});
 
 	test('should return false if config file does not exist', () => {
 		mockExistsSync.mockReturnValue(false);
-		const success = configManager.writeConfig(
-			VALID_CUSTOM_CONFIG,
-			MOCK_PROJECT_ROOT
-		);
+		const success = configManager.writeConfig(VALID_CUSTOM_CONFIG);
 
 		expect(success).toBe(false);
 		expect(mockWriteFileSync).not.toHaveBeenCalled();

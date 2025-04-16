@@ -1,16 +1,16 @@
 {
   "models": {
     "main": {
-      "provider": "google",
-      "modelId": "gemini-2.5-pro-latest"
+      "provider": "openai",
+      "modelId": "gpt-4o"
     },
     "research": {
       "provider": "perplexity",
-      "modelId": "deep-research"
+      "modelId": "sonar-pro"
     },
     "fallback": {
       "provider": "anthropic",
-      "modelId": "claude-3-7-sonnet-20250219"
+      "modelId": "claude-3-haiku-20240307"
     }
   }
 }

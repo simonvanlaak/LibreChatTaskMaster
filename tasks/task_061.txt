@@ -1,6 +1,6 @@
 # Task ID: 61
 # Title: Implement Flexible AI Model Management
-# Status: pending
+# Status: in-progress
 # Dependencies: None
 # Priority: high
 # Description: Currently, Task Master only supports Claude for main operations and Perplexity for research. Users are limited in flexibility when managing AI models. Adding comprehensive support for multiple popular AI models (OpenAI, Ollama, Gemini, OpenRouter, Grok) and providing intuitive CLI commands for model management will significantly enhance usability, transparency, and adaptability to user preferences and project-specific needs. This task will now leverage Vercel's AI SDK to streamline integration and management of these models.
@@ -142,7 +142,7 @@ export function getClient(model) {
    - Test compatibility with serverless and edge deployments.
 
 # Subtasks:
-## 1. Create Configuration Management Module [in-progress]
+## 1. Create Configuration Management Module [done]
 ### Dependencies: None
 ### Description: Develop a centralized configuration module to manage AI model settings and preferences, leveraging the Strategy pattern for model selection.
 ### Details:
@@ -428,7 +428,7 @@ describe('AI Client Factory', () => {
 7. Add support for optional configuration parameters for each model
 8. Testing approach: Create tests that verify environment variable validation logic
 
-## 6. Implement Model Listing Command [pending]
+## 6. Implement Model Listing Command [done]
 ### Dependencies: 61.1, 61.2, 61.4
 ### Description: Implement the 'task-master models' command to display currently configured models and available options.
 ### Details:
@@ -441,7 +441,7 @@ describe('AI Client Factory', () => {
 7. Add support for verbose output with additional details
 8. Testing approach: Create integration tests that verify correct output formatting and content
 
-## 7. Implement Model Setting Commands [pending]
+## 7. Implement Model Setting Commands [done]
 ### Dependencies: 61.1, 61.2, 61.4, 61.6
 ### Description: Implement the commands to set main and research models with proper validation and feedback.
 ### Details:
