@@ -335,36 +335,11 @@ async function initializeProject(options = {}) {
 		console.log('===== DEBUG: INITIALIZE PROJECT OPTIONS RECEIVED =====');
 		console.log('Full options object:', JSON.stringify(options));
 		console.log('options.yes:', options.yes);
-		console.log('options.name:', options.name);
 		console.log('==================================================');
 	}
 
-	// Try to get project name from package.json if not provided
-	if (!options.name) {
-		const packageJsonPath = path.join(process.cwd(), 'package.json');
-		try {
-			if (fs.existsSync(packageJsonPath)) {
-				const packageJson = JSON.parse(
-					fs.readFileSync(packageJsonPath, 'utf8')
-				);
-				if (packageJson.name) {
-					log(
-						'info',
-						`Found project name '${packageJson.name}' in package.json`
-					);
-					options.name = packageJson.name;
-				}
-			}
-		} catch (error) {
-			log(
-				'debug',
-				`Could not read project name from package.json: ${error.message}`
-			);
-		}
-	}
-
 	// Determine if we should skip prompts based on the passed options
-	const skipPrompts = options.yes || (options.name && options.description);
+	const skipPrompts = options.yes;
 	if (!isSilentMode()) {
 		console.log('Skip prompts determined:', skipPrompts);
 	}
@@ -374,44 +349,24 @@ async function initializeProject(options = {}) {
 			console.log('SKIPPING PROMPTS - Using defaults or provided values');
 		}
 
-		// Use provided options or defaults
-		const projectName = options.name || 'task-master-project';
-		const projectDescription =
-			options.description || 'A project managed with Task Master AI';
-		const projectVersion = options.version || '0.1.0'; // Default from commands.js or here
-		const authorName = options.author || 'Vibe coder'; // Default if not provided
+		// We no longer need these variables
 		const dryRun = options.dryRun || false;
 		const addAliases = options.aliases || false;
 
 		if (dryRun) {
 			log('info', 'DRY RUN MODE: No files will be modified');
-			log(
-				'info',
-				`Would initialize project: ${projectName} (${projectVersion})`
-			);
-			log('info', `Description: ${projectDescription}`);
-			log('info', `Author: ${authorName || 'Not specified'}`);
+			log('info', 'Would initialize Task Master project');
 			log('info', 'Would create/update necessary project files');
 			if (addAliases) {
 				log('info', 'Would add shell aliases for task-master');
 			}
 			return {
-				projectName,
-				projectDescription,
-				projectVersion,
-				authorName,
 				dryRun: true
 			};
 		}
 
-		// Create structure using determined values
-		createProjectStructure(
-			projectName,
-			projectDescription,
-			projectVersion,
-			authorName,
-			addAliases
-		);
+		// Create structure using only necessary values
+		createProjectStructure(addAliases);
 	} else {
 		// Prompting logic (only runs if skipPrompts is false)
 		log('info', 'Required options not provided, proceeding with prompts.');
@@ -421,41 +376,17 @@ async function initializeProject(options = {}) {
 		});
 
 		try {
-			// Prompt user for input...
-			const projectName = await promptQuestion(
-				rl,
-				chalk.cyan('Enter project name: ')
-			);
-			const projectDescription = await promptQuestion(
-				rl,
-				chalk.cyan('Enter project description: ')
-			);
-			const projectVersionInput = await promptQuestion(
-				rl,
-				chalk.cyan('Enter project version (default: 1.0.0): ')
-			); // Use a default for prompt
-			const authorName = await promptQuestion(
-				rl,
-				chalk.cyan('Enter your name: ')
-			);
+			// Only prompt for shell aliases
 			const addAliasesInput = await promptQuestion(
 				rl,
-				chalk.cyan('Add shell aliases for task-master? (Y/n): ')
+				chalk.cyan(
+					'Add shell aliases for task-master? This lets you type "tm" instead of "task-master" (Y/n): '
+				)
 			);
 			const addAliasesPrompted = addAliasesInput.trim().toLowerCase() !== 'n';
-			const projectVersion = projectVersionInput.trim()
-				? projectVersionInput
-				: '1.0.0';
 
 			// Confirm settings...
-			console.log('\nProject settings:');
-			console.log(chalk.blue('Name:'), chalk.white(projectName));
-			console.log(chalk.blue('Description:'), chalk.white(projectDescription));
-			console.log(chalk.blue('Version:'), chalk.white(projectVersion));
-			console.log(
-				chalk.blue('Author:'),
-				chalk.white(authorName || 'Not specified')
-			);
+			console.log('\nTask Master Project settings:');
 			console.log(
 				chalk.blue(
 					'Add shell aliases (so you can use "tm" instead of "task-master"):'
@@ -481,33 +412,18 @@ async function initializeProject(options = {}) {
 
 			if (dryRun) {
 				log('info', 'DRY RUN MODE: No files will be modified');
-				log(
-					'info',
-					`Would initialize project: ${projectName} (${projectVersion})`
-				);
-				log('info', `Description: ${projectDescription}`);
-				log('info', `Author: ${authorName || 'Not specified'}`);
+				log('info', 'Would initialize Task Master project');
 				log('info', 'Would create/update necessary project files');
 				if (addAliasesPrompted) {
 					log('info', 'Would add shell aliases for task-master');
 				}
 				return {
-					projectName,
-					projectDescription,
-					projectVersion,
-					authorName,
 					dryRun: true
 				};
 			}
 
-			// Create structure using prompted values, respecting initial options where relevant
-			createProjectStructure(
-				projectName,
-				projectDescription,
-				projectVersion,
-				authorName,
-				addAliasesPrompted // Use value from prompt
-			);
+			// Create structure using only necessary values
+			createProjectStructure(addAliasesPrompted);
 		} catch (error) {
 			rl.close();
 			log('error', `Error during prompting: ${error.message}`); // Use log function
@@ -526,13 +442,7 @@ function promptQuestion(rl, question) {
 }
 
 // Function to create the project structure
-function createProjectStructure(
-	projectName,
-	projectDescription,
-	projectVersion,
-	authorName,
-	addAliases
-) {
+function createProjectStructure(addAliases) {
 	const targetDir = process.cwd();
 	log('info', `Initializing project in ${targetDir}`);
 
@@ -542,14 +452,10 @@ function createProjectStructure(
 	ensureDirectoryExists(path.join(targetDir, 'tasks'));
 
 	// Setup MCP configuration for integration with Cursor
-	setupMCPConfiguration(targetDir, projectName);
+	setupMCPConfiguration(targetDir);
 
 	// Copy template files with replacements
 	const replacements = {
-		projectName,
-		projectDescription,
-		projectVersion,
-		authorName,
 		year: new Date().getFullYear()
 	};
 
@@ -695,7 +601,7 @@ function createProjectStructure(
 }
 
 // Function to setup MCP configuration for Cursor integration
-function setupMCPConfiguration(targetDir, projectName) {
+function setupMCPConfiguration(targetDir) {
 	const mcpDirPath = path.join(targetDir, '.cursor');
 	const mcpJsonPath = path.join(mcpDirPath, 'mcp.json');
 
