@@ -13,7 +13,7 @@ import inquirer from 'inquirer';
 import ora from 'ora';
 import Table from 'cli-table3';
 
-import { CONFIG, log, readJSON, writeJSON } from './utils.js';
+import { log, readJSON, writeJSON } from './utils.js';
 import {
 	parsePRD,
 	updateTasks,
@@ -45,16 +45,16 @@ import {
 	getMainModelId,
 	getResearchModelId,
 	getFallbackModelId,
-	setMainModel,
-	setResearchModel,
-	setFallbackModel,
 	getAvailableModels,
 	VALID_PROVIDERS,
 	getMainProvider,
 	getResearchProvider,
 	getFallbackProvider,
-	hasApiKeyForProvider,
-	getMcpApiKeyStatus
+	isApiKeySet,
+	getMcpApiKeyStatus,
+	getDebugFlag,
+	getConfig,
+	writeConfig
 } from './config-manager.js';
 
 import {
@@ -399,7 +399,8 @@ function registerCommands(programInstance) {
 					);
 				}
 
-				if (CONFIG.debug) {
+				// Use getDebugFlag getter instead of CONFIG.debug
+				if (getDebugFlag(null)) {
 					console.error(error);
 				}
 
@@ -554,7 +555,8 @@ function registerCommands(programInstance) {
 					);
 				}
 
-				if (CONFIG.debug) {
+				// Use getDebugFlag getter instead of CONFIG.debug
+				if (getDebugFlag(null)) {
 					console.error(error);
 				}
 
@@ -640,8 +642,8 @@ function registerCommands(programInstance) {
 		.option('-a, --all', 'Expand all tasks')
 		.option(
 			'-n, --num <number>',
-			'Number of subtasks to generate',
-			CONFIG.defaultSubtasks.toString()
+			'Number of subtasks to generate (default from config)',
+			'5' // Set a simple string default here
 		)
 		.option(
 			'--research',
@@ -657,7 +659,11 @@ function registerCommands(programInstance) {
 		)
 		.action(async (options) => {
 			const idArg = options.id;
-			const numSubtasks = options.num || CONFIG.defaultSubtasks;
+			// Get the actual default if the user didn't provide --num
+			const numSubtasks =
+				options.num === '5'
+					? getDefaultSubtasks(null)
+					: parseInt(options.num, 10);
 			const useResearch = options.research || false;
 			const additionalContext = options.prompt || '';
 			const forceFlag = options.force || false;
@@ -917,7 +923,7 @@ function registerCommands(programInstance) {
 				console.log(chalk.gray('Next: Complete this task or add more tasks'));
 			} catch (error) {
 				console.error(chalk.red(`Error adding task: ${error.message}`));
-				if (error.stack && CONFIG.debug) {
+				if (error.stack && getDebugFlag(null)) {
 					console.error(error.stack);
 				}
 				process.exit(1);
@@ -1583,13 +1589,13 @@ function registerCommands(programInstance) {
 		)
 		.option('--setup', 'Run interactive setup to configure models')
 		.action(async (options) => {
-			let modelSetAction = false; // Track if any set action was performed
+			let configModified = false; // Track if config needs saving
 			const availableModels = getAvailableModels(); // Get available models once
+			const currentConfig = getConfig(); // Load current config once
 
 			// Helper to find provider for a given model ID
-			const findProvider = (modelId) => {
-				const modelInfo = availableModels.find((m) => m.id === modelId);
-				return modelInfo?.provider;
+			const findModelData = (modelId) => {
+				return availableModels.find((m) => m.id === modelId);
 			};
 
 			try {
@@ -1601,27 +1607,27 @@ function registerCommands(programInstance) {
 						);
 						process.exit(1);
 					}
-					const provider = findProvider(modelId);
-					if (!provider) {
+					const modelData = findModelData(modelId);
+					if (!modelData || !modelData.provider) {
 						console.error(
 							chalk.red(
-								`Error: Model ID "${modelId}" not found in available models.`
+								`Error: Model ID "${modelId}" not found or invalid in available models.`
 							)
 						);
 						process.exit(1);
 					}
-					if (setMainModel(provider, modelId)) {
-						// Call specific setter
-						console.log(
-							chalk.green(
-								`Main model set to: ${modelId} (Provider: ${provider})`
-							)
-						);
-						modelSetAction = true;
-					} else {
-						console.error(chalk.red(`Failed to set main model.`));
-						process.exit(1);
-					}
+					// Update the loaded config object
+					currentConfig.models.main = {
+						...currentConfig.models.main, // Keep existing params like maxTokens
+						provider: modelData.provider,
+						modelId: modelId
+					};
+					console.log(
+						chalk.blue(
+							`Preparing to set main model to: ${modelId} (Provider: ${modelData.provider})`
+						)
+					);
+					configModified = true;
 				}
 
 				if (options.setResearch) {
@@ -1632,27 +1638,27 @@ function registerCommands(programInstance) {
 						);
 						process.exit(1);
 					}
-					const provider = findProvider(modelId);
-					if (!provider) {
+					const modelData = findModelData(modelId);
+					if (!modelData || !modelData.provider) {
 						console.error(
 							chalk.red(
-								`Error: Model ID "${modelId}" not found in available models.`
+								`Error: Model ID "${modelId}" not found or invalid in available models.`
 							)
 						);
 						process.exit(1);
 					}
-					if (setResearchModel(provider, modelId)) {
-						// Call specific setter
-						console.log(
-							chalk.green(
-								`Research model set to: ${modelId} (Provider: ${provider})`
-							)
-						);
-						modelSetAction = true;
-					} else {
-						console.error(chalk.red(`Failed to set research model.`));
-						process.exit(1);
-					}
+					// Update the loaded config object
+					currentConfig.models.research = {
+						...currentConfig.models.research, // Keep existing params like maxTokens
+						provider: modelData.provider,
+						modelId: modelId
+					};
+					console.log(
+						chalk.blue(
+							`Preparing to set research model to: ${modelId} (Provider: ${modelData.provider})`
+						)
+					);
+					configModified = true;
 				}
 
 				if (options.setFallback) {
@@ -1663,30 +1669,49 @@ function registerCommands(programInstance) {
 						);
 						process.exit(1);
 					}
-					const provider = findProvider(modelId);
-					if (!provider) {
+					const modelData = findModelData(modelId);
+					if (!modelData || !modelData.provider) {
 						console.error(
 							chalk.red(
-								`Error: Model ID "${modelId}" not found in available models.`
+								`Error: Model ID "${modelId}" not found or invalid in available models.`
 							)
 						);
 						process.exit(1);
 					}
-					if (setFallbackModel(provider, modelId)) {
-						// Call specific setter
-						console.log(
-							chalk.green(
-								`Fallback model set to: ${modelId} (Provider: ${provider})`
-							)
-						);
-						modelSetAction = true;
-					} else {
-						console.error(chalk.red(`Failed to set fallback model.`));
-						process.exit(1);
-					}
+					// Update the loaded config object
+					currentConfig.models.fallback = {
+						...currentConfig.models.fallback, // Keep existing params like maxTokens
+						provider: modelData.provider,
+						modelId: modelId
+					};
+					console.log(
+						chalk.blue(
+							`Preparing to set fallback model to: ${modelId} (Provider: ${modelData.provider})`
+						)
+					);
+					configModified = true;
 				}
 
-				// Handle interactive setup first
+				// If any config was modified, write it back to the file
+				if (configModified) {
+					if (writeConfig(currentConfig)) {
+						console.log(
+							chalk.green(
+								'Configuration successfully updated in .taskmasterconfig'
+							)
+						);
+					} else {
+						console.error(
+							chalk.red(
+								'Error writing updated configuration to .taskmasterconfig'
+							)
+						);
+						process.exit(1);
+					}
+					return; // Exit after successful set operation
+				}
+
+				// Handle interactive setup first (Keep existing setup logic)
 				if (options.setup) {
 					console.log(chalk.cyan.bold('\nInteractive Model Setup:'));
 
@@ -1817,8 +1842,8 @@ function registerCommands(programInstance) {
 					return; // Exit after setup
 				}
 
-				// If no set flags were used and not in setup mode, list the models
-				if (!modelSetAction && !options.setup) {
+				// If no set flags were used and not in setup mode, list the models (Keep existing list logic)
+				if (!configModified && !options.setup) {
 					// Fetch current settings
 					const mainProvider = getMainProvider();
 					const mainModelId = getMainModelId();
@@ -1828,12 +1853,12 @@ function registerCommands(programInstance) {
 					const fallbackModelId = getFallbackModelId(); // May be undefined
 
 					// Check API keys for both CLI (.env) and MCP (mcp.json)
-					const mainCliKeyOk = hasApiKeyForProvider(mainProvider);
+					const mainCliKeyOk = isApiKeySet(mainProvider); // <-- Use correct function name
 					const mainMcpKeyOk = getMcpApiKeyStatus(mainProvider);
-					const researchCliKeyOk = hasApiKeyForProvider(researchProvider);
+					const researchCliKeyOk = isApiKeySet(researchProvider); // <-- Use correct function name
 					const researchMcpKeyOk = getMcpApiKeyStatus(researchProvider);
 					const fallbackCliKeyOk = fallbackProvider
-						? hasApiKeyForProvider(fallbackProvider)
+						? isApiKeySet(fallbackProvider) // <-- Use correct function name
 						: true; // No key needed if no fallback is set
 					const fallbackMcpKeyOk = fallbackProvider
 						? getMcpApiKeyStatus(fallbackProvider)
@@ -2080,7 +2105,7 @@ function registerCommands(programInstance) {
 				}
 			} catch (error) {
 				log(`Error processing models command: ${error.message}`, 'error');
-				if (error.stack && CONFIG.debug) {
+				if (error.stack && getDebugFlag(null)) {
 					log(error.stack, 'debug');
 				}
 				process.exit(1);
@@ -2100,7 +2125,7 @@ function setupCLI() {
 		.name('dev')
 		.description('AI-driven development task management')
 		.version(() => {
-			// Read version directly from package.json
+			// Read version directly from package.json ONLY
 			try {
 				const packageJsonPath = path.join(process.cwd(), 'package.json');
 				if (fs.existsSync(packageJsonPath)) {
@@ -2110,9 +2135,13 @@ function setupCLI() {
 					return packageJson.version;
 				}
 			} catch (error) {
-				// Silently fall back to default version
+				// Silently fall back to 'unknown'
+				log(
+					'warn',
+					'Could not read package.json for version info in .version()'
+				);
 			}
-			return CONFIG.projectVersion; // Default fallback
+			return 'unknown'; // Default fallback if package.json fails
 		})
 		.helpOption('-h, --help', 'Display help')
 		.addHelpCommand(false) // Disable default help command
@@ -2141,16 +2170,21 @@ function setupCLI() {
  * @returns {Promise<{currentVersion: string, latestVersion: string, needsUpdate: boolean}>}
  */
 async function checkForUpdate() {
-	// Get current version from package.json
-	let currentVersion = CONFIG.projectVersion;
+	// Get current version from package.json ONLY
+	let currentVersion = 'unknown'; // Initialize with a default
 	try {
-		// Try to get the version from the installed package
-		const packageJsonPath = path.join(
+		// Try to get the version from the installed package (if applicable) or current dir
+		let packageJsonPath = path.join(
 			process.cwd(),
 			'node_modules',
 			'task-master-ai',
 			'package.json'
 		);
+		// Fallback to current directory package.json if not found in node_modules
+		if (!fs.existsSync(packageJsonPath)) {
+			packageJsonPath = path.join(process.cwd(), 'package.json');
+		}
+
 		if (fs.existsSync(packageJsonPath)) {
 			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 			currentVersion = packageJson.version;
@@ -2303,7 +2337,7 @@ async function runCLI(argv = process.argv) {
 	} catch (error) {
 		console.error(chalk.red(`Error: ${error.message}`));
 
-		if (CONFIG.debug) {
+		if (getDebugFlag(null)) {
 			console.error(error);
 		}
 

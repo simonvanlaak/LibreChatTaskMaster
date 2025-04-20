@@ -14,7 +14,6 @@ import ora from 'ora';
 import inquirer from 'inquirer';
 
 import {
-	CONFIG,
 	log,
 	readJSON,
 	writeJSON,
@@ -85,6 +84,14 @@ try {
 	log('warn', `Failed to initialize Perplexity client: ${error.message}`);
 	log('warn', 'Research-backed features will not be available');
 }
+
+// Import necessary config getters
+import {
+	getDebugFlag,
+	getDefaultSubtasks,
+	getDefaultPriority
+	// Add other getters here as needed later
+} from './config-manager.js';
 
 /**
  * Parse a PRD file and generate tasks
@@ -196,7 +203,8 @@ async function parsePRD(
 		if (outputFormat === 'text') {
 			console.error(chalk.red(`Error: ${error.message}`));
 
-			if (CONFIG.debug) {
+			if (getDebugFlag()) {
+				// Use getter
 				console.error(error);
 			}
 
@@ -675,7 +683,8 @@ Return only the updated task as a valid JSON object.`
 				console.log('  2. Ensure PERPLEXITY_API_KEY is set for fallback.');
 			}
 
-			if (CONFIG.debug) {
+			if (getDebugFlag()) {
+				// Use getter
 				console.error(error);
 			}
 
@@ -1337,7 +1346,8 @@ Return only the updated task as a valid JSON object.`
 				console.log('  2. Use a valid task ID with the --id parameter');
 			}
 
-			if (CONFIG.debug) {
+			if (getDebugFlag()) {
+				// Use getter
 				console.error(error);
 			}
 		} else {
@@ -1484,7 +1494,8 @@ function generateTaskFiles(tasksPath, outputDir, options = {}) {
 		if (!options?.mcpLog) {
 			console.error(chalk.red(`Error generating task files: ${error.message}`));
 
-			if (CONFIG.debug) {
+			if (getDebugFlag()) {
+				// Use getter
 				console.error(error);
 			}
 
@@ -1584,7 +1595,8 @@ async function setTaskStatus(tasksPath, taskIdInput, newStatus, options = {}) {
 		if (!options?.mcpLog) {
 			console.error(chalk.red(`Error: ${error.message}`));
 
-			if (CONFIG.debug) {
+			if (getDebugFlag()) {
+				// Use getter
 				console.error(error);
 			}
 
@@ -2477,7 +2489,7 @@ async function expandTask(
 		}
 
 		// Determine the number of subtasks to generate
-		let subtaskCount = parseInt(numSubtasks, 10) || CONFIG.defaultSubtasks;
+		let subtaskCount = parseInt(numSubtasks, 10) || getDefaultSubtasks(); // Use getter
 
 		// Check if we have a complexity analysis for this task
 		let taskAnalysis = null;
@@ -2504,7 +2516,7 @@ async function expandTask(
 			// Use recommended number of subtasks if available
 			if (
 				taskAnalysis.recommendedSubtasks &&
-				subtaskCount === CONFIG.defaultSubtasks
+				subtaskCount === getDefaultSubtasks() // Use getter
 			) {
 				subtaskCount = taskAnalysis.recommendedSubtasks;
 				report(`Using recommended number of subtasks: ${subtaskCount}`);
@@ -2672,7 +2684,7 @@ Note on dependencies: Subtasks can depend on other subtasks with lower IDs. Use 
  */
 async function expandAllTasks(
 	tasksPath,
-	numSubtasks = CONFIG.defaultSubtasks,
+	numSubtasks = getDefaultSubtasks(), // Use getter
 	useResearch = false,
 	additionalContext = '',
 	forceFlag = false,
@@ -2698,7 +2710,7 @@ async function expandAllTasks(
 	if (typeof numSubtasks === 'string') {
 		numSubtasks = parseInt(numSubtasks, 10);
 		if (isNaN(numSubtasks)) {
-			numSubtasks = CONFIG.defaultSubtasks;
+			numSubtasks = getDefaultSubtasks(); // Use getter
 		}
 	}
 
@@ -3127,7 +3139,7 @@ async function addTask(
 	tasksPath,
 	prompt,
 	dependencies = [],
-	priority = 'medium',
+	priority = getDefaultPriority(), // Use getter
 	{ reportProgress, mcpLog, session } = {},
 	outputFormat = 'text',
 	customEnv = null,
@@ -4415,7 +4427,8 @@ DO NOT include any text before or after the JSON array. No explanations, no mark
 					console.error(
 						chalk.red(`Error parsing complexity analysis: ${error.message}`)
 					);
-					if (CONFIG.debug) {
+					if (getDebugFlag()) {
+						// Use getter
 						console.debug(
 							chalk.gray(`Raw response: ${fullResponse.substring(0, 500)}...`)
 						);
@@ -4460,7 +4473,8 @@ DO NOT include any text before or after the JSON array. No explanations, no mark
 				);
 			}
 
-			if (CONFIG.debug) {
+			if (getDebugFlag()) {
+				// Use getter
 				console.error(error);
 			}
 
@@ -5382,7 +5396,8 @@ Provide concrete examples, code snippets, or implementation details when relevan
 				);
 			}
 
-			if (CONFIG.debug) {
+			if (getDebugFlag()) {
+				// Use getter
 				console.error(error);
 			}
 		} else {

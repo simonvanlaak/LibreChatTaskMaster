@@ -10,7 +10,6 @@ import ora from 'ora';
 import Table from 'cli-table3';
 import gradient from 'gradient-string';
 import {
-	CONFIG,
 	log,
 	findTaskById,
 	readJSON,
@@ -20,6 +19,7 @@ import {
 import path from 'path';
 import fs from 'fs';
 import { findNextTask, analyzeTaskComplexity } from './task-manager.js';
+import { getProjectName, getDefaultSubtasks } from './config-manager.js';
 
 // Create a color gradient for the banner
 const coolGradient = gradient(['#00b4d8', '#0077b6', '#03045e']);
@@ -44,7 +44,7 @@ function displayBanner() {
 	);
 
 	// Read version directly from package.json
-	let version = CONFIG.projectVersion; // Default fallback
+	let version = 'unknown'; // Initialize with a default
 	try {
 		const packageJsonPath = path.join(process.cwd(), 'package.json');
 		if (fs.existsSync(packageJsonPath)) {
@@ -53,12 +53,13 @@ function displayBanner() {
 		}
 	} catch (error) {
 		// Silently fall back to default version
+		log('warn', 'Could not read package.json for version info.');
 	}
 
 	console.log(
 		boxen(
 			chalk.white(
-				`${chalk.bold('Version:')} ${version}   ${chalk.bold('Project:')} ${CONFIG.projectName}`
+				`${chalk.bold('Version:')} ${version}   ${chalk.bold('Project:')} ${getProjectName(null)}`
 			),
 			{
 				padding: 1,
@@ -1653,6 +1654,45 @@ async function displayComplexityReport(reportPath) {
 }
 
 /**
+ * Generate a prompt for complexity analysis
+ * @param {Object} tasksData - Tasks data object containing tasks array
+ * @returns {string} Generated prompt
+ */
+function generateComplexityAnalysisPrompt(tasksData) {
+	const defaultSubtasks = getDefaultSubtasks(null); // Use the getter
+	return `Analyze the complexity of the following tasks and provide recommendations for subtask breakdown:
+
+${tasksData.tasks
+	.map(
+		(task) => `
+Task ID: ${task.id}
+Title: ${task.title}
+Description: ${task.description}
+Details: ${task.details}
+Dependencies: ${JSON.stringify(task.dependencies || [])}
+Priority: ${task.priority || 'medium'}
+`
+	)
+	.join('\n---\n')}
+
+Analyze each task and return a JSON array with the following structure for each task:
+[
+  {
+    "taskId": number,
+    "taskTitle": string,
+    "complexityScore": number (1-10),
+    "recommendedSubtasks": number (${Math.max(3, defaultSubtasks - 1)}-${Math.min(8, defaultSubtasks + 2)}),
+    "expansionPrompt": string (a specific prompt for generating good subtasks),
+    "reasoning": string (brief explanation of your assessment)
+  },
+  ...
+]
+
+IMPORTANT: Make sure to include an analysis for EVERY task listed above, with the correct taskId matching each task's ID.
+`;
+}
+
+/**
  * Confirm overwriting existing tasks.json file
  * @param {string} tasksPath - Path to the tasks.json file
  * @returns {Promise<boolean>} - Promise resolving to true if user confirms, false otherwise
@@ -1706,5 +1746,6 @@ export {
 	displayNextTask,
 	displayTaskById,
 	displayComplexityReport,
+	generateComplexityAnalysisPrompt,
 	confirmTaskOverwrite
 };

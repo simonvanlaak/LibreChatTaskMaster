@@ -8,9 +8,18 @@
 import { Anthropic } from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
-import { CONFIG, log, sanitizePrompt, isSilentMode } from './utils.js';
+import { log, sanitizePrompt, isSilentMode } from './utils.js';
 import { startLoadingIndicator, stopLoadingIndicator } from './ui.js';
 import chalk from 'chalk';
+import {
+	getMainModelId,
+	getMainMaxTokens,
+	getMainTemperature,
+	getDebugFlag,
+	getResearchModelId,
+	getResearchMaxTokens,
+	getResearchTemperature
+} from './config-manager.js';
 
 // Load environment variables
 dotenv.config();
@@ -218,7 +227,7 @@ Important: Your response must be valid JSON only, with no additional explanation
 			prdContent,
 			prdPath,
 			numTasks,
-			modelConfig?.maxTokens || CONFIG.maxTokens,
+			modelConfig?.maxTokens || getMainMaxTokens(null),
 			systemPrompt,
 			{ reportProgress, mcpLog, session },
 			aiClient || anthropic,
@@ -254,7 +263,7 @@ Important: Your response must be valid JSON only, with no additional explanation
 			);
 		} else {
 			console.error(chalk.red(userMessage));
-			if (CONFIG.debug) {
+			if (getDebugFlag(null)) {
 				log('debug', 'Full error:', error);
 			}
 			throw new Error(userMessage);
@@ -287,54 +296,46 @@ async function handleStreamingRequest(
 	aiClient = null,
 	modelConfig = null
 ) {
-	// Determine output format based on mcpLog presence
-	const outputFormat = mcpLog ? 'json' : 'text';
-
-	// Create custom reporter that checks for MCP log and silent mode
 	const report = (message, level = 'info') => {
-		if (mcpLog) {
+		if (mcpLog && typeof mcpLog[level] === 'function') {
 			mcpLog[level](message);
-		} else if (!isSilentMode() && outputFormat === 'text') {
-			// Only log to console if not in silent mode and outputFormat is 'text'
+		} else if (!isSilentMode()) {
 			log(level, message);
 		}
 	};
 
-	// Only show loading indicators for text output (CLI)
-	let loadingIndicator = null;
-	if (outputFormat === 'text' && !isSilentMode()) {
-		loadingIndicator = startLoadingIndicator('Generating tasks from PRD...');
+	let loadingIndicator;
+	if (!isSilentMode() && !mcpLog) {
+		loadingIndicator = startLoadingIndicator('Claude is thinking...');
 	}
 
-	if (reportProgress) {
-		await reportProgress({ progress: 0 });
-	}
-	let responseText = '';
-	let streamingInterval = null;
+	let textContent = '';
+	let finalResponse = null;
+	let claudeOverloaded = false;
 
 	try {
-		// Use streaming for handling large responses
-		const stream = await (aiClient || anthropic).messages.create({
-			model:
-				modelConfig?.model || session?.env?.ANTHROPIC_MODEL || CONFIG.model,
-			max_tokens:
-				modelConfig?.maxTokens || session?.env?.MAX_TOKENS || maxTokens,
-			temperature:
-				modelConfig?.temperature ||
-				session?.env?.TEMPERATURE ||
-				CONFIG.temperature,
+		const modelToUse = modelConfig?.modelId || getMainModelId(null);
+		const temperatureToUse =
+			modelConfig?.temperature || getMainTemperature(null);
+		const clientToUse = aiClient || anthropic;
+
+		report(`Using model: ${modelToUse} with temp: ${temperatureToUse}`);
+
+		const stream = await clientToUse.messages.stream({
+			model: modelToUse,
+			max_tokens: maxTokens,
+			temperature: temperatureToUse,
 			system: systemPrompt,
 			messages: [
 				{
 					role: 'user',
 					content: `Here's the Product Requirements Document (PRD) to break down into ${numTasks} tasks:\n\n${prdContent}`
 				}
-			],
-			stream: true
+			]
 		});
 
-		// Update loading indicator to show streaming progress - only for text output
-		if (outputFormat === 'text' && !isSilentMode()) {
+		let streamingInterval = null;
+		if (!isSilentMode() && process.stdout.isTTY) {
 			let dotCount = 0;
 			const readline = await import('readline');
 			streamingInterval = setInterval(() => {
@@ -346,64 +347,76 @@ async function handleStreamingRequest(
 			}, 500);
 		}
 
-		// Process the stream
 		for await (const chunk of stream) {
 			if (chunk.type === 'content_block_delta' && chunk.delta.text) {
-				responseText += chunk.delta.text;
+				textContent += chunk.delta.text;
 			}
 			if (reportProgress) {
 				await reportProgress({
-					progress: (responseText.length / maxTokens) * 100
+					progress: (textContent.length / maxTokens) * 100
 				});
 			}
 			if (mcpLog) {
-				mcpLog.info(`Progress: ${(responseText.length / maxTokens) * 100}%`);
+				mcpLog.info(`Progress: ${(textContent.length / maxTokens) * 100}%`);
 			}
 		}
 
 		if (streamingInterval) clearInterval(streamingInterval);
-
-		// Only call stopLoadingIndicator if we started one
-		if (loadingIndicator && outputFormat === 'text' && !isSilentMode()) {
-			stopLoadingIndicator(loadingIndicator);
+		if (loadingIndicator) {
+			stopLoadingIndicator(
+				loadingIndicator,
+				'Claude processing finished',
+				true
+			);
+			loadingIndicator = null;
 		}
 
-		report(
-			`Completed streaming response from ${aiClient ? 'provided' : 'default'} AI client!`,
-			'info'
-		);
-
-		// Pass options to processClaudeResponse
-		return processClaudeResponse(
-			responseText,
+		finalResponse = processClaudeResponse(
+			textContent,
 			numTasks,
 			0,
 			prdContent,
 			prdPath,
 			{ reportProgress, mcpLog, session }
 		);
+
+		if (claudeOverloaded) {
+			report('Claude is overloaded, falling back to Perplexity', 'warn');
+			const perplexityClient = getPerplexityClient();
+			finalResponse = await handleStreamingRequest(
+				prdContent,
+				prdPath,
+				numTasks,
+				maxTokens,
+				systemPrompt,
+				{ reportProgress, mcpLog, session },
+				perplexityClient,
+				modelConfig
+			);
+		}
+
+		return finalResponse;
 	} catch (error) {
-		if (streamingInterval) clearInterval(streamingInterval);
-
-		// Only call stopLoadingIndicator if we started one
-		if (loadingIndicator && outputFormat === 'text' && !isSilentMode()) {
-			stopLoadingIndicator(loadingIndicator);
+		if (loadingIndicator) {
+			stopLoadingIndicator(loadingIndicator, 'Claude stream failed', false);
+			loadingIndicator = null;
 		}
 
-		// Get user-friendly error message
+		if (error.error?.type === 'overloaded_error') {
+			claudeOverloaded = true;
+		}
 		const userMessage = handleClaudeError(error);
-		report(`Error: ${userMessage}`, 'error');
+		report(userMessage, 'error');
 
-		// Only show console error for text output (CLI)
-		if (outputFormat === 'text' && !isSilentMode()) {
-			console.error(chalk.red(userMessage));
+		throw error;
+	} finally {
+		if (loadingIndicator) {
+			const success = !!finalResponse;
+			const message = success
+				? 'Claude stream finished'
+				: 'Claude stream ended';
+			stopLoadingIndicator(loadingIndicator, message, success);
 		}
-
-		if (CONFIG.debug && outputFormat === 'text' && !isSilentMode()) {
-			log('debug', 'Full error:', error);
-		}
-
-		throw new Error(userMessage);
 	}
 }
 
@@ -528,18 +541,27 @@ async function generateSubtasks(
 	additionalContext = '',
 	{ reportProgress, mcpLog, session } = {}
 ) {
+	log('info', `Generating ${numSubtasks} subtasks for Task ${task.id}...`);
+	const report = (message, level = 'info') => {
+		if (mcpLog && typeof mcpLog[level] === 'function') {
+			mcpLog[level](message);
+		} else if (!isSilentMode()) {
+			log(level, message);
+		}
+	};
+
+	let loadingIndicator;
+	if (!isSilentMode() && !mcpLog) {
+		loadingIndicator = startLoadingIndicator(
+			'Claude is generating subtasks...'
+		);
+	}
+
+	const model = getMainModelId(null);
+	const maxTokens = getMainMaxTokens(null);
+	const temperature = getMainTemperature(null);
+
 	try {
-		log(
-			'info',
-			`Generating ${numSubtasks} subtasks for task ${task.id}: ${task.title}`
-		);
-
-		const loadingIndicator = startLoadingIndicator(
-			`Generating subtasks for task ${task.id}...`
-		);
-		let streamingInterval = null;
-		let responseText = '';
-
 		const systemPrompt = `You are an AI assistant helping with task breakdown for software development. 
 You need to break down a high-level task into ${numSubtasks} specific subtasks that can be implemented one by one.
 
@@ -585,72 +607,62 @@ Return exactly ${numSubtasks} subtasks with the following JSON structure:
 
 Note on dependencies: Subtasks can depend on other subtasks with lower IDs. Use an empty array if there are no dependencies.`;
 
-		try {
-			// Update loading indicator to show streaming progress
-			// Only create interval if not silent and stdout is a TTY
-			if (!isSilentMode() && process.stdout.isTTY) {
-				let dotCount = 0;
-				const readline = await import('readline');
-				streamingInterval = setInterval(() => {
-					readline.cursorTo(process.stdout, 0);
-					process.stdout.write(
-						`Generating subtasks for task ${task.id}${'.'.repeat(dotCount)}`
-					);
-					dotCount = (dotCount + 1) % 4;
-				}, 500);
-			}
-
-			// TODO: MOVE THIS TO THE STREAM REQUEST FUNCTION (DRY)
-
-			// Use streaming API call
-			const stream = await anthropic.messages.create({
-				model: session?.env?.ANTHROPIC_MODEL || CONFIG.model,
-				max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
-				temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
-				system: systemPrompt,
-				messages: [
-					{
-						role: 'user',
-						content: userPrompt
-					}
-				],
-				stream: true
-			});
-
-			// Process the stream
-			for await (const chunk of stream) {
-				if (chunk.type === 'content_block_delta' && chunk.delta.text) {
-					responseText += chunk.delta.text;
+		const stream = await anthropic.messages.create({
+			model: model,
+			max_tokens: maxTokens,
+			temperature: temperature,
+			system: systemPrompt,
+			messages: [
+				{
+					role: 'user',
+					content: userPrompt
 				}
-				if (reportProgress) {
-					await reportProgress({
-						progress: (responseText.length / CONFIG.maxTokens) * 100
-					});
-				}
-				if (mcpLog) {
-					mcpLog.info(
-						`Progress: ${(responseText.length / CONFIG.maxTokens) * 100}%`
-					);
-				}
-			}
+			],
+			stream: true
+		});
 
-			if (streamingInterval) clearInterval(streamingInterval);
-			stopLoadingIndicator(loadingIndicator);
+		let responseText = '';
+		let streamingInterval = null;
 
-			log('info', `Completed generating subtasks for task ${task.id}`);
-
-			return parseSubtasksFromText(
-				responseText,
-				nextSubtaskId,
-				numSubtasks,
-				task.id
-			);
-		} catch (error) {
-			if (streamingInterval) clearInterval(streamingInterval);
-			stopLoadingIndicator(loadingIndicator);
-			throw error;
+		if (!isSilentMode() && process.stdout.isTTY) {
+			let dotCount = 0;
+			const readline = await import('readline');
+			streamingInterval = setInterval(() => {
+				readline.cursorTo(process.stdout, 0);
+				process.stdout.write(
+					`Generating subtasks for task ${task.id}${'.'.repeat(dotCount)}`
+				);
+				dotCount = (dotCount + 1) % 4;
+			}, 500);
 		}
+
+		for await (const chunk of stream) {
+			if (chunk.type === 'content_block_delta' && chunk.delta.text) {
+				responseText += chunk.delta.text;
+			}
+			if (reportProgress) {
+				await reportProgress({
+					progress: (responseText.length / maxTokens) * 100
+				});
+			}
+			if (mcpLog) {
+				mcpLog.info(`Progress: ${(responseText.length / maxTokens) * 100}%`);
+			}
+		}
+
+		if (streamingInterval) clearInterval(streamingInterval);
+		if (loadingIndicator) stopLoadingIndicator(loadingIndicator);
+
+		log('info', `Completed generating subtasks for task ${task.id}`);
+
+		return parseSubtasksFromText(
+			responseText,
+			nextSubtaskId,
+			numSubtasks,
+			task.id
+		);
 	} catch (error) {
+		if (loadingIndicator) stopLoadingIndicator(loadingIndicator);
 		log('error', `Error generating subtasks: ${error.message}`);
 		throw error;
 	}

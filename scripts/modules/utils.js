@@ -6,22 +6,61 @@
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
+import { ZodError } from 'zod';
+// Import specific config getters needed here
+import { getLogLevel, getDebugFlag } from './config-manager.js';
 
 // Global silent mode flag
 let silentMode = false;
 
-// Configuration and constants
-const CONFIG = {
-	model: process.env.MODEL || 'claude-3-7-sonnet-20250219',
-	maxTokens: parseInt(process.env.MAX_TOKENS || '4000'),
-	temperature: parseFloat(process.env.TEMPERATURE || '0.7'),
-	debug: process.env.DEBUG === 'true',
-	logLevel: process.env.LOG_LEVEL || 'info',
-	defaultSubtasks: parseInt(process.env.DEFAULT_SUBTASKS || '3'),
-	defaultPriority: process.env.DEFAULT_PRIORITY || 'medium',
-	projectName: process.env.PROJECT_NAME || 'Task Master',
-	projectVersion: '1.5.0' // Hardcoded version - ALWAYS use this value, ignore environment variable
-};
+// --- Environment Variable Resolution Utility ---
+/**
+ * Resolves an environment variable by checking process.env first, then session.env.
+ * @param {string} varName - The name of the environment variable.
+ * @param {string|null} session - The MCP session object (optional).
+ * @returns {string|undefined} The value of the environment variable or undefined if not found.
+ */
+function resolveEnvVariable(varName, session) {
+	// Ensure session and session.env exist before attempting access
+	const sessionValue =
+		session && session.env ? session.env[varName] : undefined;
+	return process.env[varName] ?? sessionValue;
+}
+
+// --- Project Root Finding Utility ---
+/**
+ * Finds the project root directory by searching upwards from a given starting point
+ * for a marker file or directory (e.g., 'package.json', '.git').
+ * @param {string} [startPath=process.cwd()] - The directory to start searching from.
+ * @param {string[]} [markers=['package.json', '.git', '.taskmasterconfig']] - Marker files/dirs to look for.
+ * @returns {string|null} The path to the project root directory, or null if not found.
+ */
+function findProjectRoot(
+	startPath = process.cwd(),
+	markers = ['package.json', '.git', '.taskmasterconfig']
+) {
+	let currentPath = path.resolve(startPath);
+	while (true) {
+		for (const marker of markers) {
+			if (fs.existsSync(path.join(currentPath, marker))) {
+				return currentPath;
+			}
+		}
+		const parentPath = path.dirname(currentPath);
+		if (parentPath === currentPath) {
+			// Reached the filesystem root
+			return null;
+		}
+		currentPath = parentPath;
+	}
+}
+
+// --- Dynamic Configuration Function --- (REMOVED)
+/*
+function getConfig(session = null) {
+    // ... implementation removed ...
+}
+*/
 
 // Set up logging based on log level
 const LOG_LEVELS = {
@@ -73,6 +112,9 @@ function log(level, ...args) {
 		return;
 	}
 
+	// Get log level dynamically from config-manager
+	const configLevel = getLogLevel() || 'info'; // Use getter
+
 	// Use text prefixes instead of emojis
 	const prefixes = {
 		debug: chalk.gray('[DEBUG]'),
@@ -84,7 +126,6 @@ function log(level, ...args) {
 
 	// Ensure level exists, default to info if not
 	const currentLevel = LOG_LEVELS.hasOwnProperty(level) ? level : 'info';
-	const configLevel = CONFIG.logLevel || 'info'; // Ensure configLevel has a default
 
 	// Check log level configuration
 	if (
@@ -106,12 +147,15 @@ function log(level, ...args) {
  * @returns {Object|null} Parsed JSON data or null if error occurs
  */
 function readJSON(filepath) {
+	// Get debug flag dynamically from config-manager
+	const isDebug = getDebugFlag();
 	try {
 		const rawData = fs.readFileSync(filepath, 'utf8');
 		return JSON.parse(rawData);
 	} catch (error) {
 		log('error', `Error reading JSON file ${filepath}:`, error.message);
-		if (CONFIG.debug) {
+		if (isDebug) {
+			// Use dynamic debug flag
 			// Use log utility for debug output too
 			log('error', 'Full error details:', error);
 		}
@@ -125,6 +169,8 @@ function readJSON(filepath) {
  * @param {Object} data - Data to write
  */
 function writeJSON(filepath, data) {
+	// Get debug flag dynamically from config-manager
+	const isDebug = getDebugFlag();
 	try {
 		const dir = path.dirname(filepath);
 		if (!fs.existsSync(dir)) {
@@ -133,7 +179,8 @@ function writeJSON(filepath, data) {
 		fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf8');
 	} catch (error) {
 		log('error', `Error writing JSON file ${filepath}:`, error.message);
-		if (CONFIG.debug) {
+		if (isDebug) {
+			// Use dynamic debug flag
 			// Use log utility for debug output too
 			log('error', 'Full error details:', error);
 		}
@@ -156,6 +203,8 @@ function sanitizePrompt(prompt) {
  * @returns {Object|null} The parsed complexity report or null if not found
  */
 function readComplexityReport(customPath = null) {
+	// Get debug flag dynamically from config-manager
+	const isDebug = getDebugFlag();
 	try {
 		const reportPath =
 			customPath ||
@@ -168,6 +217,11 @@ function readComplexityReport(customPath = null) {
 		return JSON.parse(reportData);
 	} catch (error) {
 		log('warn', `Could not read complexity report: ${error.message}`);
+		// Optionally log full error in debug mode
+		if (isDebug) {
+			// Use dynamic debug flag
+			log('error', 'Full error details:', error);
+		}
 		return null;
 	}
 }
@@ -399,7 +453,8 @@ function detectCamelCaseFlags(args) {
 
 // Export all utility functions and configuration
 export {
-	CONFIG,
+	// CONFIG, <-- Already Removed
+	// getConfig <-- Removing now
 	LOG_LEVELS,
 	log,
 	readJSON,
@@ -417,5 +472,8 @@ export {
 	enableSilentMode,
 	disableSilentMode,
 	isSilentMode,
-	getTaskManager
+	resolveEnvVariable,
+	getTaskManager,
+	findProjectRoot
+	// getConfig <-- Removed
 };

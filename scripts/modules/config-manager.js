@@ -2,6 +2,14 @@ import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
 import { fileURLToPath } from 'url';
+import { ZodError } from 'zod';
+import {
+	log,
+	readJSON,
+	writeJSON,
+	resolveEnvVariable,
+	findProjectRoot
+} from './utils.js';
 
 // Calculate __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -28,63 +36,49 @@ try {
 
 const CONFIG_FILE_NAME = '.taskmasterconfig';
 
-// Default configuration
-const DEFAULT_MAIN_PROVIDER = 'anthropic';
-const DEFAULT_MAIN_MODEL_ID = 'claude-3.7-sonnet-20250219';
-const DEFAULT_RESEARCH_PROVIDER = 'perplexity';
-const DEFAULT_RESEARCH_MODEL_ID = 'sonar-pro';
+// Define valid providers dynamically from the loaded MODEL_MAP
+const VALID_PROVIDERS = Object.keys(MODEL_MAP);
 
-// Define ONE list of all supported providers
-const VALID_PROVIDERS = [
-	'anthropic',
-	'openai',
-	'google',
-	'perplexity',
-	'ollama',
-	'openrouter',
-	'grok'
-];
-
-let projectRoot = null;
-
-function findProjectRoot() {
-	// Keep this function as is for CLI context
-	if (projectRoot) return projectRoot;
-
-	let currentDir = process.cwd();
-	while (currentDir !== path.parse(currentDir).root) {
-		if (fs.existsSync(path.join(currentDir, 'package.json'))) {
-			projectRoot = currentDir;
-			return projectRoot;
+// Default configuration values (used if .taskmasterconfig is missing or incomplete)
+const DEFAULTS = {
+	models: {
+		main: {
+			provider: 'anthropic',
+			modelId: 'claude-3-7-sonnet-20250219',
+			maxTokens: 64000,
+			temperature: 0.2
+		},
+		research: {
+			provider: 'perplexity',
+			modelId: 'sonar-pro',
+			maxTokens: 8700,
+			temperature: 0.1
+		},
+		fallback: {
+			// No default fallback provider/model initially
+			provider: 'anthropic',
+			modelId: 'claude-3-5-sonnet',
+			maxTokens: 64000, // Default parameters if fallback IS configured
+			temperature: 0.2
 		}
-		currentDir = path.dirname(currentDir);
+	},
+	global: {
+		logLevel: 'info',
+		debug: false,
+		defaultSubtasks: 5,
+		defaultPriority: 'medium',
+		projectName: 'Task Master',
+		ollamaBaseUrl: 'http://localhost:11434/api'
 	}
+};
 
-	// Check root directory as a last resort
-	if (fs.existsSync(path.join(currentDir, 'package.json'))) {
-		projectRoot = currentDir;
-		return projectRoot;
-	}
+// --- Internal Config Loading ---
+let loadedConfig = null; // Cache for loaded config
 
-	// If still not found, maybe look for other markers or return null
-	// For now, returning null if package.json isn't found up to the root
-	projectRoot = null;
-	return null;
-}
-
-function readConfig(explicitRoot = null) {
+function _loadAndValidateConfig(explicitRoot = null) {
 	// Determine the root path to use
 	const rootToUse = explicitRoot || findProjectRoot();
-
-	const defaults = {
-		models: {
-			main: { provider: DEFAULT_MAIN_PROVIDER, modelId: DEFAULT_MAIN_MODEL_ID },
-			research: {
-				provider: DEFAULT_RESEARCH_PROVIDER,
-				modelId: DEFAULT_RESEARCH_MODEL_ID
-			}
-		}
-	};
+	const defaults = DEFAULTS; // Use the defined defaults
 
 	if (!rootToUse) {
 		console.warn(
@@ -101,75 +95,60 @@ function readConfig(explicitRoot = null) {
 			const rawData = fs.readFileSync(configPath, 'utf-8');
 			const parsedConfig = JSON.parse(rawData);
 
-			// Deep merge defaults to ensure structure and handle partial configs
+			// Deep merge with defaults
 			const config = {
 				models: {
-					main: {
-						provider:
-							parsedConfig?.models?.main?.provider ??
-							defaults.models.main.provider,
-						modelId:
-							parsedConfig?.models?.main?.modelId ??
-							defaults.models.main.modelId
-					},
+					main: { ...defaults.models.main, ...parsedConfig?.models?.main },
 					research: {
-						provider:
-							parsedConfig?.models?.research?.provider ??
-							defaults.models.research.provider,
-						modelId:
-							parsedConfig?.models?.research?.modelId ??
-							defaults.models.research.modelId
+						...defaults.models.research,
+						...parsedConfig?.models?.research
 					},
-					// Add merge logic for the fallback model
-					fallback: {
-						provider: parsedConfig?.models?.fallback?.provider,
-						modelId: parsedConfig?.models?.fallback?.modelId
-					}
-				}
+					// Fallback needs careful merging - only merge if provider/model exist
+					fallback:
+						parsedConfig?.models?.fallback?.provider &&
+						parsedConfig?.models?.fallback?.modelId
+							? { ...defaults.models.fallback, ...parsedConfig.models.fallback }
+							: { ...defaults.models.fallback } // Use default params even if provider/model missing
+				},
+				global: { ...defaults.global, ...parsedConfig?.global }
 			};
 
-			// Validate loaded providers (main, research, and fallback if it exists)
+			// --- Validation ---
+			// Validate main provider/model
 			if (!validateProvider(config.models.main.provider)) {
 				console.warn(
 					chalk.yellow(
 						`Warning: Invalid main provider "${config.models.main.provider}" in ${CONFIG_FILE_NAME}. Falling back to default.`
 					)
 				);
-				config.models.main = {
-					provider: defaults.models.main.provider,
-					modelId: defaults.models.main.modelId
-				};
+				config.models.main = { ...defaults.models.main };
 			}
-			// Optional: Add warning for model combination if desired, but don't block
-			// else if (!validateProviderModelCombination(config.models.main.provider, config.models.main.modelId)) { ... }
+			// Optional: Add warning for model combination if desired
 
+			// Validate research provider/model
 			if (!validateProvider(config.models.research.provider)) {
 				console.warn(
 					chalk.yellow(
 						`Warning: Invalid research provider "${config.models.research.provider}" in ${CONFIG_FILE_NAME}. Falling back to default.`
 					)
 				);
-				config.models.research = {
-					provider: defaults.models.research.provider,
-					modelId: defaults.models.research.modelId
-				};
+				config.models.research = { ...defaults.models.research };
 			}
-			// Optional: Add warning for model combination if desired, but don't block
-			// else if (!validateProviderModelCombination(config.models.research.provider, config.models.research.modelId)) { ... }
+			// Optional: Add warning for model combination if desired
 
-			// Add validation for fallback provider if it exists
+			// Validate fallback provider if it exists
 			if (
-				config.models.fallback &&
-				config.models.fallback.provider &&
+				config.models.fallback?.provider &&
 				!validateProvider(config.models.fallback.provider)
 			) {
 				console.warn(
 					chalk.yellow(
-						`Warning: Invalid fallback provider "${config.models.fallback.provider}" in ${CONFIG_FILE_NAME}. Fallback model will be ignored.`
+						`Warning: Invalid fallback provider "${config.models.fallback.provider}" in ${CONFIG_FILE_NAME}. Fallback model configuration will be ignored.`
 					)
 				);
-				// Unlike main/research, we don't set a default fallback, just ignore it
-				delete config.models.fallback;
+				// Clear invalid fallback provider/model, but keep default params if needed elsewhere
+				config.models.fallback.provider = undefined;
+				config.models.fallback.modelId = undefined;
 			}
 
 			return config;
@@ -182,8 +161,26 @@ function readConfig(explicitRoot = null) {
 			return defaults;
 		}
 	} else {
+		// Config file doesn't exist, use defaults
 		return defaults;
 	}
+}
+
+/**
+ * Gets the current configuration, loading it if necessary.
+ * @param {string|null} explicitRoot - Optional explicit path to the project root.
+ * @param {boolean} forceReload - Force reloading the config file.
+ * @returns {object} The loaded configuration object.
+ */
+function getConfig(explicitRoot = null, forceReload = false) {
+	if (!loadedConfig || forceReload) {
+		loadedConfig = _loadAndValidateConfig(explicitRoot);
+	}
+	// If an explicitRoot was provided for a one-off check, don't cache it permanently
+	if (explicitRoot && !forceReload) {
+		return _loadAndValidateConfig(explicitRoot);
+	}
+	return loadedConfig;
 }
 
 /**
@@ -215,402 +212,134 @@ function validateProviderModelCombination(providerName, modelId) {
 	);
 }
 
-/**
- * Gets the currently configured main AI provider.
- * @param {string|null} explicitRoot - Optional explicit path to the project root.
- * @returns {string} The name of the main provider.
- */
+// --- Role-Specific Getters ---
+
+function getModelConfigForRole(role, explicitRoot = null) {
+	const config = getConfig(explicitRoot);
+	const roleConfig = config?.models?.[role];
+	if (!roleConfig) {
+		log('warn', `No model configuration found for role: ${role}`);
+		return DEFAULTS.models[role] || {}; // Fallback to default for the role
+	}
+	return roleConfig;
+}
+
 function getMainProvider(explicitRoot = null) {
-	const config = readConfig(explicitRoot);
-	return config.models.main.provider;
+	return getModelConfigForRole('main', explicitRoot).provider;
 }
 
-/**
- * Gets the currently configured main AI model ID.
- * @param {string|null} explicitRoot - Optional explicit path to the project root.
- * @returns {string} The ID of the main model.
- */
 function getMainModelId(explicitRoot = null) {
-	const config = readConfig(explicitRoot);
-	return config.models.main.modelId;
+	return getModelConfigForRole('main', explicitRoot).modelId;
 }
 
-/**
- * Gets the currently configured research AI provider.
- * @param {string|null} explicitRoot - Optional explicit path to the project root.
- * @returns {string} The name of the research provider.
- */
+function getMainMaxTokens(explicitRoot = null) {
+	return getModelConfigForRole('main', explicitRoot).maxTokens;
+}
+
+function getMainTemperature(explicitRoot = null) {
+	return getModelConfigForRole('main', explicitRoot).temperature;
+}
+
 function getResearchProvider(explicitRoot = null) {
-	const config = readConfig(explicitRoot);
-	return config.models.research.provider;
+	return getModelConfigForRole('research', explicitRoot).provider;
 }
 
-/**
- * Gets the currently configured research AI model ID.
- * @param {string|null} explicitRoot - Optional explicit path to the project root.
- * @returns {string} The ID of the research model.
- */
 function getResearchModelId(explicitRoot = null) {
-	const config = readConfig(explicitRoot);
-	return config.models.research.modelId;
+	return getModelConfigForRole('research', explicitRoot).modelId;
 }
 
-/**
- * Gets the currently configured fallback AI provider.
- * @param {string|null} explicitRoot - Optional explicit path to the project root.
- * @returns {string|undefined} The name of the fallback provider, or undefined if not set.
- */
+function getResearchMaxTokens(explicitRoot = null) {
+	return getModelConfigForRole('research', explicitRoot).maxTokens;
+}
+
+function getResearchTemperature(explicitRoot = null) {
+	return getModelConfigForRole('research', explicitRoot).temperature;
+}
+
 function getFallbackProvider(explicitRoot = null) {
-	const config = readConfig(explicitRoot);
-	return config.models?.fallback?.provider;
+	// Specifically check if provider is set, as fallback is optional
+	return getModelConfigForRole('fallback', explicitRoot).provider || undefined;
 }
 
-/**
- * Gets the currently configured fallback AI model ID.
- * @param {string|null} explicitRoot - Optional explicit path to the project root.
- * @returns {string|undefined} The ID of the fallback model, or undefined if not set.
- */
 function getFallbackModelId(explicitRoot = null) {
-	const config = readConfig(explicitRoot);
-	return config.models?.fallback?.modelId;
+	// Specifically check if modelId is set
+	return getModelConfigForRole('fallback', explicitRoot).modelId || undefined;
+}
+
+function getFallbackMaxTokens(explicitRoot = null) {
+	// Return fallback tokens even if provider/model isn't set, in case it's needed generically
+	return getModelConfigForRole('fallback', explicitRoot).maxTokens;
+}
+
+function getFallbackTemperature(explicitRoot = null) {
+	// Return fallback temp even if provider/model isn't set
+	return getModelConfigForRole('fallback', explicitRoot).temperature;
+}
+
+// --- Global Settings Getters ---
+
+function getGlobalConfig(explicitRoot = null) {
+	const config = getConfig(explicitRoot);
+	return config?.global || DEFAULTS.global;
+}
+
+function getLogLevel(explicitRoot = null) {
+	return getGlobalConfig(explicitRoot).logLevel;
+}
+
+function getDebugFlag(explicitRoot = null) {
+	// Ensure boolean type
+	return getGlobalConfig(explicitRoot).debug === true;
+}
+
+function getDefaultSubtasks(explicitRoot = null) {
+	// Ensure integer type
+	return parseInt(getGlobalConfig(explicitRoot).defaultSubtasks, 10);
+}
+
+function getDefaultPriority(explicitRoot = null) {
+	return getGlobalConfig(explicitRoot).defaultPriority;
+}
+
+function getProjectName(explicitRoot = null) {
+	return getGlobalConfig(explicitRoot).projectName;
+}
+
+function getOllamaBaseUrl(explicitRoot = null) {
+	return getGlobalConfig(explicitRoot).ollamaBaseUrl;
 }
 
 /**
- * Sets the main AI model (provider and modelId) in the configuration file.
- * @param {string} providerName The name of the provider to set.
- * @param {string} modelId The ID of the model to set.
- * @param {string|null} explicitRoot - Optional explicit path to the project root.
- * @returns {boolean} True if successful, false otherwise.
+ * Checks if the API key for a given provider is set in the environment.
+ * Checks process.env first, then session.env if session is provided.
+ * @param {string} providerName - The name of the provider (e.g., 'openai', 'anthropic').
+ * @param {object|null} [session=null] - The MCP session object (optional).
+ * @returns {boolean} True if the API key is set, false otherwise.
  */
-function setMainModel(providerName, modelId, explicitRoot = null) {
-	// --- 1. Validate Provider First ---
-	if (!validateProvider(providerName)) {
-		console.error(
-			chalk.red(`Error: "${providerName}" is not a valid provider.`)
-		);
-		console.log(
-			chalk.yellow(`Available providers: ${VALID_PROVIDERS.join(', ')}`)
-		);
+function isApiKeySet(providerName, session = null) {
+	// Define the expected environment variable name for each provider
+	const keyMap = {
+		openai: 'OPENAI_API_KEY',
+		anthropic: 'ANTHROPIC_API_KEY',
+		google: 'GOOGLE_API_KEY',
+		perplexity: 'PERPLEXITY_API_KEY',
+		grok: 'GROK_API_KEY', // Assuming GROK_API_KEY based on env.example
+		mistral: 'MISTRAL_API_KEY',
+		azure: 'AZURE_OPENAI_API_KEY', // Azure needs endpoint too, but key presence is a start
+		openrouter: 'OPENROUTER_API_KEY',
+		xai: 'XAI_API_KEY'
+		// Add other providers as needed
+	};
+
+	const providerKey = providerName?.toLowerCase();
+	if (!providerKey || !keyMap[providerKey]) {
+		log('warn', `Unknown provider name: ${providerName} in isApiKeySet check.`);
 		return false;
 	}
 
-	// --- 2. Validate Role Second ---
-	const allModels = getAvailableModels(); // Get all models to check roles
-	const modelData = allModels.find(
-		(m) => m.id === modelId && m.provider === providerName
-	);
-
-	if (
-		!modelData ||
-		!modelData.allowed_roles ||
-		!modelData.allowed_roles.includes('main')
-	) {
-		console.error(
-			chalk.red(`Error: Model "${modelId}" is not allowed for the 'main' role.`)
-		);
-		// Try to suggest valid models for the role
-		const allowedMainModels = allModels
-			.filter((m) => m.allowed_roles?.includes('main'))
-			.map((m) => `  - ${m.provider} / ${m.id}`)
-			.join('\n');
-		if (allowedMainModels) {
-			console.log(
-				chalk.yellow('\nAllowed models for main role:\n' + allowedMainModels)
-			);
-		}
-		return false;
-	}
-
-	// --- 3. Validate Model Combination (Optional Warning) ---
-	if (!validateProviderModelCombination(providerName, modelId)) {
-		console.warn(
-			chalk.yellow(
-				`Warning: Model "${modelId}" is not in the known list for provider "${providerName}". Ensure it is valid.`
-			)
-		);
-	}
-
-	// --- Proceed with setting ---
-	const config = readConfig(explicitRoot);
-	config.models.main = { provider: providerName, modelId: modelId };
-	// Pass explicitRoot down
-	if (writeConfig(config, explicitRoot)) {
-		console.log(
-			chalk.green(`Main AI model set to: ${providerName} / ${modelId}`)
-		);
-		return true;
-	} else {
-		return false;
-	}
-}
-
-/**
- * Sets the research AI model (provider and modelId) in the configuration file.
- * @param {string} providerName The name of the provider to set.
- * @param {string} modelId The ID of the model to set.
- * @param {string|null} explicitRoot - Optional explicit path to the project root.
- * @returns {boolean} True if successful, false otherwise.
- */
-function setResearchModel(providerName, modelId, explicitRoot = null) {
-	// --- 1. Validate Provider First ---
-	if (!validateProvider(providerName)) {
-		console.error(
-			chalk.red(`Error: "${providerName}" is not a valid provider.`)
-		);
-		console.log(
-			chalk.yellow(`Available providers: ${VALID_PROVIDERS.join(', ')}`)
-		);
-		return false;
-	}
-
-	// --- 2. Validate Role Second ---
-	const allModels = getAvailableModels(); // Get all models to check roles
-	const modelData = allModels.find(
-		(m) => m.id === modelId && m.provider === providerName
-	);
-
-	if (
-		!modelData ||
-		!modelData.allowed_roles ||
-		!modelData.allowed_roles.includes('research')
-	) {
-		console.error(
-			chalk.red(
-				`Error: Model "${modelId}" is not allowed for the 'research' role.`
-			)
-		);
-		// Try to suggest valid models for the role
-		const allowedResearchModels = allModels
-			.filter((m) => m.allowed_roles?.includes('research'))
-			.map((m) => `  - ${m.provider} / ${m.id}`)
-			.join('\n');
-		if (allowedResearchModels) {
-			console.log(
-				chalk.yellow(
-					'\nAllowed models for research role:\n' + allowedResearchModels
-				)
-			);
-		}
-		return false;
-	}
-
-	// --- 3. Validate Model Combination (Optional Warning) ---
-	if (!validateProviderModelCombination(providerName, modelId)) {
-		console.warn(
-			chalk.yellow(
-				`Warning: Model "${modelId}" is not in the known list for provider "${providerName}". Ensure it is valid.`
-			)
-		);
-	}
-
-	// --- 4. Specific Research Warning (Optional) ---
-	if (
-		providerName === 'anthropic' ||
-		(providerName === 'openai' && modelId.includes('3.5'))
-	) {
-		console.warn(
-			chalk.yellow(
-				`Warning: Provider "${providerName}" with model "${modelId}" may not be ideal for research tasks. Perplexity or Grok recommended.`
-			)
-		);
-	}
-
-	// --- Proceed with setting ---
-	const config = readConfig(explicitRoot);
-	config.models.research = { provider: providerName, modelId: modelId };
-	// Pass explicitRoot down
-	if (writeConfig(config, explicitRoot)) {
-		console.log(
-			chalk.green(`Research AI model set to: ${providerName} / ${modelId}`)
-		);
-		return true;
-	} else {
-		return false;
-	}
-}
-
-/**
- * Sets the fallback AI model (provider and modelId) in the configuration file.
- * @param {string} providerName The name of the provider to set.
- * @param {string} modelId The ID of the model to set.
- * @param {string|null} explicitRoot - Optional explicit path to the project root.
- * @returns {boolean} True if successful, false otherwise.
- */
-function setFallbackModel(providerName, modelId, explicitRoot = null) {
-	// --- 1. Validate Provider First ---
-	if (!validateProvider(providerName)) {
-		console.error(
-			chalk.red(`Error: "${providerName}" is not a valid provider.`)
-		);
-		console.log(
-			chalk.yellow(`Available providers: ${VALID_PROVIDERS.join(', ')}`)
-		);
-		return false;
-	}
-
-	// --- 2. Validate Role Second ---
-	const allModels = getAvailableModels(); // Get all models to check roles
-	const modelData = allModels.find(
-		(m) => m.id === modelId && m.provider === providerName
-	);
-
-	if (
-		!modelData ||
-		!modelData.allowed_roles ||
-		!modelData.allowed_roles.includes('fallback')
-	) {
-		console.error(
-			chalk.red(
-				`Error: Model "${modelId}" is not allowed for the 'fallback' role.`
-			)
-		);
-		// Try to suggest valid models for the role
-		const allowedFallbackModels = allModels
-			.filter((m) => m.allowed_roles?.includes('fallback'))
-			.map((m) => `  - ${m.provider} / ${m.id}`)
-			.join('\n');
-		if (allowedFallbackModels) {
-			console.log(
-				chalk.yellow(
-					'\nAllowed models for fallback role:\n' + allowedFallbackModels
-				)
-			);
-		}
-		return false;
-	}
-
-	// --- 3. Validate Model Combination (Optional Warning) ---
-	if (!validateProviderModelCombination(providerName, modelId)) {
-		console.warn(
-			chalk.yellow(
-				`Warning: Model "${modelId}" is not in the known list for provider "${providerName}". Ensure it is valid.`
-			)
-		);
-	}
-
-	// --- Proceed with setting ---
-	const config = readConfig(explicitRoot);
-	if (!config.models) {
-		config.models = {}; // Ensure models object exists
-	}
-	// Ensure fallback object exists
-	if (!config.models.fallback) {
-		config.models.fallback = {};
-	}
-
-	config.models.fallback = { provider: providerName, modelId: modelId };
-
-	return writeConfig(config, explicitRoot);
-}
-
-/**
- * Gets a list of available models based on the MODEL_MAP.
- * @returns {Array<{id: string, name: string, provider: string, swe_score: number|null, cost_per_1m_tokens: {input: number|null, output: number|null}|null, allowed_roles: string[]}>}
- */
-function getAvailableModels() {
-	const available = [];
-	for (const [provider, models] of Object.entries(MODEL_MAP)) {
-		if (models.length > 0) {
-			models.forEach((modelObj) => {
-				// Basic name generation - can be improved
-				const modelId = modelObj.id;
-				const sweScore = modelObj.swe_score;
-				const cost = modelObj.cost_per_1m_tokens;
-				const allowedRoles = modelObj.allowed_roles || ['main', 'fallback'];
-				const nameParts = modelId
-					.split('-')
-					.map((p) => p.charAt(0).toUpperCase() + p.slice(1));
-				// Handle specific known names better if needed
-				let name = nameParts.join(' ');
-				if (modelId === 'claude-3.5-sonnet-20240620')
-					name = 'Claude 3.5 Sonnet';
-				if (modelId === 'claude-3-7-sonnet-20250219')
-					name = 'Claude 3.7 Sonnet';
-				if (modelId === 'gpt-4o') name = 'GPT-4o';
-				if (modelId === 'gpt-4-turbo') name = 'GPT-4 Turbo';
-				if (modelId === 'sonar-pro') name = 'Perplexity Sonar Pro';
-				if (modelId === 'sonar-mini') name = 'Perplexity Sonar Mini';
-
-				available.push({
-					id: modelId,
-					name: name,
-					provider: provider,
-					swe_score: sweScore,
-					cost_per_1m_tokens: cost,
-					allowed_roles: allowedRoles
-				});
-			});
-		} else {
-			// For providers with empty lists (like ollama), maybe add a placeholder or skip
-			available.push({
-				id: `[${provider}-any]`,
-				name: `Any (${provider})`,
-				provider: provider
-			});
-		}
-	}
-	return available;
-}
-
-/**
- * Writes the configuration object to the file.
- * @param {Object} config The configuration object to write.
- * @param {string|null} explicitRoot - Optional explicit path to the project root.
- * @returns {boolean} True if successful, false otherwise.
- */
-function writeConfig(config, explicitRoot = null) {
-	const rootPath = explicitRoot || findProjectRoot();
-	if (!rootPath) {
-		console.error(
-			chalk.red(
-				'Error: Could not determine project root. Configuration not saved.'
-			)
-		);
-		return false;
-	}
-	// Ensure we don't double-join if explicitRoot already contains the filename
-	const configPath =
-		path.basename(rootPath) === CONFIG_FILE_NAME
-			? rootPath
-			: path.join(rootPath, CONFIG_FILE_NAME);
-
-	try {
-		fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-		return true;
-	} catch (error) {
-		console.error(
-			chalk.red(
-				`Error writing configuration to ${configPath}: ${error.message}`
-			)
-		);
-		return false;
-	}
-}
-
-/**
- * Checks if the required API key environment variable is set for a given provider.
- * @param {string} providerName The name of the provider.
- * @returns {boolean} True if the API key environment variable exists and is non-empty, false otherwise.
- */
-function hasApiKeyForProvider(providerName) {
-	switch (providerName) {
-		case 'anthropic':
-			return !!process.env.ANTHROPIC_API_KEY;
-		case 'openai':
-		case 'openrouter': // OpenRouter uses OpenAI-compatible key
-			return !!process.env.OPENAI_API_KEY;
-		case 'google':
-			return !!process.env.GOOGLE_API_KEY;
-		case 'perplexity':
-			return !!process.env.PERPLEXITY_API_KEY;
-		case 'grok':
-		case 'xai': // Added alias for Grok
-			return !!process.env.GROK_API_KEY;
-		case 'ollama':
-			return true; // Ollama runs locally, no cloud API key needed
-		default:
-			return false; // Unknown provider cannot have a key checked
-	}
+	const envVarName = keyMap[providerKey];
+	// Use resolveEnvVariable to check both process.env and session.env
+	return !!resolveEnvVariable(envVarName, session);
 }
 
 /**
@@ -685,24 +414,125 @@ function getMcpApiKeyStatus(providerName) {
 	}
 }
 
+/**
+ * Gets a list of available models based on the MODEL_MAP.
+ * @returns {Array<{id: string, name: string, provider: string, swe_score: number|null, cost_per_1m_tokens: {input: number|null, output: number|null}|null, allowed_roles: string[]}>}
+ */
+function getAvailableModels() {
+	const available = [];
+	for (const [provider, models] of Object.entries(MODEL_MAP)) {
+		if (models.length > 0) {
+			models.forEach((modelObj) => {
+				// Basic name generation - can be improved
+				const modelId = modelObj.id;
+				const sweScore = modelObj.swe_score;
+				const cost = modelObj.cost_per_1m_tokens;
+				const allowedRoles = modelObj.allowed_roles || ['main', 'fallback'];
+				const nameParts = modelId
+					.split('-')
+					.map((p) => p.charAt(0).toUpperCase() + p.slice(1));
+				// Handle specific known names better if needed
+				let name = nameParts.join(' ');
+				if (modelId === 'claude-3.5-sonnet-20240620')
+					name = 'Claude 3.5 Sonnet';
+				if (modelId === 'claude-3-7-sonnet-20250219')
+					name = 'Claude 3.7 Sonnet';
+				if (modelId === 'gpt-4o') name = 'GPT-4o';
+				if (modelId === 'gpt-4-turbo') name = 'GPT-4 Turbo';
+				if (modelId === 'sonar-pro') name = 'Perplexity Sonar Pro';
+				if (modelId === 'sonar-mini') name = 'Perplexity Sonar Mini';
+
+				available.push({
+					id: modelId,
+					name: name,
+					provider: provider,
+					swe_score: sweScore,
+					cost_per_1m_tokens: cost,
+					allowed_roles: allowedRoles
+				});
+			});
+		} else {
+			// For providers with empty lists (like ollama), maybe add a placeholder or skip
+			available.push({
+				id: `[${provider}-any]`,
+				name: `Any (${provider})`,
+				provider: provider
+			});
+		}
+	}
+	return available;
+}
+
+/**
+ * Writes the configuration object to the file.
+ * @param {Object} config The configuration object to write.
+ * @param {string|null} explicitRoot - Optional explicit path to the project root.
+ * @returns {boolean} True if successful, false otherwise.
+ */
+function writeConfig(config, explicitRoot = null) {
+	const rootPath = explicitRoot || findProjectRoot();
+	if (!rootPath) {
+		console.error(
+			chalk.red(
+				'Error: Could not determine project root. Configuration not saved.'
+			)
+		);
+		return false;
+	}
+	const configPath =
+		path.basename(rootPath) === CONFIG_FILE_NAME
+			? rootPath
+			: path.join(rootPath, CONFIG_FILE_NAME);
+
+	try {
+		fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+		loadedConfig = config; // Update the cache after successful write
+		return true;
+	} catch (error) {
+		console.error(
+			chalk.red(
+				`Error writing configuration to ${configPath}: ${error.message}`
+			)
+		);
+		return false;
+	}
+}
+
 export {
-	// Not exporting findProjectRoot as it's internal for CLI context now
-	readConfig, // Keep exporting if direct access is needed elsewhere
-	writeConfig, // Keep exporting if direct access is needed elsewhere
+	// Core config access
+	getConfig, // Might still be useful for getting the whole object
+	writeConfig,
+
+	// Validation
 	validateProvider,
 	validateProviderModelCombination,
-	getMainProvider,
-	getMainModelId,
-	getResearchProvider,
-	getResearchModelId,
-	getFallbackProvider,
-	getFallbackModelId,
-	setMainModel,
-	setResearchModel,
-	setFallbackModel,
 	VALID_PROVIDERS,
 	MODEL_MAP,
 	getAvailableModels,
-	hasApiKeyForProvider,
+
+	// Role-specific getters
+	getMainProvider,
+	getMainModelId,
+	getMainMaxTokens,
+	getMainTemperature,
+	getResearchProvider,
+	getResearchModelId,
+	getResearchMaxTokens,
+	getResearchTemperature,
+	getFallbackProvider,
+	getFallbackModelId,
+	getFallbackMaxTokens,
+	getFallbackTemperature,
+
+	// Global setting getters
+	getLogLevel,
+	getDebugFlag,
+	getDefaultSubtasks,
+	getDefaultPriority,
+	getProjectName,
+	getOllamaBaseUrl,
+
+	// API Key Checkers (still relevant)
+	isApiKeySet,
 	getMcpApiKeyStatus
 };

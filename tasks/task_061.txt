@@ -402,7 +402,7 @@ describe('AI Client Factory', () => {
 ```
 </info added on 2025-04-14T23:02:30.519Z>
 
-## 4. Develop Centralized AI Services Module [pending]
+## 4. Develop Centralized AI Services Module [done]
 ### Dependencies: 61.3
 ### Description: Create a centralized AI services module that abstracts all AI interactions through a unified interface, using the Decorator pattern for adding functionality like logging and retries.
 ### Details:
@@ -415,7 +415,39 @@ describe('AI Client Factory', () => {
 7. Implement graceful fallback mechanisms when primary models fail
 8. Testing approach: Create unit tests with mocked responses to verify service behavior
 
-## 5. Implement Environment Variable Management [pending]
+<info added on 2025-04-19T23:51:22.219Z>
+Based on the exploration findings, here's additional information for the AI services module refactoring:
+
+The existing `ai-services.js` should be refactored to:
+
+1. Leverage the `ai-client-factory.js` for model instantiation while providing a higher-level service abstraction
+2. Implement a layered architecture:
+   - Base service layer handling common functionality (retries, logging, caching)
+   - Model-specific service implementations extending the base
+   - Facade pattern to provide a unified API for all consumers
+
+3. Integration points:
+   - Replace direct OpenAI client usage with factory-provided clients
+   - Maintain backward compatibility with existing service consumers
+   - Add service registration mechanism for new AI providers
+
+4. Performance considerations:
+   - Implement request batching for high-volume operations
+   - Add request priority queuing for critical vs non-critical operations
+   - Implement circuit breaker pattern to prevent cascading failures
+
+5. Monitoring enhancements:
+   - Add detailed telemetry for response times, token usage, and costs
+   - Implement standardized error classification for better diagnostics
+
+6. Implementation sequence:
+   - Start with abstract base service class
+   - Refactor existing OpenAI implementations
+   - Add adapter layer for new providers
+   - Implement the unified facade
+</info added on 2025-04-19T23:51:22.219Z>
+
+## 5. Implement Environment Variable Management [done]
 ### Dependencies: 61.1, 61.3
 ### Description: Update environment variable handling to support multiple AI models and create documentation for configuration options.
 ### Details:
@@ -455,7 +487,7 @@ describe('AI Client Factory', () => {
 8. Testing approach: Create integration tests that verify model setting functionality with various inputs
 
 ## 8. Update Main Task Processing Logic [pending]
-### Dependencies: 61.4, 61.5
+### Dependencies: 61.4, 61.5, 61.18
 ### Description: Refactor the main task processing logic to use the new AI services module and support dynamic model selection.
 ### Details:
 1. Update task processing functions to use the centralized AI services
@@ -467,8 +499,63 @@ describe('AI Client Factory', () => {
 7. Implement response validation to ensure quality across different models
 8. Testing approach: Create integration tests that verify task processing with different model configurations
 
+<info added on 2025-04-20T03:55:56.310Z>
+When updating the main task processing logic, implement the following changes to align with the new configuration system:
+
+1. Replace direct environment variable access with calls to the configuration manager:
+   ```javascript
+   // Before
+   const apiKey = process.env.OPENAI_API_KEY;
+   const modelId = process.env.MAIN_MODEL || "gpt-4";
+   
+   // After
+   import { getMainProvider, getMainModelId, getMainMaxTokens, getMainTemperature } from './config-manager.js';
+   
+   const provider = getMainProvider();
+   const modelId = getMainModelId();
+   const maxTokens = getMainMaxTokens();
+   const temperature = getMainTemperature();
+   ```
+
+2. Implement model fallback logic using the configuration hierarchy:
+   ```javascript
+   async function processTaskWithFallback(task) {
+     try {
+       return await processWithModel(task, getMainModelId());
+     } catch (error) {
+       logger.warn(`Primary model failed: ${error.message}`);
+       const fallbackModel = getMainFallbackModelId();
+       if (fallbackModel) {
+         return await processWithModel(task, fallbackModel);
+       }
+       throw error;
+     }
+   }
+   ```
+
+3. Add configuration-aware telemetry points to track model usage and performance:
+   ```javascript
+   function trackModelPerformance(modelId, startTime, success) {
+     const duration = Date.now() - startTime;
+     telemetry.trackEvent('model_usage', {
+       modelId,
+       provider: getMainProvider(),
+       duration,
+       success,
+       configVersion: getConfigVersion()
+     });
+   }
+   ```
+
+4. Ensure all prompt templates are loaded through the configuration system rather than hardcoded:
+   ```javascript
+   const promptTemplate = getPromptTemplate('task_processing');
+   const prompt = formatPrompt(promptTemplate, { task: taskData });
+   ```
+</info added on 2025-04-20T03:55:56.310Z>
+
 ## 9. Update Research Processing Logic [pending]
-### Dependencies: 61.4, 61.5, 61.8
+### Dependencies: 61.4, 61.5, 61.8, 61.18
 ### Description: Refactor the research processing logic to use the new AI services module and support dynamic model selection for research operations.
 ### Details:
 1. Update research functions to use the centralized AI services
@@ -479,6 +566,81 @@ describe('AI Client Factory', () => {
 6. Add support for model-specific research parameters
 7. Create fallback mechanisms for research operations
 8. Testing approach: Create integration tests that verify research functionality with different model configurations
+
+<info added on 2025-04-20T03:55:39.633Z>
+When implementing the refactored research processing logic, ensure the following:
+
+1. Replace direct environment variable access with the new configuration system:
+   ```javascript
+   // Old approach
+   const apiKey = process.env.OPENAI_API_KEY;
+   const model = "gpt-4";
+   
+   // New approach
+   import { getResearchProvider, getResearchModelId, getResearchMaxTokens, 
+            getResearchTemperature } from './config-manager.js';
+   
+   const provider = getResearchProvider();
+   const modelId = getResearchModelId();
+   const maxTokens = getResearchMaxTokens();
+   const temperature = getResearchTemperature();
+   ```
+
+2. Implement model fallback chains using the configuration system:
+   ```javascript
+   async function performResearch(query) {
+     try {
+       return await callAIService({
+         provider: getResearchProvider(),
+         modelId: getResearchModelId(),
+         maxTokens: getResearchMaxTokens(),
+         temperature: getResearchTemperature()
+       });
+     } catch (error) {
+       logger.warn(`Primary research model failed: ${error.message}`);
+       return await callAIService({
+         provider: getResearchProvider('fallback'),
+         modelId: getResearchModelId('fallback'),
+         maxTokens: getResearchMaxTokens('fallback'),
+         temperature: getResearchTemperature('fallback')
+       });
+     }
+   }
+   ```
+
+3. Add support for dynamic parameter adjustment based on research type:
+   ```javascript
+   function getResearchParameters(researchType) {
+     // Get base parameters
+     const baseParams = {
+       provider: getResearchProvider(),
+       modelId: getResearchModelId(),
+       maxTokens: getResearchMaxTokens(),
+       temperature: getResearchTemperature()
+     };
+     
+     // Adjust based on research type
+     switch(researchType) {
+       case 'deep':
+         return {...baseParams, maxTokens: baseParams.maxTokens * 1.5};
+       case 'creative':
+         return {...baseParams, temperature: Math.min(baseParams.temperature + 0.2, 1.0)};
+       case 'factual':
+         return {...baseParams, temperature: Math.max(baseParams.temperature - 0.2, 0)};
+       default:
+         return baseParams;
+     }
+   }
+   ```
+
+4. Ensure the caching mechanism uses configuration-based TTL settings:
+   ```javascript
+   const researchCache = new Cache({
+     ttl: getResearchCacheTTL(),
+     maxSize: getResearchCacheMaxSize()
+   });
+   ```
+</info added on 2025-04-20T03:55:39.633Z>
 
 ## 10. Create Comprehensive Documentation and Examples [pending]
 ### Dependencies: 61.6, 61.7, 61.8, 61.9
@@ -492,4 +654,852 @@ describe('AI Client Factory', () => {
 6. Document API key acquisition process for each supported service
 7. Create comparison chart of model capabilities and limitations
 8. Testing approach: Conduct user testing with the documentation to ensure clarity and completeness
+
+<info added on 2025-04-20T03:55:20.433Z>
+## Documentation Update for Configuration System Refactoring
+
+### Configuration System Architecture
+- Document the separation between environment variables and configuration file:
+  - API keys: Sourced exclusively from environment variables (process.env or session.env)
+  - All other settings: Centralized in `.taskmasterconfig` JSON file
+
+### `.taskmasterconfig` Structure
+```json
+{
+  "models": {
+    "completion": "gpt-3.5-turbo",
+    "chat": "gpt-4",
+    "embedding": "text-embedding-ada-002"
+  },
+  "parameters": {
+    "temperature": 0.7,
+    "maxTokens": 2000,
+    "topP": 1
+  },
+  "logging": {
+    "enabled": true,
+    "level": "info"
+  },
+  "defaults": {
+    "outputFormat": "markdown"
+  }
+}
+```
+
+### Configuration Access Patterns
+- Document the getter functions in `config-manager.js`:
+  - `getModelForRole(role)`: Returns configured model for a specific role
+  - `getParameter(name)`: Retrieves model parameters
+  - `getLoggingConfig()`: Access logging settings
+  - Example usage: `const completionModel = getModelForRole('completion')`
+
+### Environment Variable Resolution
+- Explain the `resolveEnvVariable(key)` function:
+  - Checks both process.env and session.env
+  - Prioritizes session variables over process variables
+  - Returns null if variable not found
+
+### Configuration Precedence
+- Document the order of precedence:
+  1. Command-line arguments (highest priority)
+  2. Session environment variables
+  3. Process environment variables
+  4. `.taskmasterconfig` settings
+  5. Hardcoded defaults (lowest priority)
+
+### Migration Guide
+- Steps for users to migrate from previous configuration approach
+- How to verify configuration is correctly loaded
+</info added on 2025-04-20T03:55:20.433Z>
+
+## 11. Refactor PRD Parsing to use generateObjectService [pending]
+### Dependencies: 61.23
+### Description: Update PRD processing logic (callClaude, processClaudeResponse, handleStreamingRequest in ai-services.js) to use the new `generateObjectService` from `ai-services-unified.js` with an appropriate Zod schema.
+### Details:
+
+
+<info added on 2025-04-20T03:55:01.707Z>
+The PRD parsing refactoring should align with the new configuration system architecture. When implementing this change:
+
+1. Replace direct environment variable access with `resolveEnvVariable` calls for API keys.
+
+2. Remove any hardcoded model names or parameters in the PRD processing functions. Instead, use the config-manager.js getters:
+   - `getModelForRole('prd')` to determine the appropriate model
+   - `getModelParameters('prd')` to retrieve temperature, maxTokens, etc.
+
+3. When constructing the generateObjectService call, ensure parameters are sourced from config:
+```javascript
+const modelConfig = getModelParameters('prd');
+const model = getModelForRole('prd');
+
+const result = await generateObjectService({
+  model,
+  temperature: modelConfig.temperature,
+  maxTokens: modelConfig.maxTokens,
+  // other parameters as needed
+  schema: prdSchema,
+  // existing prompt/context parameters
+});
+```
+
+4. Update any logging to respect the logging configuration from config-manager (e.g., `isLoggingEnabled('ai')`)
+
+5. Ensure any default values previously hardcoded are now retrieved from the configuration system.
+</info added on 2025-04-20T03:55:01.707Z>
+
+## 12. Refactor Basic Subtask Generation to use generateObjectService [pending]
+### Dependencies: 61.23
+### Description: Update the `generateSubtasks` function in `ai-services.js` to use the new `generateObjectService` from `ai-services-unified.js` with a Zod schema for the subtask array.
+### Details:
+
+
+<info added on 2025-04-20T03:54:45.542Z>
+The refactoring should leverage the new configuration system:
+
+1. Replace direct model references with calls to config-manager.js getters:
+   ```javascript
+   const { getModelForRole, getModelParams } = require('./config-manager');
+   
+   // Instead of hardcoded models/parameters:
+   const model = getModelForRole('subtask-generator');
+   const modelParams = getModelParams('subtask-generator');
+   ```
+
+2. Update API key handling to use the resolveEnvVariable pattern:
+   ```javascript
+   const { resolveEnvVariable } = require('./utils');
+   const apiKey = resolveEnvVariable('OPENAI_API_KEY');
+   ```
+
+3. When calling generateObjectService, pass the configuration parameters:
+   ```javascript
+   const result = await generateObjectService({
+     schema: subtasksArraySchema,
+     prompt: subtaskPrompt,
+     model: model,
+     temperature: modelParams.temperature,
+     maxTokens: modelParams.maxTokens,
+     // Other parameters from config
+   });
+   ```
+
+4. Add error handling that respects logging configuration:
+   ```javascript
+   const { isLoggingEnabled } = require('./config-manager');
+   
+   try {
+     // Generation code
+   } catch (error) {
+     if (isLoggingEnabled('errors')) {
+       console.error('Subtask generation error:', error);
+     }
+     throw error;
+   }
+   ```
+</info added on 2025-04-20T03:54:45.542Z>
+
+## 13. Refactor Research Subtask Generation to use generateObjectService [pending]
+### Dependencies: 61.23
+### Description: Update the `generateSubtasksWithPerplexity` function in `ai-services.js` to first perform research (potentially keeping the Perplexity call separate or adapting it) and then use `generateObjectService` from `ai-services-unified.js` with research results included in the prompt.
+### Details:
+
+
+<info added on 2025-04-20T03:54:26.882Z>
+The refactoring should align with the new configuration system by:
+
+1. Replace direct environment variable access with `resolveEnvVariable` for API keys
+2. Use the config-manager.js getters to retrieve model parameters:
+   - Replace hardcoded model names with `getModelForRole('research')`
+   - Use `getParametersForRole('research')` to get temperature, maxTokens, etc.
+3. Implement proper error handling that respects the `getLoggingConfig()` settings
+4. Example implementation pattern:
+```javascript
+const { getModelForRole, getParametersForRole, getLoggingConfig } = require('./config-manager');
+const { resolveEnvVariable } = require('./environment-utils');
+
+// In the refactored function:
+const researchModel = getModelForRole('research');
+const { temperature, maxTokens } = getParametersForRole('research');
+const apiKey = resolveEnvVariable('PERPLEXITY_API_KEY');
+const { verbose } = getLoggingConfig();
+
+// Then use these variables in the API call configuration
+```
+5. Ensure the transition to generateObjectService maintains all existing functionality while leveraging the new configuration system
+</info added on 2025-04-20T03:54:26.882Z>
+
+## 14. Refactor Research Task Description Generation to use generateObjectService [pending]
+### Dependencies: 61.23
+### Description: Update the `generateTaskDescriptionWithPerplexity` function in `ai-services.js` to first perform research and then use `generateObjectService` from `ai-services-unified.js` to generate the structured task description.
+### Details:
+
+
+<info added on 2025-04-20T03:54:04.420Z>
+The refactoring should incorporate the new configuration management system:
+
+1. Update imports to include the config-manager:
+```javascript
+const { getModelForRole, getParametersForRole } = require('./config-manager');
+```
+
+2. Replace any hardcoded model selections or parameters with config-manager calls:
+```javascript
+// Replace direct model references like:
+// const model = "perplexity-model-7b-online" 
+// With:
+const model = getModelForRole('research');
+const parameters = getParametersForRole('research');
+```
+
+3. For API key handling, use the resolveEnvVariable pattern:
+```javascript
+const apiKey = resolveEnvVariable('PERPLEXITY_API_KEY');
+```
+
+4. When calling generateObjectService, pass the configuration-derived parameters:
+```javascript
+return generateObjectService({
+  prompt: researchResults,
+  schema: taskDescriptionSchema,
+  role: 'taskDescription',
+  // Config-driven parameters will be applied within generateObjectService
+});
+```
+
+5. Remove any hardcoded configuration values, ensuring all settings are retrieved from the centralized configuration system.
+</info added on 2025-04-20T03:54:04.420Z>
+
+## 15. Refactor Complexity Analysis AI Call to use generateObjectService [pending]
+### Dependencies: 61.23
+### Description: Update the logic that calls the AI after using `generateComplexityAnalysisPrompt` in `ai-services.js` to use the new `generateObjectService` from `ai-services-unified.js` with a Zod schema for the complexity report.
+### Details:
+
+
+<info added on 2025-04-20T03:53:46.120Z>
+The complexity analysis AI call should be updated to align with the new configuration system architecture. When refactoring to use `generateObjectService`, implement the following changes:
+
+1. Replace direct model references with calls to the appropriate config getter:
+   ```javascript
+   const modelName = getComplexityAnalysisModel(); // Use the specific getter from config-manager.js
+   ```
+
+2. Retrieve AI parameters from the config system:
+   ```javascript
+   const temperature = getAITemperature('complexityAnalysis');
+   const maxTokens = getAIMaxTokens('complexityAnalysis');
+   ```
+
+3. When constructing the call to `generateObjectService`, pass these configuration values:
+   ```javascript
+   const result = await generateObjectService({
+     prompt,
+     schema: complexityReportSchema,
+     modelName,
+     temperature,
+     maxTokens,
+     sessionEnv: session?.env
+   });
+   ```
+
+4. Ensure API key resolution uses the `resolveEnvVariable` helper:
+   ```javascript
+   // Don't hardcode API keys or directly access process.env
+   // The generateObjectService should handle this internally with resolveEnvVariable
+   ```
+
+5. Add logging configuration based on settings:
+   ```javascript
+   const enableLogging = getAILoggingEnabled('complexityAnalysis');
+   if (enableLogging) {
+     // Use the logging mechanism defined in the configuration
+   }
+   ```
+</info added on 2025-04-20T03:53:46.120Z>
+
+## 16. Refactor Task Addition AI Call to use generateObjectService [pending]
+### Dependencies: 61.23
+### Description: Update the logic that calls the AI after using `_buildAddTaskPrompt` in `ai-services.js` to use the new `generateObjectService` from `ai-services-unified.js` with a Zod schema for the single task object.
+### Details:
+
+
+<info added on 2025-04-20T03:53:27.455Z>
+To implement this refactoring, you'll need to:
+
+1. Replace direct AI calls with the new `generateObjectService` approach:
+   ```javascript
+   // OLD approach
+   const aiResponse = await callLLM(prompt, modelName, temperature, maxTokens);
+   const task = parseAIResponseToTask(aiResponse);
+   
+   // NEW approach using generateObjectService with config-manager
+   import { generateObjectService } from '../services/ai-services-unified.js';
+   import { getAIModelForRole, getAITemperature, getAIMaxTokens } from '../config/config-manager.js';
+   import { taskSchema } from '../schemas/task-schema.js'; // Create this Zod schema for a single task
+   
+   const modelName = getAIModelForRole('taskCreation');
+   const temperature = getAITemperature('taskCreation');
+   const maxTokens = getAIMaxTokens('taskCreation');
+   
+   const task = await generateObjectService({
+     prompt: _buildAddTaskPrompt(...),
+     schema: taskSchema,
+     modelName,
+     temperature,
+     maxTokens
+   });
+   ```
+
+2. Create a Zod schema for the task object in a new file `schemas/task-schema.js` that defines the expected structure.
+
+3. Ensure API key resolution uses the new pattern:
+   ```javascript
+   // This happens inside generateObjectService, but verify it uses:
+   import { resolveEnvVariable } from '../config/config-manager.js';
+   // Instead of direct process.env access
+   ```
+
+4. Update any error handling to match the new service's error patterns.
+</info added on 2025-04-20T03:53:27.455Z>
+
+## 17. Refactor General Chat/Update AI Calls [pending]
+### Dependencies: 61.23
+### Description: Refactor functions like `sendChatWithContext` (and potentially related task update functions in `task-manager.js` if they make direct AI calls) to use `streamTextService` or `generateTextService` from `ai-services-unified.js`.
+### Details:
+
+
+<info added on 2025-04-20T03:53:03.709Z>
+When refactoring `sendChatWithContext` and related functions, ensure they align with the new configuration system:
+
+1. Replace direct model references with config getter calls:
+   ```javascript
+   // Before
+   const model = "gpt-4";
+   
+   // After
+   import { getModelForRole } from './config-manager.js';
+   const model = getModelForRole('chat'); // or appropriate role
+   ```
+
+2. Extract AI parameters from config rather than hardcoding:
+   ```javascript
+   import { getAIParameters } from './config-manager.js';
+   const { temperature, maxTokens } = getAIParameters('chat');
+   ```
+
+3. When calling `streamTextService` or `generateTextService`, pass parameters from config:
+   ```javascript
+   await streamTextService({
+     messages,
+     model: getModelForRole('chat'),
+     temperature: getAIParameters('chat').temperature,
+     // other parameters as needed
+   });
+   ```
+
+4. For logging control, check config settings:
+   ```javascript
+   import { isLoggingEnabled } from './config-manager.js';
+   
+   if (isLoggingEnabled('aiCalls')) {
+     console.log('AI request:', messages);
+   }
+   ```
+
+5. Ensure any default behaviors respect configuration defaults rather than hardcoded values.
+</info added on 2025-04-20T03:53:03.709Z>
+
+## 18. Refactor Callers of AI Parsing Utilities [pending]
+### Dependencies: 61.11,61.12,61.13,61.14,61.15,61.16,61.17,61.19
+### Description: Update the code that calls `parseSubtasksFromText`, `parseTaskJsonResponse`, and `parseTasksFromCompletion` to instead directly handle the structured JSON output provided by `generateObjectService` (as the refactored AI calls will now use it).
+### Details:
+
+
+<info added on 2025-04-20T03:52:45.518Z>
+The refactoring of callers to AI parsing utilities should align with the new configuration system. When updating these callers:
+
+1. Replace direct API key references with calls to the configuration system using `resolveEnvVariable` for sensitive credentials.
+
+2. Update model selection logic to use the centralized configuration from `.taskmasterconfig` via the getter functions in `config-manager.js`. For example:
+   ```javascript
+   // Old approach
+   const model = "gpt-4";
+   
+   // New approach
+   import { getModelForRole } from './config-manager';
+   const model = getModelForRole('parsing'); // or appropriate role
+   ```
+
+3. Similarly, replace hardcoded parameters with configuration-based values:
+   ```javascript
+   // Old approach
+   const maxTokens = 2000;
+   const temperature = 0.2;
+   
+   // New approach
+   import { getAIParameterValue } from './config-manager';
+   const maxTokens = getAIParameterValue('maxTokens', 'parsing');
+   const temperature = getAIParameterValue('temperature', 'parsing');
+   ```
+
+4. Ensure logging behavior respects the centralized logging configuration settings.
+
+5. When calling `generateObjectService`, pass the appropriate configuration context to ensure it uses the correct settings from the centralized configuration system.
+</info added on 2025-04-20T03:52:45.518Z>
+
+## 19. Refactor `updateSubtaskById` AI Call [pending]
+### Dependencies: 61.23
+### Description: Refactor the AI call within `updateSubtaskById` in `task-manager.js` (which generates additional information based on a prompt) to use the appropriate unified service function (e.g., `generateTextService`) from `ai-services-unified.js`.
+### Details:
+
+
+<info added on 2025-04-20T03:52:28.196Z>
+The `updateSubtaskById` function currently makes direct AI calls with hardcoded parameters. When refactoring to use the unified service:
+
+1. Replace direct OpenAI calls with `generateTextService` from `ai-services-unified.js`
+2. Use configuration parameters from `config-manager.js`:
+   - Replace hardcoded model with `getMainModel()`
+   - Use `getMainMaxTokens()` for token limits
+   - Apply `getMainTemperature()` for response randomness
+3. Ensure prompt construction remains consistent but passes these dynamic parameters
+4. Handle API key resolution through the unified service (which uses `resolveEnvVariable`)
+5. Update error handling to work with the unified service response format
+6. If the function uses any logging, ensure it respects `getLoggingEnabled()` setting
+
+Example refactoring pattern:
+```javascript
+// Before
+const completion = await openai.chat.completions.create({
+  model: "gpt-4",
+  temperature: 0.7,
+  max_tokens: 1000,
+  messages: [/* prompt messages */]
+});
+
+// After
+const completion = await generateTextService({
+  model: getMainModel(),
+  temperature: getMainTemperature(),
+  max_tokens: getMainMaxTokens(),
+  messages: [/* prompt messages */]
+});
+```
+</info added on 2025-04-20T03:52:28.196Z>
+
+## 20. Implement `anthropic.js` Provider Module using Vercel AI SDK [done]
+### Dependencies: None
+### Description: Create and implement the `anthropic.js` module within `src/ai-providers/`. This module should contain functions to interact with the Anthropic API (streaming and non-streaming) using the **Vercel AI SDK**, adhering to the standardized input/output format defined for `ai-services-unified.js`.
+### Details:
+
+
+## 21. Implement `perplexity.js` Provider Module using Vercel AI SDK [done]
+### Dependencies: None
+### Description: Create and implement the `perplexity.js` module within `src/ai-providers/`. This module should contain functions to interact with the Perplexity API (likely using their OpenAI-compatible endpoint) via the **Vercel AI SDK**, adhering to the standardized input/output format defined for `ai-services-unified.js`.
+### Details:
+
+
+## 22. Implement `openai.js` Provider Module using Vercel AI SDK [pending]
+### Dependencies: None
+### Description: Create and implement the `openai.js` module within `src/ai-providers/`. This module should contain functions to interact with the OpenAI API (streaming and non-streaming) using the **Vercel AI SDK**, adhering to the standardized input/output format defined for `ai-services-unified.js`. (Optional, implement if OpenAI models are needed).
+### Details:
+
+
+## 23. Implement Conditional Provider Logic in `ai-services-unified.js` [pending]
+### Dependencies: 61.20,61.21,61.22,61.24,61.25,61.26,61.27,61.28,61.29,61.30,61.34
+### Description: Implement logic within the functions of `ai-services-unified.js` (e.g., `generateTextService`, `generateObjectService`, `streamChatService`) to dynamically select and call the appropriate provider module (`anthropic.js`, `perplexity.js`, etc.) based on configuration (e.g., environment variables like `AI_PROVIDER` and `AI_MODEL` from `process.env` or `session.env`).
+### Details:
+
+
+<info added on 2025-04-20T03:52:13.065Z>
+The unified service should now use the configuration manager for provider selection rather than directly accessing environment variables. Here's the implementation approach:
+
+1. Import the config-manager functions:
+```javascript
+const { 
+  getMainProvider, 
+  getResearchProvider, 
+  getFallbackProvider,
+  getModelForRole,
+  getProviderParameters
+} = require('./config-manager');
+```
+
+2. Implement provider selection based on context/role:
+```javascript
+function selectProvider(role = 'default', context = {}) {
+  // Try to get provider based on role or context
+  let provider;
+  
+  if (role === 'research') {
+    provider = getResearchProvider();
+  } else if (context.fallback) {
+    provider = getFallbackProvider();
+  } else {
+    provider = getMainProvider();
+  }
+  
+  // Dynamically import the provider module
+  return require(`./${provider}.js`);
+}
+```
+
+3. Update service functions to use this selection logic:
+```javascript
+async function generateTextService(prompt, options = {}) {
+  const { role = 'default', ...otherOptions } = options;
+  const provider = selectProvider(role, options);
+  const model = getModelForRole(role);
+  const parameters = getProviderParameters(provider.name);
+  
+  return provider.generateText(prompt, { 
+    model, 
+    ...parameters,
+    ...otherOptions 
+  });
+}
+```
+
+4. Implement fallback logic for service resilience:
+```javascript
+async function executeWithFallback(serviceFunction, ...args) {
+  try {
+    return await serviceFunction(...args);
+  } catch (error) {
+    console.error(`Primary provider failed: ${error.message}`);
+    const fallbackProvider = require(`./${getFallbackProvider()}.js`);
+    return fallbackProvider[serviceFunction.name](...args);
+  }
+}
+```
+
+5. Add provider capability checking to prevent calling unsupported features:
+```javascript
+function checkProviderCapability(provider, capability) {
+  const capabilities = {
+    'anthropic': ['text', 'chat', 'stream'],
+    'perplexity': ['text', 'chat', 'stream', 'research'],
+    'openai': ['text', 'chat', 'stream', 'embedding', 'vision']
+    // Add other providers as needed
+  };
+  
+  return capabilities[provider]?.includes(capability) || false;
+}
+```
+</info added on 2025-04-20T03:52:13.065Z>
+
+## 24. Implement `google.js` Provider Module using Vercel AI SDK [pending]
+### Dependencies: None
+### Description: Create and implement the `google.js` module within `src/ai-providers/`. This module should contain functions to interact with Google AI models (e.g., Gemini) using the **Vercel AI SDK (`@ai-sdk/google`)**, adhering to the standardized input/output format defined for `ai-services-unified.js`.
+### Details:
+
+
+## 25. Implement `ollama.js` Provider Module [pending]
+### Dependencies: None
+### Description: Create and implement the `ollama.js` module within `src/ai-providers/`. This module should contain functions to interact with local Ollama models using the **`ollama-ai-provider` library**, adhering to the standardized input/output format defined for `ai-services-unified.js`. Note the specific library used.
+### Details:
+
+
+## 26. Implement `mistral.js` Provider Module using Vercel AI SDK [pending]
+### Dependencies: None
+### Description: Create and implement the `mistral.js` module within `src/ai-providers/`. This module should contain functions to interact with Mistral AI models using the **Vercel AI SDK (`@ai-sdk/mistral`)**, adhering to the standardized input/output format defined for `ai-services-unified.js`.
+### Details:
+
+
+## 27. Implement `azure.js` Provider Module using Vercel AI SDK [pending]
+### Dependencies: None
+### Description: Create and implement the `azure.js` module within `src/ai-providers/`. This module should contain functions to interact with Azure OpenAI models using the **Vercel AI SDK (`@ai-sdk/azure`)**, adhering to the standardized input/output format defined for `ai-services-unified.js`.
+### Details:
+
+
+## 28. Implement `openrouter.js` Provider Module [pending]
+### Dependencies: None
+### Description: Create and implement the `openrouter.js` module within `src/ai-providers/`. This module should contain functions to interact with various models via OpenRouter using the **`@openrouter/ai-sdk-provider` library**, adhering to the standardized input/output format defined for `ai-services-unified.js`. Note the specific library used.
+### Details:
+
+
+## 29. Implement `xai.js` Provider Module using Vercel AI SDK [pending]
+### Dependencies: None
+### Description: Create and implement the `xai.js` module within `src/ai-providers/`. This module should contain functions to interact with xAI models (e.g., Grok) using the **Vercel AI SDK (`@ai-sdk/xai`)**, adhering to the standardized input/output format defined for `ai-services-unified.js`.
+### Details:
+
+
+## 30. Update Configuration Management for AI Providers [pending]
+### Dependencies: None
+### Description: Update `config-manager.js` and related configuration logic/documentation to support the new provider/model selection mechanism for `ai-services-unified.js` (e.g., using `AI_PROVIDER`, `AI_MODEL` env vars from `process.env` or `session.env`), ensuring compatibility with existing role-based selection if needed.
+### Details:
+
+
+<info added on 2025-04-20T00:42:35.876Z>
+```javascript
+// Implementation details for config-manager.js updates
+
+/**
+ * Unified configuration resolution function that checks multiple sources in priority order:
+ * 1. process.env
+ * 2. session.env (if available)
+ * 3. Default values from .taskmasterconfig
+ * 
+ * @param {string} key - Configuration key to resolve
+ * @param {object} session - Optional session object that may contain env values
+ * @param {*} defaultValue - Default value if not found in any source
+ * @returns {*} Resolved configuration value
+ */
+function resolveConfig(key, session = null, defaultValue = null) {
+  return process.env[key] ?? session?.env?.[key] ?? defaultValue;
+}
+
+// AI provider/model resolution with fallback to role-based selection
+function resolveAIConfig(session = null, role = 'default') {
+  const provider = resolveConfig('AI_PROVIDER', session);
+  const model = resolveConfig('AI_MODEL', session);
+  
+  // If explicit provider/model specified, use those
+  if (provider && model) {
+    return { provider, model };
+  }
+  
+  // Otherwise fall back to role-based configuration
+  const roleConfig = getRoleBasedAIConfig(role);
+  return {
+    provider: provider || roleConfig.provider,
+    model: model || roleConfig.model
+  };
+}
+
+// Example usage in ai-services-unified.js:
+// const { provider, model } = resolveAIConfig(session, role);
+// const client = getProviderClient(provider, resolveConfig(`${provider.toUpperCase()}_API_KEY`, session));
+
+/**
+ * Configuration Resolution Documentation:
+ * 
+ * 1. Environment Variables:
+ *    - AI_PROVIDER: Explicitly sets the AI provider (e.g., 'openai', 'anthropic')
+ *    - AI_MODEL: Explicitly sets the model to use (e.g., 'gpt-4', 'claude-2')
+ *    - OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.: Provider-specific API keys
+ * 
+ * 2. Resolution Strategy:
+ *    - Values are first checked in process.env
+ *    - If not found, session.env is checked (when available)
+ *    - If still not found, defaults from .taskmasterconfig are used
+ *    - For AI provider/model, explicit settings override role-based configuration
+ * 
+ * 3. Backward Compatibility:
+ *    - Role-based selection continues to work when AI_PROVIDER/AI_MODEL are not set
+ *    - Existing code using getRoleBasedAIConfig() will continue to function
+ */
+```
+</info added on 2025-04-20T00:42:35.876Z>
+
+<info added on 2025-04-20T03:51:51.967Z>
+<info added on 2025-04-20T14:30:12.456Z>
+```javascript
+/**
+ * Refactored configuration management implementation
+ */
+
+// Core configuration getters - replace direct CONFIG access
+const getMainProvider = () => resolveConfig('AI_PROVIDER', null, CONFIG.ai?.mainProvider || 'openai');
+const getMainModel = () => resolveConfig('AI_MODEL', null, CONFIG.ai?.mainModel || 'gpt-4');
+const getLogLevel = () => resolveConfig('LOG_LEVEL', null, CONFIG.logging?.level || 'info');
+const getMaxTokens = (role = 'default') => {
+  const explicitMaxTokens = parseInt(resolveConfig('MAX_TOKENS', null, 0), 10);
+  if (explicitMaxTokens > 0) return explicitMaxTokens;
+  
+  // Fall back to role-based configuration
+  return CONFIG.ai?.roles?.[role]?.maxTokens || CONFIG.ai?.defaultMaxTokens || 4096;
+};
+
+// API key resolution - separate from general configuration
+function resolveEnvVariable(key, session = null) {
+  return process.env[key] ?? session?.env?.[key] ?? null;
+}
+
+function isApiKeySet(provider, session = null) {
+  const keyName = `${provider.toUpperCase()}_API_KEY`;
+  return Boolean(resolveEnvVariable(keyName, session));
+}
+
+/**
+ * Migration guide for application components:
+ * 
+ * 1. Replace direct CONFIG access:
+ *    - Before: `const provider = CONFIG.ai.mainProvider;`
+ *    - After: `const provider = getMainProvider();`
+ * 
+ * 2. Replace direct process.env access for API keys:
+ *    - Before: `const apiKey = process.env.OPENAI_API_KEY;`
+ *    - After: `const apiKey = resolveEnvVariable('OPENAI_API_KEY', session);`
+ * 
+ * 3. Check API key availability:
+ *    - Before: `if (process.env.OPENAI_API_KEY) {...}`
+ *    - After: `if (isApiKeySet('openai', session)) {...}`
+ * 
+ * 4. Update provider/model selection in ai-services:
+ *    - Before: 
+ *      ```
+ *      const provider = role ? CONFIG.ai.roles[role]?.provider : CONFIG.ai.mainProvider;
+ *      const model = role ? CONFIG.ai.roles[role]?.model : CONFIG.ai.mainModel;
+ *      ```
+ *    - After:
+ *      ```
+ *      const { provider, model } = resolveAIConfig(session, role);
+ *      ```
+ */
+
+// Update .taskmasterconfig schema documentation
+const configSchema = {
+  "ai": {
+    "mainProvider": "Default AI provider (overridden by AI_PROVIDER env var)",
+    "mainModel": "Default AI model (overridden by AI_MODEL env var)",
+    "defaultMaxTokens": "Default max tokens (overridden by MAX_TOKENS env var)",
+    "roles": {
+      "role_name": {
+        "provider": "Provider for this role (fallback if AI_PROVIDER not set)",
+        "model": "Model for this role (fallback if AI_MODEL not set)",
+        "maxTokens": "Max tokens for this role (fallback if MAX_TOKENS not set)"
+      }
+    }
+  },
+  "logging": {
+    "level": "Logging level (overridden by LOG_LEVEL env var)"
+  }
+};
+```
+
+Implementation notes:
+1. All configuration getters should provide environment variable override capability first, then fall back to .taskmasterconfig values
+2. API key resolution should be kept separate from general configuration to maintain security boundaries
+3. Update all application components to use these new getters rather than accessing CONFIG or process.env directly
+4. Document the priority order (env vars > session.env > .taskmasterconfig) in JSDoc comments
+5. Ensure backward compatibility by maintaining support for role-based configuration when explicit env vars aren't set
+</info added on 2025-04-20T14:30:12.456Z>
+</info added on 2025-04-20T03:51:51.967Z>
+
+## 31. Implement Integration Tests for Unified AI Service [pending]
+### Dependencies: 61.18
+### Description: Implement integration tests for `ai-services-unified.js`. These tests should verify the correct routing to different provider modules based on configuration and ensure the unified service functions (`generateTextService`, `generateObjectService`, etc.) work correctly when called from modules like `task-manager.js`.
+### Details:
+
+
+<info added on 2025-04-20T03:51:23.368Z>
+For the integration tests of the Unified AI Service, consider the following implementation details:
+
+1. Setup test fixtures:
+   - Create a mock `.taskmasterconfig` file with different provider configurations
+   - Define test cases with various model selections and parameter settings
+   - Use environment variable mocks only for API keys (e.g., `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
+
+2. Test configuration resolution:
+   - Verify that `ai-services-unified.js` correctly retrieves settings from `config-manager.js`
+   - Test that model selection follows the hierarchy defined in `.taskmasterconfig`
+   - Ensure fallback mechanisms work when primary providers are unavailable
+
+3. Mock the provider modules:
+   ```javascript
+   jest.mock('../services/openai-service.js');
+   jest.mock('../services/anthropic-service.js');
+   ```
+
+4. Test specific scenarios:
+   - Provider selection based on configured preferences
+   - Parameter inheritance from config (temperature, maxTokens)
+   - Error handling when API keys are missing
+   - Proper routing when specific models are requested
+
+5. Verify integration with task-manager:
+   ```javascript
+   test('task-manager correctly uses unified AI service with config-based settings', async () => {
+     // Setup mock config with specific settings
+     mockConfigManager.getAIProviderPreference.mockReturnValue(['openai', 'anthropic']);
+     mockConfigManager.getModelForRole.mockReturnValue('gpt-4');
+     mockConfigManager.getParametersForModel.mockReturnValue({ temperature: 0.7, maxTokens: 2000 });
+     
+     // Verify task-manager uses these settings when calling the unified service
+     // ...
+   });
+   ```
+
+6. Include tests for configuration changes at runtime and their effect on service behavior.
+</info added on 2025-04-20T03:51:23.368Z>
+
+## 32. Update Documentation for New AI Architecture [pending]
+### Dependencies: 61.31
+### Description: Update relevant documentation files (e.g., `architecture.mdc`, `taskmaster.mdc`, environment variable guides, README) to accurately reflect the new AI service architecture using `ai-services-unified.js`, provider modules, the Vercel AI SDK, and the updated configuration approach.
+### Details:
+
+
+<info added on 2025-04-20T03:51:04.461Z>
+The new AI architecture introduces a clear separation between sensitive credentials and configuration settings:
+
+## Environment Variables vs Configuration File
+
+- **Environment Variables (.env)**: 
+  - Store only sensitive API keys and credentials
+  - Accessed via `resolveEnvVariable()` which checks both process.env and session.env
+  - Example: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`
+  - No model names, parameters, or non-sensitive settings should be here
+
+- **.taskmasterconfig File**:
+  - Central location for all non-sensitive configuration
+  - Structured JSON with clear sections for different aspects of the system
+  - Contains:
+    - Model mappings by role (e.g., `systemModels`, `userModels`)
+    - Default parameters (temperature, maxTokens, etc.)
+    - Logging preferences
+    - Provider-specific settings
+  - Accessed via getter functions from `config-manager.js` like:
+    ```javascript
+    import { getModelForRole, getDefaultTemperature } from './config-manager.js';
+    
+    // Usage examples
+    const model = getModelForRole('system');
+    const temp = getDefaultTemperature();
+    ```
+
+## Implementation Notes
+- Document the structure of `.taskmasterconfig` with examples
+- Explain the migration path for users with existing setups
+- Include a troubleshooting section for common configuration issues
+- Add a configuration validation section explaining how the system verifies settings
+</info added on 2025-04-20T03:51:04.461Z>
+
+## 33. Cleanup Old AI Service Files [pending]
+### Dependencies: 61.32
+### Description: After all other migration subtasks (refactoring, provider implementation, testing, documentation) are complete and verified, remove the old `ai-services.js` and `ai-client-factory.js` files from the `scripts/modules/` directory. Ensure no code still references them.
+### Details:
+
+
+## 34. Audit and Standardize Env Variable Access [pending]
+### Dependencies: None
+### Description: Audit the entire codebase (core modules, provider modules, utilities) to ensure all accesses to environment variables (API keys, configuration flags) consistently use a standardized resolution function (like `resolveEnvVariable` or a new utility) that checks `process.env` first and then `session.env` if available. Refactor any direct `process.env` access where `session.env` should also be considered.
+### Details:
+
+
+<info added on 2025-04-20T03:50:25.632Z>
+This audit should distinguish between two types of configuration:
+
+1. **Sensitive credentials (API keys)**: These should exclusively use the `resolveEnvVariable` pattern to check both `process.env` and `session.env`. Verify that no API keys are hardcoded or accessed through direct `process.env` references.
+
+2. **Application configuration**: All non-credential settings should be migrated to use the centralized `.taskmasterconfig` system via the `config-manager.js` getters. This includes:
+   - Model selections and role assignments
+   - Parameter settings (temperature, maxTokens, etc.)
+   - Logging configuration
+   - Default behaviors and fallbacks
+
+Implementation notes:
+- Create a comprehensive inventory of all environment variable accesses
+- Categorize each as either credential or application configuration
+- For credentials: standardize on `resolveEnvVariable` pattern
+- For app config: migrate to appropriate `config-manager.js` getter methods
+- Document any exceptions that require special handling
+- Add validation to prevent regression (e.g., ESLint rules against direct `process.env` access)
+
+This separation ensures security best practices for credentials while centralizing application configuration for better maintainability.
+</info added on 2025-04-20T03:50:25.632Z>
+
+## 35. Review/Refactor MCP Direct Functions for Explicit Config Root Passing [pending]
+### Dependencies: None
+### Description: Review all functions in mcp-server/src/core/direct-functions/*.js. Ensure that any calls made from these functions to getters in scripts/modules/config-manager.js (e.g., getMainProvider, getDefaultPriority, getLogLevel, etc.) explicitly pass the projectRoot (obtained from the args object, which is derived from the session context) as the first argument to the getter. This prevents the getters from incorrectly falling back to using findProjectRoot() based on the server's cwd when running in an MCP context. This is crucial for loading the correct .taskmasterconfig settings based on the user's project.
+### Details:
+
 
