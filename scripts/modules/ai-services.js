@@ -8,7 +8,12 @@
 import { Anthropic } from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
-import { log, sanitizePrompt, isSilentMode } from './utils.js';
+import {
+	log,
+	sanitizePrompt,
+	isSilentMode,
+	resolveEnvVariable
+} from './utils.js';
 import { startLoadingIndicator, stopLoadingIndicator } from './ui.js';
 import chalk from 'chalk';
 import {
@@ -24,35 +29,26 @@ import {
 // Load environment variables
 dotenv.config();
 
-// Configure Anthropic client
-const anthropic = new Anthropic({
-	apiKey: process.env.ANTHROPIC_API_KEY,
-	// Add beta header for 128k token output
-	defaultHeaders: {
-		'anthropic-beta': 'output-128k-2025-02-19'
-	}
-});
-
-// Lazy-loaded Perplexity client
-let perplexity = null;
-
 /**
  * Get or initialize the Perplexity client
+ * @param {object|null} [session=null] - Optional MCP session object.
  * @returns {OpenAI} Perplexity client
  */
-function getPerplexityClient() {
-	if (!perplexity) {
-		if (!process.env.PERPLEXITY_API_KEY) {
-			throw new Error(
-				'PERPLEXITY_API_KEY environment variable is missing. Set it to use research-backed features.'
-			);
-		}
-		perplexity = new OpenAI({
-			apiKey: process.env.PERPLEXITY_API_KEY,
-			baseURL: 'https://api.perplexity.ai'
-		});
+function getPerplexityClient(session = null) {
+	// Use resolveEnvVariable to get the key
+	const apiKey = resolveEnvVariable('PERPLEXITY_API_KEY', session);
+	if (!apiKey) {
+		throw new Error(
+			'PERPLEXITY_API_KEY environment variable is missing. Set it to use research-backed features.'
+		);
 	}
-	return perplexity;
+	// Create and return a new client instance each time for now
+	// Caching can be handled by ai-client-factory later
+	return new OpenAI({
+		apiKey: apiKey,
+		baseURL: 'https://api.perplexity.ai'
+	});
+	// Removed the old caching logic using the global 'perplexity' variable
 }
 
 /**
@@ -60,15 +56,22 @@ function getPerplexityClient() {
  * @param {Object} options - Options for model selection
  * @param {boolean} options.claudeOverloaded - Whether Claude is currently overloaded
  * @param {boolean} options.requiresResearch - Whether the operation requires research capabilities
+ * @param {object|null} [session=null] - Optional MCP session object.
  * @returns {Object} Selected model info with type and client
  */
-function getAvailableAIModel(options = {}) {
+function getAvailableAIModel(options = {}, session = null) {
 	const { claudeOverloaded = false, requiresResearch = false } = options;
+	const perplexityKeyExists = !!resolveEnvVariable(
+		'PERPLEXITY_API_KEY',
+		session
+	);
+	const anthropicKeyExists = !!resolveEnvVariable('ANTHROPIC_API_KEY', session);
 
 	// First choice: Perplexity if research is required and it's available
-	if (requiresResearch && process.env.PERPLEXITY_API_KEY) {
+	if (requiresResearch && perplexityKeyExists) {
 		try {
-			const client = getPerplexityClient();
+			// Pass session to getPerplexityClient
+			const client = getPerplexityClient(session);
 			return { type: 'perplexity', client };
 		} catch (error) {
 			log('warn', `Perplexity not available: ${error.message}`);
@@ -76,16 +79,27 @@ function getAvailableAIModel(options = {}) {
 		}
 	}
 
-	// Second choice: Claude if not overloaded
-	if (!claudeOverloaded && process.env.ANTHROPIC_API_KEY) {
-		return { type: 'claude', client: anthropic };
+	// Second choice: Claude if not overloaded and key exists
+	if (!claudeOverloaded && anthropicKeyExists) {
+		// Use getAnthropicClient which handles session internally
+		try {
+			const client = getAnthropicClient(session);
+			return { type: 'claude', client };
+		} catch (error) {
+			log('warn', `Anthropic client error: ${error.message}`);
+			// Fall through
+		}
 	}
 
 	// Third choice: Perplexity as Claude fallback (even if research not required)
-	if (process.env.PERPLEXITY_API_KEY) {
+	if (perplexityKeyExists) {
 		try {
-			const client = getPerplexityClient();
-			log('info', 'Claude is overloaded, falling back to Perplexity');
+			// Pass session to getPerplexityClient
+			const client = getPerplexityClient(session);
+			log(
+				'info',
+				'Claude is unavailable or overloaded, falling back to Perplexity'
+			);
 			return { type: 'perplexity', client };
 		} catch (error) {
 			log('warn', `Perplexity fallback not available: ${error.message}`);
@@ -93,15 +107,22 @@ function getAvailableAIModel(options = {}) {
 		}
 	}
 
-	// Last resort: Use Claude even if overloaded (might fail)
-	if (process.env.ANTHROPIC_API_KEY) {
+	// Last resort: Use Claude even if overloaded (might fail), if key exists
+	if (anthropicKeyExists) {
 		if (claudeOverloaded) {
 			log(
 				'warn',
 				'Claude is overloaded but no alternatives are available. Proceeding with Claude anyway.'
 			);
 		}
-		return { type: 'claude', client: anthropic };
+		// Use getAnthropicClient which handles session internally
+		try {
+			const client = getAnthropicClient(session);
+			return { type: 'claude', client };
+		} catch (error) {
+			log('warn', `Anthropic client error on fallback: ${error.message}`);
+			// Fall through to error
+		}
 	}
 
 	// No models available
@@ -172,6 +193,9 @@ async function callClaude(
 	try {
 		log('info', 'Calling Claude...');
 
+		// Get client dynamically using session
+		const clientToUse = aiClient || getAnthropicClient(session);
+
 		// Build the system prompt
 		const systemPrompt = `You are an AI assistant helping to break down a Product Requirements Document (PRD) into a set of sequential development tasks. 
 Your goal is to create ${numTasks} well-structured, actionable development tasks based on the PRD provided.
@@ -227,10 +251,10 @@ Important: Your response must be valid JSON only, with no additional explanation
 			prdContent,
 			prdPath,
 			numTasks,
-			modelConfig?.maxTokens || getMainMaxTokens(null),
+			modelConfig?.maxTokens || getMainMaxTokens(session),
 			systemPrompt,
 			{ reportProgress, mcpLog, session },
-			aiClient || anthropic,
+			aiClient,
 			modelConfig
 		);
 	} catch (error) {
@@ -263,7 +287,7 @@ Important: Your response must be valid JSON only, with no additional explanation
 			);
 		} else {
 			console.error(chalk.red(userMessage));
-			if (getDebugFlag(null)) {
+			if (getDebugFlag(session)) {
 				log('debug', 'Full error:', error);
 			}
 			throw new Error(userMessage);
@@ -314,10 +338,12 @@ async function handleStreamingRequest(
 	let claudeOverloaded = false;
 
 	try {
-		const modelToUse = modelConfig?.modelId || getMainModelId(null);
+		// Get client dynamically, ensuring session is passed
+		const clientToUse = aiClient || getAnthropicClient(session);
+
+		const modelToUse = modelConfig?.modelId || getMainModelId(session);
 		const temperatureToUse =
-			modelConfig?.temperature || getMainTemperature(null);
-		const clientToUse = aiClient || anthropic;
+			modelConfig?.temperature || getMainTemperature(session);
 
 		report(`Using model: ${modelToUse} with temp: ${temperatureToUse}`);
 
@@ -382,7 +408,7 @@ async function handleStreamingRequest(
 
 		if (claudeOverloaded) {
 			report('Claude is overloaded, falling back to Perplexity', 'warn');
-			const perplexityClient = getPerplexityClient();
+			const perplexityClient = getPerplexityClient(session);
 			finalResponse = await handleStreamingRequest(
 				prdContent,
 				prdPath,
@@ -557,9 +583,9 @@ async function generateSubtasks(
 		);
 	}
 
-	const model = getMainModelId(null);
-	const maxTokens = getMainMaxTokens(null);
-	const temperature = getMainTemperature(null);
+	const model = getMainModelId(session);
+	const maxTokens = getMainMaxTokens(session);
+	const temperature = getMainTemperature(session);
 
 	try {
 		const systemPrompt = `You are an AI assistant helping with task breakdown for software development. 
@@ -607,7 +633,7 @@ Return exactly ${numSubtasks} subtasks with the following JSON structure:
 
 Note on dependencies: Subtasks can depend on other subtasks with lower IDs. Use an empty array if there are no dependencies.`;
 
-		const stream = await anthropic.messages.create({
+		const stream = await getAnthropicClient(session).messages.create({
 			model: model,
 			max_tokens: maxTokens,
 			temperature: temperature,
@@ -700,7 +726,7 @@ async function generateSubtasksWithPerplexity(
 	try {
 		// First, perform research to get context
 		logFn('info', `Researching context for task ${task.id}: ${task.title}`);
-		const perplexityClient = getPerplexityClient();
+		const perplexityClient = getPerplexityClient(session);
 
 		const PERPLEXITY_MODEL =
 			process.env.PERPLEXITY_MODEL ||
@@ -838,16 +864,16 @@ Note on dependencies: Subtasks can depend on other subtasks with lower IDs. Use 
 
 			// Use streaming API call via our helper function
 			responseText = await _handleAnthropicStream(
-				anthropic,
+				getAnthropicClient(session),
 				{
-					model: session?.env?.ANTHROPIC_MODEL || CONFIG.model,
+					model: getMainModelId(session),
 					max_tokens: 8700,
-					temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
+					temperature: getMainTemperature(session),
 					system: systemPrompt,
 					messages: [{ role: 'user', content: userPrompt }]
 				},
 				{ reportProgress, mcpLog, silentMode },
-				!isSilent // Only use CLI mode if not in silent mode
+				!isSilent
 			);
 
 			// Clean up
@@ -1041,7 +1067,7 @@ IMPORTANT: Make sure to include an analysis for EVERY task listed above, with th
 async function _handleAnthropicStream(
 	client,
 	params,
-	{ reportProgress, mcpLog, silentMode } = {},
+	{ reportProgress, mcpLog, silentMode, session } = {},
 	cliMode = false
 ) {
 	// Only set up loading indicator in CLI mode and not in silent mode
@@ -1292,13 +1318,12 @@ function _buildAddTaskPrompt(prompt, contextTasks, { newTaskId } = {}) {
  */
 function getAnthropicClient(session) {
 	// If we already have a global client and no session, use the global
-	if (!session && anthropic) {
-		return anthropic;
-	}
+	// if (!session && anthropic) {
+	// 	return anthropic;
+	// }
 
 	// Initialize a new client with API key from session or environment
-	const apiKey =
-		session?.env?.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
+	const apiKey = resolveEnvVariable('ANTHROPIC_API_KEY', session);
 
 	if (!apiKey) {
 		throw new Error(
@@ -1331,7 +1356,7 @@ async function generateTaskDescriptionWithPerplexity(
 	try {
 		// First, perform research to get context
 		log('info', `Researching context for task prompt: "${prompt}"`);
-		const perplexityClient = getPerplexityClient();
+		const perplexityClient = getPerplexityClient(session);
 
 		const PERPLEXITY_MODEL =
 			process.env.PERPLEXITY_MODEL ||
@@ -1418,10 +1443,10 @@ Return a JSON object with the following structure:
 			}
 
 			// Use streaming API call
-			const stream = await anthropic.messages.create({
-				model: session?.env?.ANTHROPIC_MODEL || CONFIG.model,
-				max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
-				temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
+			const stream = await getAnthropicClient(session).messages.create({
+				model: getMainModelId(session),
+				max_tokens: getMainMaxTokens(session),
+				temperature: getMainTemperature(session),
 				system: systemPrompt,
 				messages: [
 					{
@@ -1477,10 +1502,10 @@ Return a JSON object with the following structure:
  */
 function getConfiguredAnthropicClient(session = null, customEnv = null) {
 	// If we have a session with ANTHROPIC_API_KEY in env, use that
-	const apiKey =
-		session?.env?.ANTHROPIC_API_KEY ||
-		process.env.ANTHROPIC_API_KEY ||
-		customEnv?.ANTHROPIC_API_KEY;
+	const apiKey = resolveEnvVariable(
+		'ANTHROPIC_API_KEY',
+		session || { env: customEnv }
+	);
 
 	if (!apiKey) {
 		throw new Error(
@@ -1509,6 +1534,14 @@ async function sendChatWithContext(
 	params,
 	{ reportProgress, mcpLog, silentMode, session } = {}
 ) {
+	// Ensure client is passed or get dynamically
+	if (!client) {
+		try {
+			client = getAnthropicClient(session);
+		} catch (clientError) {
+			throw new Error(`Anthropic client is required: ${clientError.message}`);
+		}
+	}
 	// Use the streaming helper to get the response
 	return await _handleAnthropicStream(
 		client,
