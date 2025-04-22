@@ -1678,6 +1678,33 @@ The new AI architecture introduces a clear separation between sensitive credenti
 ### Details:
 
 
+<info added on 2025-04-22T06:51:02.444Z>
+I'll provide additional technical information to enhance the "Cleanup Old AI Service Files" subtask:
+
+## Implementation Details
+
+**Pre-Cleanup Verification Steps:**
+- Run a comprehensive codebase search for any remaining imports or references to `ai-services.js` and `ai-client-factory.js` using grep or your IDE's search functionality[1][4]
+- Check for any dynamic imports that might not be caught by static analysis tools
+- Verify that all dependent modules have been properly migrated to the new AI service architecture
+
+**Cleanup Process:**
+- Create a backup of the files before deletion in case rollback is needed
+- Document the file removal in the migration changelog with timestamps and specific file paths[5]
+- Update any build configuration files that might reference these files (webpack configs, etc.)
+- Run a full test suite after removal to ensure no runtime errors occur[2]
+
+**Post-Cleanup Validation:**
+- Implement automated tests to verify the application functions correctly without the removed files
+- Monitor application logs and error reporting systems for 48-72 hours after deployment to catch any missed dependencies[3]
+- Perform a final code review to ensure clean architecture principles are maintained in the new implementation
+
+**Technical Considerations:**
+- Check for any circular dependencies that might have been created during the migration process
+- Ensure proper garbage collection by removing any cached instances of the old services
+- Verify that performance metrics remain stable after the removal of legacy code
+</info added on 2025-04-22T06:51:02.444Z>
+
 ## 34. Audit and Standardize Env Variable Access [done]
 ### Dependencies: None
 ### Description: Audit the entire codebase (core modules, provider modules, utilities) to ensure all accesses to environment variables (API keys, configuration flags) consistently use a standardized resolution function (like `resolveEnvVariable` or a new utility) that checks `process.env` first and then `session.env` if available. Refactor any direct `process.env` access where `session.env` should also be considered.

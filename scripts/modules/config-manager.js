@@ -170,10 +170,14 @@ function _loadAndValidateConfig(explicitRoot = null) {
 		}
 	} else {
 		// Config file doesn't exist
-		// **Strict Check**: Throw error if config file is missing
-		throw new ConfigurationError(
-			`${CONFIG_FILE_NAME} not found at project root (${rootToUse || 'unknown'}).`
+		// **Changed: Log warning instead of throwing error**
+		console.warn(
+			chalk.yellow(
+				`Warning: ${CONFIG_FILE_NAME} not found at project root (${rootToUse || 'unknown'}). Using default configuration. Run 'task-master models --setup' to configure.`
+			)
 		);
+		// Return defaults instead of throwing error
+		return defaults;
 	}
 
 	return config;
@@ -541,11 +545,26 @@ function writeConfig(config, explicitRoot = null) {
 	}
 }
 
+/**
+ * Checks if the .taskmasterconfig file exists at the project root
+ * @param {string|null} explicitRoot - Optional explicit path to the project root
+ * @returns {boolean} True if the file exists, false otherwise
+ */
+function isConfigFilePresent(explicitRoot = null) {
+	const rootPath = explicitRoot || findProjectRoot();
+	if (!rootPath) {
+		return false;
+	}
+	const configPath = path.join(rootPath, CONFIG_FILE_NAME);
+	return fs.existsSync(configPath);
+}
+
 export {
 	// Core config access
 	getConfig,
 	writeConfig,
 	ConfigurationError, // Export custom error type
+	isConfigFilePresent, // Add the new function export
 
 	// Validation
 	validateProvider,

@@ -3,6 +3,7 @@ import boxen from 'boxen';
 import Table from 'cli-table3';
 
 import { log, readJSON, truncate } from '../utils.js';
+import findNextTask from './find-next-task.js';
 
 import {
 	displayBanner,

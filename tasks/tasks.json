@@ -3095,9 +3095,10 @@
           "id": 33,
           "title": "Cleanup Old AI Service Files",
           "description": "After all other migration subtasks (refactoring, provider implementation, testing, documentation) are complete and verified, remove the old `ai-services.js` and `ai-client-factory.js` files from the `scripts/modules/` directory. Ensure no code still references them.",
-          "details": "",
+          "details": "\n\n<info added on 2025-04-22T06:51:02.444Z>\nI'll provide additional technical information to enhance the \"Cleanup Old AI Service Files\" subtask:\n\n## Implementation Details\n\n**Pre-Cleanup Verification Steps:**\n- Run a comprehensive codebase search for any remaining imports or references to `ai-services.js` and `ai-client-factory.js` using grep or your IDE's search functionality[1][4]\n- Check for any dynamic imports that might not be caught by static analysis tools\n- Verify that all dependent modules have been properly migrated to the new AI service architecture\n\n**Cleanup Process:**\n- Create a backup of the files before deletion in case rollback is needed\n- Document the file removal in the migration changelog with timestamps and specific file paths[5]\n- Update any build configuration files that might reference these files (webpack configs, etc.)\n- Run a full test suite after removal to ensure no runtime errors occur[2]\n\n**Post-Cleanup Validation:**\n- Implement automated tests to verify the application functions correctly without the removed files\n- Monitor application logs and error reporting systems for 48-72 hours after deployment to catch any missed dependencies[3]\n- Perform a final code review to ensure clean architecture principles are maintained in the new implementation\n\n**Technical Considerations:**\n- Check for any circular dependencies that might have been created during the migration process\n- Ensure proper garbage collection by removing any cached instances of the old services\n- Verify that performance metrics remain stable after the removal of legacy code\n</info added on 2025-04-22T06:51:02.444Z>",
           "status": "pending",
           "dependencies": [
+            "61.31",
             "61.32"
           ],
           "parentTaskId": 61

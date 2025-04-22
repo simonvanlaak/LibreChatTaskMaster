@@ -27,14 +27,12 @@ import { registerComplexityReportTool } from './complexity-report.js';
 import { registerAddDependencyTool } from './add-dependency.js';
 import { registerRemoveTaskTool } from './remove-task.js';
 import { registerInitializeProjectTool } from './initialize-project.js';
-import { asyncOperationManager } from '../core/utils/async-manager.js';
 
 /**
  * Register all Task Master tools with the MCP server
  * @param {Object} server - FastMCP server instance
- * @param {asyncOperationManager} asyncManager - The async operation manager instance
  */
-export function registerTaskMasterTools(server, asyncManager) {
+export function registerTaskMasterTools(server) {
 	try {
 		// Register each tool
 		registerListTasksTool(server);
@@ -47,7 +45,7 @@ export function registerTaskMasterTools(server, asyncManager) {
 		registerShowTaskTool(server);
 		registerNextTaskTool(server);
 		registerExpandTaskTool(server);
-		registerAddTaskTool(server, asyncManager);
+		registerAddTaskTool(server);
 		registerAddSubtaskTool(server);
 		registerRemoveSubtaskTool(server);
 		registerAnalyzeTool(server);
