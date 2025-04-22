@@ -53,7 +53,8 @@ import {
 	getMcpApiKeyStatus,
 	getDebugFlag,
 	getConfig,
-	writeConfig
+	writeConfig,
+	ConfigurationError // Import the custom error
 } from './config-manager.js';
 
 import {
@@ -2377,6 +2378,8 @@ async function runCLI(argv = process.argv) {
 		const updateCheckPromise = checkForUpdate();
 
 		// Setup and parse
+		// NOTE: getConfig() might be called during setupCLI->registerCommands if commands need config
+		// This means the ConfigurationError might be thrown here if .taskmasterconfig is missing.
 		const programInstance = setupCLI();
 		await programInstance.parseAsync(argv);
 
@@ -2389,10 +2392,56 @@ async function runCLI(argv = process.argv) {
 			);
 		}
 	} catch (error) {
-		console.error(chalk.red(`Error: ${error.message}`));
-
-		if (getDebugFlag()) {
-			console.error(error);
+		// ** Specific catch block for missing configuration file **
+		if (error instanceof ConfigurationError) {
+			console.error(
+				boxen(
+					chalk.red.bold('Configuration Update Required!') +
+						'\n\n' +
+						chalk.white('Taskmaster now uses the ') +
+						chalk.yellow.bold('.taskmasterconfig') +
+						chalk.white(
+							' file in your project root for AI model choices and settings.\n\n' +
+								'This file appears to be '
+						) +
+						chalk.red.bold('missing') +
+						chalk.white('. No worries though.\n\n') +
+						chalk.cyan.bold('To create this file, run the interactive setup:') +
+						'\n' +
+						chalk.green('   task-master models --setup') +
+						'\n\n' +
+						chalk.white.bold('Key Points:') +
+						'\n' +
+						chalk.white('*   ') +
+						chalk.yellow.bold('.taskmasterconfig') +
+						chalk.white(
+							': Stores your AI model settings (do not manually edit)\n'
+						) +
+						chalk.white('*   ') +
+						chalk.yellow.bold('.env & .mcp.json') +
+						chalk.white(': Still used ') +
+						chalk.red.bold('only') +
+						chalk.white(' for your AI provider API keys.\n\n') +
+						chalk.cyan(
+							'`task-master models` to check your config & available models\n'
+						) +
+						chalk.cyan(
+							'`task-master models --setup` to adjust the AI models used by Taskmaster'
+						),
+					{
+						padding: 1,
+						margin: { top: 1 },
+						borderColor: 'red',
+						borderStyle: 'round'
+					}
+				)
+			);
+		} else {
+			// Generic error handling for other errors
+			console.error(chalk.red(`Error: ${error.message}`));
+			if (getDebugFlag()) {
+				console.error(error);
+			}
 		}
 
 		process.exit(1);

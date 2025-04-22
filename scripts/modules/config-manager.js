@@ -75,10 +75,19 @@ const DEFAULTS = {
 // --- Internal Config Loading ---
 let loadedConfig = null; // Cache for loaded config
 
+// Custom Error for configuration issues
+class ConfigurationError extends Error {
+	constructor(message) {
+		super(message);
+		this.name = 'ConfigurationError';
+	}
+}
+
 function _loadAndValidateConfig(explicitRoot = null) {
 	// Determine the root path to use
 	const rootToUse = explicitRoot || findProjectRoot();
 	const defaults = DEFAULTS; // Use the defined defaults
+	let configExists = false;
 
 	if (!rootToUse) {
 		console.warn(
@@ -86,34 +95,37 @@ function _loadAndValidateConfig(explicitRoot = null) {
 				'Warning: Could not determine project root. Using default configuration.'
 			)
 		);
-		return defaults;
+		// Allow proceeding with defaults if root finding fails, but validation later might trigger error
+		// Or perhaps throw here? Let's throw later based on file existence check.
 	}
-	const configPath = path.join(rootToUse, CONFIG_FILE_NAME);
+	const configPath = rootToUse ? path.join(rootToUse, CONFIG_FILE_NAME) : null;
 
-	if (fs.existsSync(configPath)) {
+	let config = defaults; // Start with defaults
+
+	if (configPath && fs.existsSync(configPath)) {
+		configExists = true;
 		try {
 			const rawData = fs.readFileSync(configPath, 'utf-8');
 			const parsedConfig = JSON.parse(rawData);
 
-			// Deep merge with defaults
-			const config = {
+			// Deep merge parsed config onto defaults
+			config = {
 				models: {
 					main: { ...defaults.models.main, ...parsedConfig?.models?.main },
 					research: {
 						...defaults.models.research,
 						...parsedConfig?.models?.research
 					},
-					// Fallback needs careful merging - only merge if provider/model exist
 					fallback:
 						parsedConfig?.models?.fallback?.provider &&
 						parsedConfig?.models?.fallback?.modelId
 							? { ...defaults.models.fallback, ...parsedConfig.models.fallback }
-							: { ...defaults.models.fallback } // Use default params even if provider/model missing
+							: { ...defaults.models.fallback }
 				},
 				global: { ...defaults.global, ...parsedConfig?.global }
 			};
 
-			// --- Validation ---
+			// --- Validation (Only warn if file exists but content is invalid) ---
 			// Validate main provider/model
 			if (!validateProvider(config.models.main.provider)) {
 				console.warn(
@@ -123,7 +135,6 @@ function _loadAndValidateConfig(explicitRoot = null) {
 				);
 				config.models.main = { ...defaults.models.main };
 			}
-			// Optional: Add warning for model combination if desired
 
 			// Validate research provider/model
 			if (!validateProvider(config.models.research.provider)) {
@@ -134,7 +145,6 @@ function _loadAndValidateConfig(explicitRoot = null) {
 				);
 				config.models.research = { ...defaults.models.research };
 			}
-			// Optional: Add warning for model combination if desired
 
 			// Validate fallback provider if it exists
 			if (
@@ -146,24 +156,27 @@ function _loadAndValidateConfig(explicitRoot = null) {
 						`Warning: Invalid fallback provider "${config.models.fallback.provider}" in ${CONFIG_FILE_NAME}. Fallback model configuration will be ignored.`
 					)
 				);
-				// Clear invalid fallback provider/model, but keep default params if needed elsewhere
 				config.models.fallback.provider = undefined;
 				config.models.fallback.modelId = undefined;
 			}
-
-			return config;
 		} catch (error) {
 			console.error(
 				chalk.red(
 					`Error reading or parsing ${configPath}: ${error.message}. Using default configuration.`
 				)
 			);
-			return defaults;
+			config = defaults; // Reset to defaults on parse error
+			// Do not throw ConfigurationError here, allow fallback to defaults if file is corrupt
 		}
 	} else {
-		// Config file doesn't exist, use defaults
-		return defaults;
+		// Config file doesn't exist
+		// **Strict Check**: Throw error if config file is missing
+		throw new ConfigurationError(
+			`${CONFIG_FILE_NAME} not found at project root (${rootToUse || 'unknown'}).`
+		);
 	}
+
+	return config;
 }
 
 /**
@@ -218,8 +231,13 @@ function getModelConfigForRole(role, explicitRoot = null) {
 	const config = getConfig(explicitRoot);
 	const roleConfig = config?.models?.[role];
 	if (!roleConfig) {
-		log('warn', `No model configuration found for role: ${role}`);
-		return DEFAULTS.models[role] || {}; // Fallback to default for the role
+		// This shouldn't happen if _loadAndValidateConfig ensures defaults
+		// But as a safety net, log and return defaults
+		log(
+			'warn',
+			`No model configuration found for role: ${role}. Returning default.`
+		);
+		return DEFAULTS.models[role] || {};
 	}
 	return roleConfig;
 }
@@ -233,10 +251,12 @@ function getMainModelId(explicitRoot = null) {
 }
 
 function getMainMaxTokens(explicitRoot = null) {
+	// Directly return value from config (which includes defaults)
 	return getModelConfigForRole('main', explicitRoot).maxTokens;
 }
 
 function getMainTemperature(explicitRoot = null) {
+	// Directly return value from config
 	return getModelConfigForRole('main', explicitRoot).temperature;
 }
 
@@ -249,30 +269,32 @@ function getResearchModelId(explicitRoot = null) {
 }
 
 function getResearchMaxTokens(explicitRoot = null) {
+	// Directly return value from config
 	return getModelConfigForRole('research', explicitRoot).maxTokens;
 }
 
 function getResearchTemperature(explicitRoot = null) {
+	// Directly return value from config
 	return getModelConfigForRole('research', explicitRoot).temperature;
 }
 
 function getFallbackProvider(explicitRoot = null) {
-	// Specifically check if provider is set, as fallback is optional
-	return getModelConfigForRole('fallback', explicitRoot).provider || undefined;
+	// Directly return value from config (will be undefined if not set)
+	return getModelConfigForRole('fallback', explicitRoot).provider;
 }
 
 function getFallbackModelId(explicitRoot = null) {
-	// Specifically check if modelId is set
-	return getModelConfigForRole('fallback', explicitRoot).modelId || undefined;
+	// Directly return value from config
+	return getModelConfigForRole('fallback', explicitRoot).modelId;
 }
 
 function getFallbackMaxTokens(explicitRoot = null) {
-	// Return fallback tokens even if provider/model isn't set, in case it's needed generically
+	// Directly return value from config
 	return getModelConfigForRole('fallback', explicitRoot).maxTokens;
 }
 
 function getFallbackTemperature(explicitRoot = null) {
-	// Return fallback temp even if provider/model isn't set
+	// Directly return value from config
 	return getModelConfigForRole('fallback', explicitRoot).temperature;
 }
 
@@ -280,32 +302,39 @@ function getFallbackTemperature(explicitRoot = null) {
 
 function getGlobalConfig(explicitRoot = null) {
 	const config = getConfig(explicitRoot);
-	return config?.global || DEFAULTS.global;
+	// Ensure global defaults are applied if global section is missing
+	return { ...DEFAULTS.global, ...(config?.global || {}) };
 }
 
 function getLogLevel(explicitRoot = null) {
-	return getGlobalConfig(explicitRoot).logLevel;
+	// Directly return value from config
+	return getGlobalConfig(explicitRoot).logLevel.toLowerCase();
 }
 
 function getDebugFlag(explicitRoot = null) {
-	// Ensure boolean type
+	// Directly return value from config, ensure boolean
 	return getGlobalConfig(explicitRoot).debug === true;
 }
 
 function getDefaultSubtasks(explicitRoot = null) {
-	// Ensure integer type
-	return parseInt(getGlobalConfig(explicitRoot).defaultSubtasks, 10);
+	// Directly return value from config, ensure integer
+	const val = getGlobalConfig(explicitRoot).defaultSubtasks;
+	const parsedVal = parseInt(val, 10);
+	return isNaN(parsedVal) ? DEFAULTS.global.defaultSubtasks : parsedVal;
 }
 
 function getDefaultPriority(explicitRoot = null) {
+	// Directly return value from config
 	return getGlobalConfig(explicitRoot).defaultPriority;
 }
 
 function getProjectName(explicitRoot = null) {
+	// Directly return value from config
 	return getGlobalConfig(explicitRoot).projectName;
 }
 
 function getOllamaBaseUrl(explicitRoot = null) {
+	// Directly return value from config
 	return getGlobalConfig(explicitRoot).ollamaBaseUrl;
 }
 
@@ -500,8 +529,9 @@ function writeConfig(config, explicitRoot = null) {
 
 export {
 	// Core config access
-	getConfig, // Might still be useful for getting the whole object
+	getConfig,
 	writeConfig,
+	ConfigurationError, // Export custom error type
 
 	// Validation
 	validateProvider,
@@ -510,7 +540,7 @@ export {
 	MODEL_MAP,
 	getAvailableModels,
 
-	// Role-specific getters
+	// Role-specific getters (No env var overrides)
 	getMainProvider,
 	getMainModelId,
 	getMainMaxTokens,
@@ -524,7 +554,7 @@ export {
 	getFallbackMaxTokens,
 	getFallbackTemperature,
 
-	// Global setting getters
+	// Global setting getters (No env var overrides)
 	getLogLevel,
 	getDebugFlag,
 	getDefaultSubtasks,
