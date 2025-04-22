@@ -97,7 +97,8 @@ async function setTaskStatus(tasksPath, taskIdInput, newStatus, options = {}) {
 		if (!options?.mcpLog) {
 			console.error(chalk.red(`Error: ${error.message}`));
 
-			if (getDebugFlag()) {
+			// Pass session to getDebugFlag
+			if (getDebugFlag(options?.session)) {
 				// Use getter
 				console.error(error);
 			}

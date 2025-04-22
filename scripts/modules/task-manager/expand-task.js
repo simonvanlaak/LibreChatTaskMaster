@@ -12,7 +12,12 @@ import {
 	parseSubtasksFromText
 } from '../ai-services.js';
 
-import { getDefaultSubtasks } from '../config-manager.js';
+import {
+	getDefaultSubtasks,
+	getMainModelId,
+	getMainMaxTokens,
+	getMainTemperature
+} from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
 
 /**
@@ -207,11 +212,11 @@ Return exactly ${subtaskCount} subtasks with the following JSON structure:
 
 Note on dependencies: Subtasks can depend on other subtasks with lower IDs. Use an empty array if there are no dependencies.`;
 
-				// Prepare API parameters
+				// Prepare API parameters using getters
 				const apiParams = {
-					model: session?.env?.ANTHROPIC_MODEL || CONFIG.model,
-					max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
-					temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
+					model: getMainModelId(session),
+					max_tokens: getMainMaxTokens(session),
+					temperature: getMainTemperature(session),
 					system: systemPrompt,
 					messages: [{ role: 'user', content: userPrompt }]
 				};

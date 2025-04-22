@@ -6,6 +6,16 @@ import {
 	parseSubtasksFromText
 } from '../ai-services.js';
 
+// Import necessary config getters
+import {
+	getMainModelId,
+	getMainMaxTokens,
+	getMainTemperature,
+	getResearchModelId,
+	getResearchMaxTokens,
+	getResearchTemperature
+} from '../config-manager.js';
+
 /**
  * Call AI to generate subtasks based on a prompt
  * @param {string} prompt - The prompt to send to the AI
@@ -26,9 +36,9 @@ async function getSubtasksFromAI(
 
 		// Prepare API parameters
 		const apiParams = {
-			model: session?.env?.ANTHROPIC_MODEL || CONFIG.model,
-			max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
-			temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
+			model: getMainModelId(session),
+			max_tokens: getMainMaxTokens(session),
+			temperature: getMainTemperature(session),
 			system:
 				'You are an AI assistant helping with task breakdown for software development.',
 			messages: [{ role: 'user', content: prompt }]
@@ -46,10 +56,7 @@ async function getSubtasksFromAI(
 				mcpLog.info('Using Perplexity AI for research-backed subtasks');
 			}
 
-			const perplexityModel =
-				process.env.PERPLEXITY_MODEL ||
-				session?.env?.PERPLEXITY_MODEL ||
-				'sonar-pro';
+			const perplexityModel = getResearchModelId(session);
 			const result = await perplexity.chat.completions.create({
 				model: perplexityModel,
 				messages: [
@@ -60,8 +67,8 @@ async function getSubtasksFromAI(
 					},
 					{ role: 'user', content: prompt }
 				],
-				temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
-				max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens
+				temperature: getResearchTemperature(session),
+				max_tokens: getResearchMaxTokens(session)
 			});
 
 			responseText = result.choices[0].message.content;

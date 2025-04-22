@@ -23,33 +23,13 @@ import {
 	getDebugFlag,
 	getResearchModelId,
 	getResearchMaxTokens,
-	getResearchTemperature
+	getResearchTemperature,
+	getDefaultSubtasks,
+	isApiKeySet
 } from './config-manager.js';
 
 // Load environment variables
 dotenv.config();
-
-/**
- * Get or initialize the Perplexity client
- * @param {object|null} [session=null] - Optional MCP session object.
- * @returns {OpenAI} Perplexity client
- */
-function getPerplexityClient(session = null) {
-	// Use resolveEnvVariable to get the key
-	const apiKey = resolveEnvVariable('PERPLEXITY_API_KEY', session);
-	if (!apiKey) {
-		throw new Error(
-			'PERPLEXITY_API_KEY environment variable is missing. Set it to use research-backed features.'
-		);
-	}
-	// Create and return a new client instance each time for now
-	// Caching can be handled by ai-client-factory later
-	return new OpenAI({
-		apiKey: apiKey,
-		baseURL: 'https://api.perplexity.ai'
-	});
-	// Removed the old caching logic using the global 'perplexity' variable
-}
 
 /**
  * Get the best available AI model for a given operation
@@ -134,15 +114,16 @@ function getAvailableAIModel(options = {}, session = null) {
 /**
  * Handle Claude API errors with user-friendly messages
  * @param {Error} error - The error from Claude API
+ * @param {object|null} [session=null] - The MCP session object (optional)
  * @returns {string} User-friendly error message
  */
-function handleClaudeError(error) {
+function handleClaudeError(error, session = null) {
 	// Check if it's a structured error response
 	if (error.type === 'error' && error.error) {
 		switch (error.error.type) {
 			case 'overloaded_error':
-				// Check if we can use Perplexity as a fallback
-				if (process.env.PERPLEXITY_API_KEY) {
+				// Check if we can use Perplexity as a fallback using isApiKeySet
+				if (isApiKeySet('perplexity', session)) {
 					return 'Claude is currently overloaded. Trying to fall back to Perplexity AI.';
 				}
 				return 'Claude is currently experiencing high demand and is overloaded. Please wait a few minutes and try again.';
@@ -258,8 +239,8 @@ Important: Your response must be valid JSON only, with no additional explanation
 			modelConfig
 		);
 	} catch (error) {
-		// Get user-friendly error message
-		const userMessage = handleClaudeError(error);
+		// Get user-friendly error message, passing session
+		const userMessage = handleClaudeError(error, session);
 		log('error', userMessage);
 
 		// Retry logic for certain errors
@@ -431,7 +412,7 @@ async function handleStreamingRequest(
 		if (error.error?.type === 'overloaded_error') {
 			claudeOverloaded = true;
 		}
-		const userMessage = handleClaudeError(error);
+		const userMessage = handleClaudeError(error, session);
 		report(userMessage, 'error');
 
 		throw error;
@@ -728,10 +709,8 @@ async function generateSubtasksWithPerplexity(
 		logFn('info', `Researching context for task ${task.id}: ${task.title}`);
 		const perplexityClient = getPerplexityClient(session);
 
-		const PERPLEXITY_MODEL =
-			process.env.PERPLEXITY_MODEL ||
-			session?.env?.PERPLEXITY_MODEL ||
-			'sonar-pro';
+		// Use getter for model ID
+		const PERPLEXITY_MODEL = getResearchModelId(session);
 
 		// Only create loading indicators if not in silent mode
 		let researchLoadingIndicator = null;
@@ -763,7 +742,7 @@ Include concrete code examples and technical considerations where relevant.`;
 				}
 			],
 			temperature: 0.1, // Lower temperature for more factual responses
-			max_tokens: 8700, // Respect maximum input tokens for Perplexity (8719 max)
+			max_tokens: getResearchMaxTokens(session), // Respect maximum input tokens for Perplexity (8719 max)
 			web_search_options: {
 				search_context_size: 'high'
 			},
@@ -867,7 +846,7 @@ Note on dependencies: Subtasks can depend on other subtasks with lower IDs. Use 
 				getAnthropicClient(session),
 				{
 					model: getMainModelId(session),
-					max_tokens: 8700,
+					max_tokens: getMainMaxTokens(session),
 					temperature: getMainTemperature(session),
 					system: systemPrompt,
 					messages: [{ role: 'user', content: userPrompt }]
@@ -1035,7 +1014,7 @@ Analyze each task and return a JSON array with the following structure for each 
     "taskId": number,
     "taskTitle": string,
     "complexityScore": number (1-10),
-    "recommendedSubtasks": number (${Math.max(3, CONFIG.defaultSubtasks - 1)}-${Math.min(8, CONFIG.defaultSubtasks + 2)}),
+    "recommendedSubtasks": number (${Math.max(3, getDefaultSubtasks() - 1)}-${Math.min(8, getDefaultSubtasks() + 2)}),
     "expansionPrompt": string (a specific prompt for generating good subtasks),
     "reasoning": string (brief explanation of your assessment)
   },
@@ -1144,7 +1123,8 @@ async function _handleAnthropicStream(
 				}
 
 				// Report progress - use only mcpLog in MCP context and avoid direct reportProgress calls
-				const maxTokens = params.max_tokens || CONFIG.maxTokens;
+				// Use getter for maxTokens
+				const maxTokens = params.max_tokens || getMainMaxTokens(session);
 				const progressPercent = Math.min(
 					100,
 					(responseText.length / maxTokens) * 100
@@ -1312,35 +1292,6 @@ function _buildAddTaskPrompt(prompt, contextTasks, { newTaskId } = {}) {
 }
 
 /**
- * Get an Anthropic client instance
- * @param {Object} [session] - Optional session object from MCP
- * @returns {Anthropic} Anthropic client instance
- */
-function getAnthropicClient(session) {
-	// If we already have a global client and no session, use the global
-	// if (!session && anthropic) {
-	// 	return anthropic;
-	// }
-
-	// Initialize a new client with API key from session or environment
-	const apiKey = resolveEnvVariable('ANTHROPIC_API_KEY', session);
-
-	if (!apiKey) {
-		throw new Error(
-			'ANTHROPIC_API_KEY environment variable is missing. Set it to use AI features.'
-		);
-	}
-
-	return new Anthropic({
-		apiKey: apiKey,
-		// Add beta header for 128k token output
-		defaultHeaders: {
-			'anthropic-beta': 'output-128k-2025-02-19'
-		}
-	});
-}
-
-/**
  * Generate a detailed task description using Perplexity AI for research
  * @param {string} prompt - Task description prompt
  * @param {Object} options - Options for generation
@@ -1358,10 +1309,8 @@ async function generateTaskDescriptionWithPerplexity(
 		log('info', `Researching context for task prompt: "${prompt}"`);
 		const perplexityClient = getPerplexityClient(session);
 
-		const PERPLEXITY_MODEL =
-			process.env.PERPLEXITY_MODEL ||
-			session?.env?.PERPLEXITY_MODEL ||
-			'sonar-pro';
+		// Use getter for model ID
+		const PERPLEXITY_MODEL = getResearchModelId(session);
 		const researchLoadingIndicator = startLoadingIndicator(
 			'Researching best practices with Perplexity AI...'
 		);
@@ -1381,7 +1330,7 @@ Include concrete code examples and technical considerations where relevant.`;
 				}
 			],
 			temperature: 0.1, // Lower temperature for more factual responses
-			max_tokens: 8700, // Respect maximum input tokens for Perplexity (8719 max)
+			max_tokens: getResearchMaxTokens(session), // Respect maximum input tokens for Perplexity (8719 max)
 			web_search_options: {
 				search_context_size: 'high'
 			},
@@ -1464,12 +1413,12 @@ Return a JSON object with the following structure:
 				}
 				if (reportProgress) {
 					await reportProgress({
-						progress: (responseText.length / CONFIG.maxTokens) * 100
+						progress: (responseText.length / getMainMaxTokens(session)) * 100
 					});
 				}
 				if (mcpLog) {
 					mcpLog.info(
-						`Progress: ${(responseText.length / CONFIG.maxTokens) * 100}%`
+						`Progress: ${(responseText.length / getMainMaxTokens(session)) * 100}%`
 					);
 				}
 			}
@@ -1587,8 +1536,8 @@ function parseTasksFromCompletion(completionText) {
 
 // Export AI service functions
 export {
-	getAnthropicClient,
-	getPerplexityClient,
+	// getAnthropicClient, // Removed - This name is not defined here.
+	// getPerplexityClient, // Removed - Not defined or imported here.
 	callClaude,
 	handleStreamingRequest,
 	processClaudeResponse,
@@ -1598,11 +1547,11 @@ export {
 	parseSubtasksFromText,
 	generateComplexityAnalysisPrompt,
 	handleClaudeError,
-	getAvailableAIModel,
+	getAvailableAIModel, // Local function definition
 	parseTaskJsonResponse,
 	_buildAddTaskPrompt,
 	_handleAnthropicStream,
-	getConfiguredAnthropicClient,
+	getConfiguredAnthropicClient, // Locally defined function
 	sendChatWithContext,
 	parseTasksFromCompletion
 };

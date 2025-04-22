@@ -11,7 +11,15 @@ import {
 } from '../ui.js';
 import { log, readJSON, writeJSON, truncate, isSilentMode } from '../utils.js';
 import { getAvailableAIModel } from '../ai-services.js';
-import { getDebugFlag } from '../config-manager.js';
+import {
+	getDebugFlag,
+	getMainModelId,
+	getMainMaxTokens,
+	getMainTemperature,
+	getResearchModelId,
+	getResearchMaxTokens,
+	getResearchTemperature
+} from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
 
 /**
@@ -231,26 +239,15 @@ Provide concrete examples, code snippets, or implementation details when relevan
 
 				if (modelType === 'perplexity') {
 					// Construct Perplexity payload
-					const perplexityModel =
-						process.env.PERPLEXITY_MODEL ||
-						session?.env?.PERPLEXITY_MODEL ||
-						'sonar-pro';
+					const perplexityModel = getResearchModelId(session);
 					const response = await client.chat.completions.create({
 						model: perplexityModel,
 						messages: [
 							{ role: 'system', content: systemPrompt },
 							{ role: 'user', content: userMessageContent }
 						],
-						temperature: parseFloat(
-							process.env.TEMPERATURE ||
-								session?.env?.TEMPERATURE ||
-								CONFIG.temperature
-						),
-						max_tokens: parseInt(
-							process.env.MAX_TOKENS ||
-								session?.env?.MAX_TOKENS ||
-								CONFIG.maxTokens
-						)
+						temperature: getResearchTemperature(session),
+						max_tokens: getResearchMaxTokens(session)
 					});
 					additionalInformation = response.choices[0].message.content.trim();
 				} else {
@@ -272,11 +269,11 @@ Provide concrete examples, code snippets, or implementation details when relevan
 							}, 500);
 						}
 
-						// Construct Claude payload
+						// Construct Claude payload using config getters
 						const stream = await client.messages.create({
-							model: CONFIG.model,
-							max_tokens: CONFIG.maxTokens,
-							temperature: CONFIG.temperature,
+							model: getMainModelId(session),
+							max_tokens: getMainMaxTokens(session),
+							temperature: getMainTemperature(session),
 							system: systemPrompt,
 							messages: [{ role: 'user', content: userMessageContent }],
 							stream: true
@@ -288,12 +285,13 @@ Provide concrete examples, code snippets, or implementation details when relevan
 							}
 							if (reportProgress) {
 								await reportProgress({
-									progress: (responseText.length / CONFIG.maxTokens) * 100
+									progress:
+										(responseText.length / getMainMaxTokens(session)) * 100
 								});
 							}
 							if (mcpLog) {
 								mcpLog.info(
-									`Progress: ${(responseText.length / CONFIG.maxTokens) * 100}%`
+									`Progress: ${(responseText.length / getMainMaxTokens(session)) * 100}%`
 								);
 							}
 						}
@@ -540,7 +538,7 @@ Provide concrete examples, code snippets, or implementation details when relevan
 					'  1. Set your Perplexity API key: export PERPLEXITY_API_KEY=your_api_key_here'
 				);
 				console.log(
-					'  2. Or run without the research flag: task-master update-subtask --id=<id> --prompt=\"...\"'
+					'  2. Or run without the research flag: task-master update-subtask --id=<id> --prompt="..."'
 				);
 			} else if (error.message?.includes('overloaded')) {
 				// Catch final overload error
@@ -568,7 +566,7 @@ Provide concrete examples, code snippets, or implementation details when relevan
 				);
 			}
 
-			if (getDebugFlag()) {
+			if (getDebugFlag(session)) {
 				// Use getter
 				console.error(error);
 			}

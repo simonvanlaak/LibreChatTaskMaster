@@ -11,7 +11,15 @@ import {
 	stopLoadingIndicator
 } from '../ui.js';
 
-import { getDebugFlag } from '../config-manager.js';
+import {
+	getDebugFlag,
+	getResearchModelId,
+	getResearchTemperature,
+	getResearchMaxTokens,
+	getMainModelId,
+	getMainMaxTokens,
+	getMainTemperature
+} from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
 
 /**
@@ -204,13 +212,9 @@ The changes described in the prompt should be applied to ALL tasks in the list.`
 					}
 
 					if (modelType === 'perplexity') {
-						// Call Perplexity AI using proper format
-						const perplexityModel =
-							process.env.PERPLEXITY_MODEL ||
-							session?.env?.PERPLEXITY_MODEL ||
-							'sonar-pro';
+						// Call Perplexity AI using proper format and getters
 						const result = await client.chat.completions.create({
-							model: perplexityModel,
+							model: getResearchModelId(session),
 							messages: [
 								{
 									role: 'system',
@@ -218,23 +222,11 @@ The changes described in the prompt should be applied to ALL tasks in the list.`
 								},
 								{
 									role: 'user',
-									content: `Here are the tasks to update:
-${taskData}
-
-Please update these tasks based on the following new context:
-${prompt}
-
-IMPORTANT: In the tasks JSON above, any subtasks with "status": "done" or "status": "completed" should be preserved exactly as is. Build your changes around these completed items.
-
-Return only the updated tasks as a valid JSON array.`
+									content: `Here are the tasks to update:\n${taskData}\n\nPlease update these tasks based on the following new context:\n${prompt}\n\nIMPORTANT: In the tasks JSON above, any subtasks with "status": "done" or "status": "completed" should be preserved exactly as is. Build your changes around these completed items.\n\nReturn only the updated tasks as a valid JSON array.`
 								}
 							],
-							temperature: parseFloat(
-								process.env.TEMPERATURE ||
-									session?.env?.TEMPERATURE ||
-									CONFIG.temperature
-							),
-							max_tokens: 8700
+							temperature: getResearchTemperature(session),
+							max_tokens: getResearchMaxTokens(session)
 						});
 
 						const responseText = result.choices[0].message.content;
@@ -270,11 +262,11 @@ Return only the updated tasks as a valid JSON array.`
 								}, 500);
 							}
 
-							// Use streaming API call
+							// Use streaming API call with getters
 							const stream = await client.messages.create({
-								model: session?.env?.ANTHROPIC_MODEL || CONFIG.model,
-								max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
-								temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
+								model: getMainModelId(session),
+								max_tokens: getMainMaxTokens(session),
+								temperature: getMainTemperature(session),
 								system: systemPrompt,
 								messages: [
 									{
@@ -300,12 +292,13 @@ Return only the updated task as a valid JSON object.`
 								}
 								if (reportProgress) {
 									await reportProgress({
-										progress: (responseText.length / CONFIG.maxTokens) * 100
+										progress:
+											(responseText.length / getMainMaxTokens(session)) * 100
 									});
 								}
 								if (mcpLog) {
 									mcpLog.info(
-										`Progress: ${(responseText.length / CONFIG.maxTokens) * 100}%`
+										`Progress: ${(responseText.length / getMainMaxTokens(session)) * 100}%`
 									);
 								}
 							}

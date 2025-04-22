@@ -11,7 +11,15 @@ import {
 } from '../ui.js';
 import { log, readJSON, writeJSON, truncate } from '../utils.js';
 import { _handleAnthropicStream } from '../ai-services.js';
-import { getDefaultPriority } from '../config-manager.js';
+import {
+	getDefaultPriority,
+	getResearchModelId,
+	getResearchTemperature,
+	getResearchMaxTokens,
+	getMainModelId,
+	getMainTemperature,
+	getMainMaxTokens
+} from '../config-manager.js';
 
 /**
  * Add a new task using AI
@@ -183,46 +191,26 @@ async function addTask(
 
 						if (modelType === 'perplexity') {
 							// Use Perplexity AI
-							const perplexityModel =
-								process.env.PERPLEXITY_MODEL ||
-								session?.env?.PERPLEXITY_MODEL ||
-								'sonar-pro';
 							const response = await client.chat.completions.create({
-								model: perplexityModel,
+								model: getResearchModelId(session),
 								messages: [
 									{ role: 'system', content: systemPrompt },
 									{ role: 'user', content: userPrompt }
 								],
-								temperature: parseFloat(
-									process.env.TEMPERATURE ||
-										session?.env?.TEMPERATURE ||
-										CONFIG.temperature
-								),
-								max_tokens: parseInt(
-									process.env.MAX_TOKENS ||
-										session?.env?.MAX_TOKENS ||
-										CONFIG.maxTokens
-								)
+								temperature: getResearchTemperature(session),
+								max_tokens: getResearchMaxTokens(session)
 							});
 
 							const responseText = response.choices[0].message.content;
 							aiGeneratedTaskData = parseTaskJsonResponse(responseText);
 						} else {
 							// Use Claude (default)
-							// Prepare API parameters
+							// Prepare API parameters using getters, preserving customEnv override
 							const apiParams = {
-								model:
-									session?.env?.ANTHROPIC_MODEL ||
-									CONFIG.model ||
-									customEnv?.ANTHROPIC_MODEL,
-								max_tokens:
-									session?.env?.MAX_TOKENS ||
-									CONFIG.maxTokens ||
-									customEnv?.MAX_TOKENS,
+								model: customEnv?.ANTHROPIC_MODEL || getMainModelId(session),
+								max_tokens: customEnv?.MAX_TOKENS || getMainMaxTokens(session),
 								temperature:
-									session?.env?.TEMPERATURE ||
-									CONFIG.temperature ||
-									customEnv?.TEMPERATURE,
+									customEnv?.TEMPERATURE || getMainTemperature(session),
 								system: systemPrompt,
 								messages: [{ role: 'user', content: userPrompt }]
 							};

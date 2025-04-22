@@ -13,7 +13,16 @@ import {
 } from '../ui.js';
 
 import { _handleAnthropicStream } from '../ai-services.js';
-import { getDebugFlag } from '../config-manager.js';
+import {
+	getDebugFlag,
+	getMainModelId,
+	getMainMaxTokens,
+	getMainTemperature,
+	getResearchModelId,
+	getResearchMaxTokens,
+	getResearchTemperature,
+	isApiKeySet
+} from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
 
 /**
@@ -64,15 +73,10 @@ async function updateTaskById(
 			);
 		}
 
-		// Validate research flag
-		if (
-			useResearch &&
-			(!perplexity ||
-				!process.env.PERPLEXITY_API_KEY ||
-				session?.env?.PERPLEXITY_API_KEY)
-		) {
+		// Validate research flag and API key
+		if (useResearch && !isApiKeySet('perplexity', session)) {
 			report(
-				'Perplexity AI is not available. Falling back to Claude AI.',
+				'Perplexity AI research requested but API key is not set. Falling back to main AI.',
 				'warn'
 			);
 
@@ -274,7 +278,7 @@ The changes described in the prompt should be thoughtfully applied to make the t
 							session?.env?.PERPLEXITY_MODEL ||
 							'sonar-pro';
 						const result = await client.chat.completions.create({
-							model: perplexityModel,
+							model: getResearchModelId(session),
 							messages: [
 								{
 									role: 'system',
@@ -293,12 +297,8 @@ IMPORTANT: In the task JSON above, any subtasks with "status": "done" or "status
 Return only the updated task as a valid JSON object.`
 								}
 							],
-							temperature: parseFloat(
-								process.env.TEMPERATURE ||
-									session?.env?.TEMPERATURE ||
-									CONFIG.temperature
-							),
-							max_tokens: 8700
+							temperature: getResearchTemperature(session),
+							max_tokens: getResearchMaxTokens(session)
 						});
 
 						const responseText = result.choices[0].message.content;
@@ -343,9 +343,9 @@ Return only the updated task as a valid JSON object.`
 
 							// Use streaming API call
 							const stream = await client.messages.create({
-								model: session?.env?.ANTHROPIC_MODEL || CONFIG.model,
-								max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
-								temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
+								model: getMainModelId(session),
+								max_tokens: getMainMaxTokens(session),
+								temperature: getMainTemperature(session),
 								system: systemPrompt,
 								messages: [
 									{
@@ -371,12 +371,13 @@ Return only the updated task as a valid JSON object.`
 								}
 								if (reportProgress) {
 									await reportProgress({
-										progress: (responseText.length / CONFIG.maxTokens) * 100
+										progress:
+											(responseText.length / getMainMaxTokens(session)) * 100
 									});
 								}
 								if (mcpLog) {
 									mcpLog.info(
-										`Progress: ${(responseText.length / CONFIG.maxTokens) * 100}%`
+										`Progress: ${(responseText.length / getMainMaxTokens(session)) * 100}%`
 									);
 								}
 							}
@@ -667,7 +668,7 @@ Return only the updated task as a valid JSON object.`
 				console.log('  2. Use a valid task ID with the --id parameter');
 			}
 
-			if (getDebugFlag()) {
+			if (getDebugFlag(session)) {
 				// Use getter
 				console.error(error);
 			}

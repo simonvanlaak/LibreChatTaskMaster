@@ -19,7 +19,16 @@ import {
 import path from 'path';
 import fs from 'fs';
 import { findNextTask, analyzeTaskComplexity } from './task-manager.js';
-import { getProjectName, getDefaultSubtasks } from './config-manager.js';
+import {
+	getProjectName,
+	getDefaultSubtasks,
+	getMainModelId,
+	getMainMaxTokens,
+	getMainTemperature,
+	getDebugFlag,
+	getLogLevel,
+	getDefaultPriority
+} from './config-manager.js';
 
 // Create a color gradient for the banner
 const coolGradient = gradient(['#00b4d8', '#0077b6', '#03045e']);
@@ -591,17 +600,17 @@ function displayHelp() {
 		[
 			`${chalk.yellow('MODEL')}${chalk.reset('')}`,
 			`${chalk.white('Claude model to use')}${chalk.reset('')}`,
-			`${chalk.dim(`Default: ${CONFIG.model}`)}${chalk.reset('')}`
+			`${chalk.dim(`Default: ${getMainModelId()}`)}${chalk.reset('')}`
 		],
 		[
 			`${chalk.yellow('MAX_TOKENS')}${chalk.reset('')}`,
 			`${chalk.white('Maximum tokens for responses')}${chalk.reset('')}`,
-			`${chalk.dim(`Default: ${CONFIG.maxTokens}`)}${chalk.reset('')}`
+			`${chalk.dim(`Default: ${getMainMaxTokens()}`)}${chalk.reset('')}`
 		],
 		[
 			`${chalk.yellow('TEMPERATURE')}${chalk.reset('')}`,
 			`${chalk.white('Temperature for model responses')}${chalk.reset('')}`,
-			`${chalk.dim(`Default: ${CONFIG.temperature}`)}${chalk.reset('')}`
+			`${chalk.dim(`Default: ${getMainTemperature()}`)}${chalk.reset('')}`
 		],
 		[
 			`${chalk.yellow('PERPLEXITY_API_KEY')}${chalk.reset('')}`,
@@ -616,27 +625,27 @@ function displayHelp() {
 		[
 			`${chalk.yellow('DEBUG')}${chalk.reset('')}`,
 			`${chalk.white('Enable debug logging')}${chalk.reset('')}`,
-			`${chalk.dim(`Default: ${CONFIG.debug}`)}${chalk.reset('')}`
+			`${chalk.dim(`Default: ${getDebugFlag()}`)}${chalk.reset('')}`
 		],
 		[
 			`${chalk.yellow('LOG_LEVEL')}${chalk.reset('')}`,
 			`${chalk.white('Console output level (debug,info,warn,error)')}${chalk.reset('')}`,
-			`${chalk.dim(`Default: ${CONFIG.logLevel}`)}${chalk.reset('')}`
+			`${chalk.dim(`Default: ${getLogLevel()}`)}${chalk.reset('')}`
 		],
 		[
 			`${chalk.yellow('DEFAULT_SUBTASKS')}${chalk.reset('')}`,
 			`${chalk.white('Default number of subtasks to generate')}${chalk.reset('')}`,
-			`${chalk.dim(`Default: ${CONFIG.defaultSubtasks}`)}${chalk.reset('')}`
+			`${chalk.dim(`Default: ${getDefaultSubtasks()}`)}${chalk.reset('')}`
 		],
 		[
 			`${chalk.yellow('DEFAULT_PRIORITY')}${chalk.reset('')}`,
 			`${chalk.white('Default task priority')}${chalk.reset('')}`,
-			`${chalk.dim(`Default: ${CONFIG.defaultPriority}`)}${chalk.reset('')}`
+			`${chalk.dim(`Default: ${getDefaultPriority()}`)}${chalk.reset('')}`
 		],
 		[
 			`${chalk.yellow('PROJECT_NAME')}${chalk.reset('')}`,
 			`${chalk.white('Project name displayed in UI')}${chalk.reset('')}`,
-			`${chalk.dim(`Default: ${CONFIG.projectName}`)}${chalk.reset('')}`
+			`${chalk.dim(`Default: ${getProjectName()}`)}${chalk.reset('')}`
 		]
 	);
 

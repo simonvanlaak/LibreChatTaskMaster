@@ -8,7 +8,17 @@ import { startLoadingIndicator, stopLoadingIndicator } from '../ui.js';
 
 import { generateComplexityAnalysisPrompt } from '../ai-services.js';
 
-import { getDebugFlag } from '../config-manager.js';
+import {
+	getDebugFlag,
+	getProjectName,
+	getMainModelId,
+	getMainMaxTokens,
+	getMainTemperature,
+	getResearchModelId,
+	getResearchMaxTokens,
+	getResearchTemperature,
+	getDefaultSubtasks
+} from '../config-manager.js';
 
 /**
  * Analyzes task complexity and generates expansion recommendations
@@ -127,6 +137,83 @@ async function analyzeTaskComplexity(
 			}
 		}
 
+		// If after filtering, there are no tasks left to analyze, exit early.
+		if (tasksData.tasks.length === 0) {
+			const emptyReport = {
+				meta: {
+					generatedAt: new Date().toISOString(),
+					tasksAnalyzed: tasksData.tasks.length,
+					thresholdScore: thresholdScore,
+					projectName: getProjectName(session),
+					usedResearch: useResearch
+				},
+				complexityAnalysis: []
+			};
+			// Write the report to file
+			reportLog(`Writing complexity report to ${outputPath}...`, 'info');
+			writeJSON(outputPath, emptyReport);
+
+			reportLog(
+				`Task complexity analysis complete. Report written to ${outputPath}`,
+				'success'
+			);
+
+			// Only show UI elements for text output (CLI)
+			if (outputFormat === 'text') {
+				console.log(
+					chalk.green(
+						`Task complexity analysis complete. Report written to ${outputPath}`
+					)
+				);
+
+				// Display a summary of findings
+				const highComplexity = emptyReport.complexityAnalysis.filter(
+					(t) => t.complexityScore >= 8
+				).length;
+				const mediumComplexity = emptyReport.complexityAnalysis.filter(
+					(t) => t.complexityScore >= 5 && t.complexityScore < 8
+				).length;
+				const lowComplexity = emptyReport.complexityAnalysis.filter(
+					(t) => t.complexityScore < 5
+				).length;
+				const totalAnalyzed = emptyReport.complexityAnalysis.length;
+
+				console.log('\nComplexity Analysis Summary:');
+				console.log('----------------------------');
+				console.log(`Tasks in input file: ${tasksData.tasks.length}`);
+				console.log(`Tasks successfully analyzed: ${totalAnalyzed}`);
+				console.log(`High complexity tasks: ${highComplexity}`);
+				console.log(`Medium complexity tasks: ${mediumComplexity}`);
+				console.log(`Low complexity tasks: ${lowComplexity}`);
+				console.log(
+					`Sum verification: ${highComplexity + mediumComplexity + lowComplexity} (should equal ${totalAnalyzed})`
+				);
+				console.log(`Research-backed analysis: ${useResearch ? 'Yes' : 'No'}`);
+				console.log(
+					`\nSee ${outputPath} for the full report and expansion commands.`
+				);
+
+				// Show next steps suggestions
+				console.log(
+					boxen(
+						chalk.white.bold('Suggested Next Steps:') +
+							'\n\n' +
+							`${chalk.cyan('1.')} Run ${chalk.yellow('task-master complexity-report')} to review detailed findings\n` +
+							`${chalk.cyan('2.')} Run ${chalk.yellow('task-master expand --id=<id>')} to break down complex tasks\n` +
+							`${chalk.cyan('3.')} Run ${chalk.yellow('task-master expand --all')} to expand all pending tasks based on complexity`,
+						{
+							padding: 1,
+							borderColor: 'cyan',
+							borderStyle: 'round',
+							margin: { top: 1 }
+						}
+					)
+				);
+			}
+
+			return emptyReport;
+		}
+
 		// Prepare the prompt for the LLM
 		const prompt = generateComplexityAnalysisPrompt(tasksData);
 
@@ -183,11 +270,9 @@ Your response must be a clean JSON array only, following exactly this format:
 
 DO NOT include any text before or after the JSON array. No explanations, no markdown formatting.`;
 
+					// Keep the direct AI call for now, use config getters for parameters
 					const result = await perplexity.chat.completions.create({
-						model:
-							process.env.PERPLEXITY_MODEL ||
-							session?.env?.PERPLEXITY_MODEL ||
-							'sonar-pro',
+						model: getResearchModelId(session),
 						messages: [
 							{
 								role: 'system',
@@ -199,8 +284,8 @@ DO NOT include any text before or after the JSON array. No explanations, no mark
 								content: researchPrompt
 							}
 						],
-						temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
-						max_tokens: 8700,
+						temperature: getResearchTemperature(session),
+						max_tokens: getResearchMaxTokens(session),
 						web_search_options: {
 							search_context_size: 'high'
 						},
@@ -235,6 +320,12 @@ DO NOT include any text before or after the JSON array. No explanations, no mark
 					if (outputFormat === 'text') {
 						console.log(chalk.gray('Response first 200 chars:'));
 						console.log(chalk.gray(fullResponse.substring(0, 200)));
+					}
+
+					if (getDebugFlag(session)) {
+						console.debug(
+							chalk.gray(`Raw response: ${fullResponse.substring(0, 500)}...`)
+						);
 					}
 				} catch (perplexityError) {
 					reportLog(
@@ -287,12 +378,11 @@ DO NOT include any text before or after the JSON array. No explanations, no mark
 							);
 						}
 
-						// Call the LLM API with streaming
+						// Keep the direct AI call for now, use config getters for parameters
 						const stream = await anthropic.messages.create({
-							max_tokens: session?.env?.MAX_TOKENS || CONFIG.maxTokens,
-							model:
-								modelOverride || CONFIG.model || session?.env?.ANTHROPIC_MODEL,
-							temperature: session?.env?.TEMPERATURE || CONFIG.temperature,
+							max_tokens: getMainMaxTokens(session),
+							model: modelOverride || getMainModelId(session),
+							temperature: getMainTemperature(session),
 							messages: [{ role: 'user', content: prompt }],
 							system:
 								'You are an expert software architect and project manager analyzing task complexity. Respond only with valid JSON.',
@@ -318,12 +408,13 @@ DO NOT include any text before or after the JSON array. No explanations, no mark
 							}
 							if (reportProgress) {
 								await reportProgress({
-									progress: (fullResponse.length / CONFIG.maxTokens) * 100
+									progress:
+										(fullResponse.length / getMainMaxTokens(session)) * 100
 								});
 							}
 							if (mcpLog) {
 								mcpLog.info(
-									`Progress: ${(fullResponse.length / CONFIG.maxTokens) * 100}%`
+									`Progress: ${(fullResponse.length / getMainMaxTokens(session)) * 100}%`
 								);
 							}
 						}
@@ -797,7 +888,7 @@ DO NOT include any text before or after the JSON array. No explanations, no mark
 						generatedAt: new Date().toISOString(),
 						tasksAnalyzed: tasksData.tasks.length,
 						thresholdScore: thresholdScore,
-						projectName: tasksData.meta?.projectName || 'Your Project Name',
+						projectName: getProjectName(session),
 						usedResearch: useResearch
 					},
 					complexityAnalysis: complexityAnalysis
@@ -865,6 +956,12 @@ DO NOT include any text before or after the JSON array. No explanations, no mark
 							}
 						)
 					);
+
+					if (getDebugFlag(session)) {
+						console.debug(
+							chalk.gray(`Raw response: ${fullResponse.substring(0, 500)}...`)
+						);
+					}
 				}
 
 				return finalReport;
@@ -885,8 +982,7 @@ DO NOT include any text before or after the JSON array. No explanations, no mark
 					console.error(
 						chalk.red(`Error parsing complexity analysis: ${error.message}`)
 					);
-					if (getDebugFlag()) {
-						// Use getter
+					if (getDebugFlag(session)) {
 						console.debug(
 							chalk.gray(`Raw response: ${fullResponse.substring(0, 500)}...`)
 						);
@@ -931,8 +1027,7 @@ DO NOT include any text before or after the JSON array. No explanations, no mark
 				);
 			}
 
-			if (getDebugFlag()) {
-				// Use getter
+			if (getDebugFlag(session)) {
 				console.error(error);
 			}
 

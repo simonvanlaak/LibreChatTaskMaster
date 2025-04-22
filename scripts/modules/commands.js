@@ -13,7 +13,7 @@ import inquirer from 'inquirer';
 import ora from 'ora';
 import Table from 'cli-table3';
 
-import { log, readJSON, writeJSON } from './utils.js';
+import { log, readJSON } from './utils.js';
 import {
 	parsePRD,
 	updateTasks,
@@ -347,7 +347,7 @@ function registerCommands(programInstance) {
 
 				if (useResearch) {
 					// Verify Perplexity API key exists if using research
-					if (!process.env.PERPLEXITY_API_KEY) {
+					if (!isApiKeySet('perplexity')) {
 						console.log(
 							chalk.yellow(
 								'Warning: PERPLEXITY_API_KEY environment variable is missing. Research-backed updates will not be available.'
@@ -400,7 +400,7 @@ function registerCommands(programInstance) {
 				}
 
 				// Use getDebugFlag getter instead of CONFIG.debug
-				if (getDebugFlag(null)) {
+				if (getDebugFlag()) {
 					console.error(error);
 				}
 
@@ -500,7 +500,7 @@ function registerCommands(programInstance) {
 
 				if (useResearch) {
 					// Verify Perplexity API key exists if using research
-					if (!process.env.PERPLEXITY_API_KEY) {
+					if (!isApiKeySet('perplexity')) {
 						console.log(
 							chalk.yellow(
 								'Warning: PERPLEXITY_API_KEY environment variable is missing. Research-backed updates will not be available.'
@@ -556,7 +556,7 @@ function registerCommands(programInstance) {
 				}
 
 				// Use getDebugFlag getter instead of CONFIG.debug
-				if (getDebugFlag(null)) {
+				if (getDebugFlag()) {
 					console.error(error);
 				}
 
@@ -923,7 +923,7 @@ function registerCommands(programInstance) {
 				console.log(chalk.gray('Next: Complete this task or add more tasks'));
 			} catch (error) {
 				console.error(chalk.red(`Error adding task: ${error.message}`));
-				if (error.stack && getDebugFlag(null)) {
+				if (error.stack && getDebugFlag()) {
 					console.error(error.stack);
 				}
 				process.exit(1);
@@ -2105,7 +2105,7 @@ function registerCommands(programInstance) {
 				}
 			} catch (error) {
 				log(`Error processing models command: ${error.message}`, 'error');
-				if (error.stack && getDebugFlag(null)) {
+				if (error.stack && getDebugFlag()) {
 					log(error.stack, 'debug');
 				}
 				process.exit(1);
@@ -2337,7 +2337,7 @@ async function runCLI(argv = process.argv) {
 	} catch (error) {
 		console.error(chalk.red(`Error: ${error.message}`));
 
-		if (getDebugFlag(null)) {
+		if (getDebugFlag()) {
 			console.error(error);
 		}
 
