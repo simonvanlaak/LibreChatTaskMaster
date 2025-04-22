@@ -1046,7 +1046,7 @@ The refactoring of callers to AI parsing utilities should align with the new con
 5. When calling `generateObjectService`, pass the appropriate configuration context to ensure it uses the correct settings from the centralized configuration system.
 </info added on 2025-04-20T03:52:45.518Z>
 
-## 19. Refactor `updateSubtaskById` AI Call [pending]
+## 19. Refactor `updateSubtaskById` AI Call [done]
 ### Dependencies: 61.23
 ### Description: Refactor the AI call within `updateSubtaskById` in `task-manager.js` (which generates additional information based on a prompt) to use the appropriate unified service function (e.g., `generateTextService`) from `ai-services-unified.js`.
 ### Details:
@@ -1085,6 +1085,197 @@ const completion = await generateTextService({
 ```
 </info added on 2025-04-20T03:52:28.196Z>
 
+<info added on 2025-04-22T06:05:42.437Z>
+- When testing the non-streaming `generateTextService` call within `updateSubtaskById`, ensure that the function awaits the full response before proceeding with subtask updates. This allows you to validate that the unified service returns the expected structure (e.g., `completion.choices.message.content`) and that error handling logic correctly interprets any error objects or status codes returned by the service.
+
+- Mock or stub the `generateTextService` in unit tests to simulate both successful and failed completions. For example, verify that when the service returns a valid completion, the subtask is updated with the generated content, and when an error is returned, the error handling path is triggered and logged appropriately.
+
+- Confirm that the non-streaming mode does not emit partial results or require event-based handling; the function should only process the final, complete response.
+
+- Example test assertion:
+  ```javascript
+  // Mocked response from generateTextService
+  const mockCompletion = {
+    choices: [{ message: { content: "Generated subtask details." } }]
+  };
+  generateTextService.mockResolvedValue(mockCompletion);
+
+  // Call updateSubtaskById and assert the subtask is updated
+  await updateSubtaskById(...);
+  expect(subtask.details).toBe("Generated subtask details.");
+  ```
+
+- If the unified service supports both streaming and non-streaming modes, explicitly set or verify the `stream` parameter is `false` (or omitted) to ensure non-streaming behavior during these tests.
+</info added on 2025-04-22T06:05:42.437Z>
+
+<info added on 2025-04-22T06:20:19.747Z>
+When testing the non-streaming `generateTextService` call in `updateSubtaskById`, implement these verification steps:
+
+1. Add unit tests that verify proper parameter transformation between the old and new implementation:
+   ```javascript
+   test('should correctly transform parameters when calling generateTextService', async () => {
+     // Setup mocks for config values
+     jest.spyOn(configManager, 'getMainModel').mockReturnValue('gpt-4');
+     jest.spyOn(configManager, 'getMainTemperature').mockReturnValue(0.7);
+     jest.spyOn(configManager, 'getMainMaxTokens').mockReturnValue(1000);
+     
+     const generateTextServiceSpy = jest.spyOn(aiServices, 'generateTextService')
+       .mockResolvedValue({ choices: [{ message: { content: 'test content' } }] });
+     
+     await updateSubtaskById(/* params */);
+     
+     // Verify the service was called with correct transformed parameters
+     expect(generateTextServiceSpy).toHaveBeenCalledWith({
+       model: 'gpt-4',
+       temperature: 0.7,
+       max_tokens: 1000,
+       messages: expect.any(Array)
+     });
+   });
+   ```
+
+2. Implement response validation to ensure the subtask content is properly extracted:
+   ```javascript
+   // In updateSubtaskById function
+   try {
+     const completion = await generateTextService({
+       // parameters
+     });
+     
+     // Validate response structure before using
+     if (!completion?.choices?.[0]?.message?.content) {
+       throw new Error('Invalid response structure from AI service');
+     }
+     
+     // Continue with updating subtask
+   } catch (error) {
+     // Enhanced error handling
+   }
+   ```
+
+3. Add integration tests that verify the end-to-end flow with actual configuration values.
+</info added on 2025-04-22T06:20:19.747Z>
+
+<info added on 2025-04-22T06:23:23.247Z>
+<info added on 2025-04-22T06:35:14.892Z>
+When testing the non-streaming `generateTextService` call in `updateSubtaskById`, implement these specific verification steps:
+
+1. Create a dedicated test fixture that isolates the AI service interaction:
+   ```javascript
+   describe('updateSubtaskById AI integration', () => {
+     beforeEach(() => {
+       // Reset all mocks and spies
+       jest.clearAllMocks();
+       // Setup environment with controlled config values
+       process.env.OPENAI_API_KEY = 'test-key';
+     });
+     
+     // Test cases follow...
+   });
+   ```
+
+2. Test error propagation from the unified service:
+   ```javascript
+   test('should properly handle AI service errors', async () => {
+     const mockError = new Error('Service unavailable');
+     mockError.status = 503;
+     jest.spyOn(aiServices, 'generateTextService').mockRejectedValue(mockError);
+     
+     // Capture console errors if needed
+     const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+     
+     // Execute with error expectation
+     await expect(updateSubtaskById(1, { prompt: 'test' })).rejects.toThrow();
+     
+     // Verify error was logged with appropriate context
+     expect(consoleSpy).toHaveBeenCalledWith(
+       expect.stringContaining('AI service error'),
+       expect.objectContaining({ status: 503 })
+     );
+   });
+   ```
+
+3. Verify that the function correctly preserves existing subtask content when appending new AI-generated information:
+   ```javascript
+   test('should preserve existing content when appending AI-generated details', async () => {
+     // Setup mock subtask with existing content
+     const mockSubtask = {
+       id: 1,
+       details: 'Existing details.\n\n'
+     };
+     
+     // Mock database retrieval
+     getSubtaskById.mockResolvedValue(mockSubtask);
+     
+     // Mock AI response
+     generateTextService.mockResolvedValue({
+       choices: [{ message: { content: 'New AI content.' } }]
+     });
+     
+     await updateSubtaskById(1, { prompt: 'Enhance this subtask' });
+     
+     // Verify the update preserves existing content
+     expect(updateSubtaskInDb).toHaveBeenCalledWith(
+       1,
+       expect.objectContaining({
+         details: expect.stringContaining('Existing details.\n\n<info added on')
+       })
+     );
+     
+     // Verify the new content was added
+     expect(updateSubtaskInDb).toHaveBeenCalledWith(
+       1,
+       expect.objectContaining({
+         details: expect.stringContaining('New AI content.')
+       })
+     );
+   });
+   ```
+
+4. Test that the function correctly formats the timestamp and wraps the AI-generated content:
+   ```javascript
+   test('should format timestamp and wrap content correctly', async () => {
+     // Mock date for consistent testing
+     const mockDate = new Date('2025-04-22T10:00:00Z');
+     jest.spyOn(global, 'Date').mockImplementation(() => mockDate);
+     
+     // Setup and execute test
+     // ...
+     
+     // Verify correct formatting
+     expect(updateSubtaskInDb).toHaveBeenCalledWith(
+       expect.any(Number),
+       expect.objectContaining({
+         details: expect.stringMatching(
+           /<info added on 2025-04-22T10:00:00\.000Z>\n.*\n<\/info added on 2025-04-22T10:00:00\.000Z>/s
+         )
+       })
+     );
+   });
+   ```
+
+5. Verify that the function correctly handles the case when no existing details are present:
+   ```javascript
+   test('should handle subtasks with no existing details', async () => {
+     // Setup mock subtask with no details
+     const mockSubtask = { id: 1 };
+     getSubtaskById.mockResolvedValue(mockSubtask);
+     
+     // Execute test
+     // ...
+     
+     // Verify details were initialized properly
+     expect(updateSubtaskInDb).toHaveBeenCalledWith(
+       1,
+       expect.objectContaining({
+         details: expect.stringMatching(/^<info added on/)
+       })
+     );
+   });
+   ```
+</info added on 2025-04-22T06:35:14.892Z>
+</info added on 2025-04-22T06:23:23.247Z>
+
 ## 20. Implement `anthropic.js` Provider Module using Vercel AI SDK [done]
 ### Dependencies: None
 ### Description: Create and implement the `anthropic.js` module within `src/ai-providers/`. This module should contain functions to interact with the Anthropic API (streaming and non-streaming) using the **Vercel AI SDK**, adhering to the standardized input/output format defined for `ai-services-unified.js`.
@@ -1103,7 +1294,7 @@ const completion = await generateTextService({
 ### Details:
 
 
-## 23. Implement Conditional Provider Logic in `ai-services-unified.js` [pending]
+## 23. Implement Conditional Provider Logic in `ai-services-unified.js` [done]
 ### Dependencies: 61.20,61.21,61.22,61.24,61.25,61.26,61.27,61.28,61.29,61.30,61.34
 ### Description: Implement logic within the functions of `ai-services-unified.js` (e.g., `generateTextService`, `generateObjectService`, `streamChatService`) to dynamically select and call the appropriate provider module (`anthropic.js`, `perplexity.js`, etc.) based on configuration (e.g., environment variables like `AI_PROVIDER` and `AI_MODEL` from `process.env` or `session.env`).
 ### Details:
@@ -1440,7 +1631,7 @@ For the integration tests of the Unified AI Service, consider the following impl
 6. Include tests for configuration changes at runtime and their effect on service behavior.
 </info added on 2025-04-20T03:51:23.368Z>
 
-## 32. Update Documentation for New AI Architecture [pending]
+## 32. Update Documentation for New AI Architecture [done]
 ### Dependencies: 61.31
 ### Description: Update relevant documentation files (e.g., `architecture.mdc`, `taskmaster.mdc`, environment variable guides, README) to accurately reflect the new AI service architecture using `ai-services-unified.js`, provider modules, the Vercel AI SDK, and the updated configuration approach.
 ### Details:

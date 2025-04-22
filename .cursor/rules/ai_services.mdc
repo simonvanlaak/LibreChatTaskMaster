@@ -1,0 +1,118 @@
+---
+description: Guidelines for interacting with the unified AI service layer.
+globs: scripts/modules/ai-services-unified.js, scripts/modules/task-manager/*.js, scripts/modules/commands.js
+---
+
+# AI Services Layer Guidelines
+
+This document outlines the architecture and usage patterns for interacting with Large Language Models (LLMs) via the Task Master's unified AI service layer. The goal is to centralize configuration, provider selection, API key management, fallback logic, and error handling.
+
+**Core Components:**
+
+*   **Configuration (`.taskmasterconfig` & [`config-manager.js`](mdc:scripts/modules/config-manager.js)):**
+    *   Defines the AI provider and model ID for different roles (`main`, `research`, `fallback`).
+    *   Stores parameters like `maxTokens` and `temperature` per role.
+    *   Managed via `task-master models --setup`.
+    *   [`config-manager.js`](mdc:scripts/modules/config-manager.js) provides getters (e.g., `getMainProvider()`, `getMainModelId()`, `getParametersForRole()`) to access these settings.
+    *   API keys are **NOT** stored here; they are resolved via `resolveEnvVariable` from `.env` or MCP session env. See [`utilities.mdc`](mdc:.cursor/rules/utilities.mdc).
+    *   Relies on `data/supported-models.json` for model validation and metadata.
+
+*   **Unified Service (`ai-services-unified.js`):**
+    *   Exports primary interaction functions: `generateTextService`, `streamTextService`, `generateObjectService`.
+    *   Contains the core `_unifiedServiceRunner` logic.
+    *   Uses `config-manager.js` getters to determine the provider/model based on the requested `role`.
+    *   Implements the fallback sequence (main -> fallback -> research or variations).
+    *   Constructs the `messages` array (`[{ role: 'system', ... }, { role: 'user', ... }]`) required by the Vercel AI SDK.
+    *   Calls internal retry logic (`_attemptProviderCallWithRetries`).
+    *   Resolves API keys via `_resolveApiKey`.
+    *   Maps requests to the correct provider implementation via `PROVIDER_FUNCTIONS`.
+
+*   **Provider Implementations (`src/ai-providers/*.js`):**
+    *   Contain provider-specific code (e.g., `src/ai-providers/anthropic.js`).
+    *   Import Vercel AI SDK provider adapters (`@ai-sdk/anthropic`, `@ai-sdk/perplexity`, etc.).
+    *   Wrap core Vercel AI SDK functions (`generateText`, `streamText`, `generateObject`).
+    *   Accept standard parameters (`apiKey`, `modelId`, `messages`, `maxTokens`, etc.).
+    *   Return results in the format expected by `_unifiedServiceRunner`.
+
+**Usage Pattern (from Core Logic like `task-manager`):**
+
+1.  **Choose Service:** Decide whether you need a full text response (`generateTextService`) or a stream (`streamTextService`).
+    *   ✅ **DO**: **Prefer `generateTextService`** for interactions that send large context payloads (e.g., stringified JSON) and **do not** require incremental display in the UI. This is currently more reliable, especially if Anthropic is the configured provider.
+    *   ⚠️ **CAUTION**: `streamTextService` may be unreliable with the Vercel SDK's Anthropic adapter when sending large user messages. Use with caution or stick to `generateTextService` for such cases until SDK improvements are confirmed.
+
+2.  **Import Service:** Import the chosen service function from `../ai-services-unified.js`.
+    ```javascript
+    // Preferred for updateSubtaskById, parsePRD, etc.
+    import { generateTextService } from '../ai-services-unified.js';
+
+    // Use only if incremental display is implemented AND provider streaming is reliable
+    // import { streamTextService } from '../ai-services-unified.js';
+    ```
+
+3.  **Prepare Parameters:** Construct the parameters object.
+    *   `role`: `'main'`, `'research'`, or `'fallback'`. Determines the initial provider/model attempt.
+    *   `session`: Pass the MCP `session` object if available (for API key resolution), otherwise `null` or omit.
+    *   `systemPrompt`: Your system instruction string.
+    *   `prompt`: The user message string (can be long, include stringified data, etc.).
+    *   (For `generateObjectService`): `schema`, `objectName`.
+
+4.  **Call Service:** Use `await` to call the service function.
+    ```javascript
+    // Example using generateTextService
+    try {
+        const resultText = await generateTextService({
+            role: 'main', // Or 'research'/'fallback'
+            session: session, // Or null
+            systemPrompt: "You are...",
+            prompt: userMessageContent // Can include stringified JSON etc.
+        });
+        additionalInformation = resultText.trim();
+        // ... process resultText ...
+    } catch (error) {
+        // Handle errors thrown if all providers/retries fail
+        report(`AI service call failed: ${error.message}`, 'error');
+        throw error;
+    }
+
+    // Example using streamTextService (Use with caution for Anthropic/large payloads)
+    try {
+        const streamResult = await streamTextService({
+            role: 'main',
+            session: session,
+            systemPrompt: "You are...",
+            prompt: userMessageContent
+        });
+
+        // Check if a stream was actually returned (might be null if overridden)
+        if (streamResult.textStream) {
+            for await (const chunk of streamResult.textStream) {
+                additionalInformation += chunk;
+            }
+            additionalInformation = additionalInformation.trim();
+        } else if (streamResult.text) {
+             // Handle case where generateText was used internally (Anthropic override)
+             // NOTE: This override logic is currently REMOVED as we prefer generateTextService directly
+             additionalInformation = streamResult.text.trim();
+        } else {
+            additionalInformation = ''; // Should not happen
+        }
+        // ... process additionalInformation ...
+    } catch (error) {
+        report(`AI service call failed: ${error.message}`, 'error');
+        throw error;
+    }
+    ```
+
+5.  **Handle Results/Errors:** Process the returned text/stream/object or handle errors thrown by the service layer.
+
+**Key Implementation Rules & Gotchas:**
+
+*   ✅ **DO**: Centralize all AI calls through `generateTextService` / `streamTextService`.
+*   ✅ **DO**: Ensure `.taskmasterconfig` has valid provider names, model IDs, and parameters (`maxTokens` appropriate for the model).
+*   ✅ **DO**: Ensure API keys are correctly configured in `.env` / `.cursor/mcp.json`.
+*   ✅ **DO**: Pass the `session` object to the service call if available (for MCP calls).
+*   ❌ **DON'T**: Call Vercel AI SDK functions (`streamText`, `generateText`) directly from `task-manager` or commands.
+*   ❌ **DON'T**: Implement fallback or retry logic outside `ai-services-unified.js`.
+*   ❌ **DON'T**: Handle API key resolution outside the service layer.
+*   ⚠️ **Streaming Caution**: Be aware of potential reliability issues using `streamTextService` with Anthropic/large payloads via the SDK. Prefer `generateTextService` for these cases until proven otherwise.
+*   ⚠️ **Debugging Imports**: If you get `"X is not defined"` errors related to service functions, check for internal errors within `ai-services-unified.js` (like incorrect import paths or syntax errors).

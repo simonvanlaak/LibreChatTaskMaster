@@ -42,9 +42,8 @@ function getClient(apiKey) {
  *
  * @param {object} params - Parameters for the text generation.
  * @param {string} params.apiKey - The Anthropic API key.
- * @param {string} params.modelId - The specific Anthropic model ID to use (e.g., 'claude-3-haiku-20240307').
- * @param {string} params.systemPrompt - The system prompt.
- * @param {string} params.userPrompt - The user prompt.
+ * @param {string} params.modelId - The specific Anthropic model ID.
+ * @param {Array<object>} params.messages - The messages array (e.g., [{ role: 'user', content: '...' }]).
  * @param {number} [params.maxTokens] - Maximum tokens for the response.
  * @param {number} [params.temperature] - Temperature for generation.
  * @returns {Promise<string>} The generated text content.
@@ -53,8 +52,7 @@ function getClient(apiKey) {
 export async function generateAnthropicText({
 	apiKey,
 	modelId,
-	systemPrompt,
-	userPrompt,
+	messages,
 	maxTokens,
 	temperature
 }) {
@@ -62,11 +60,13 @@ export async function generateAnthropicText({
 	try {
 		const client = getClient(apiKey);
 		const result = await generateText({
-			model: client(modelId), // Pass the model ID to the client instance
-			system: systemPrompt,
-			prompt: userPrompt,
+			model: client(modelId),
+			messages: messages,
 			maxTokens: maxTokens,
-			temperature: temperature
+			temperature: temperature,
+			headers: {
+				'anthropic-beta': 'output-128k-2025-02-19'
+			}
 			// TODO: Add other relevant parameters like topP, topK if needed
 		});
 		log(
@@ -87,38 +87,59 @@ export async function generateAnthropicText({
  * @param {object} params - Parameters for the text streaming.
  * @param {string} params.apiKey - The Anthropic API key.
  * @param {string} params.modelId - The specific Anthropic model ID.
- * @param {string} params.systemPrompt - The system prompt.
- * @param {string} params.userPrompt - The user prompt.
+ * @param {Array<object>} params.messages - The messages array.
  * @param {number} [params.maxTokens] - Maximum tokens for the response.
  * @param {number} [params.temperature] - Temperature for generation.
- * @returns {Promise<ReadableStream<string>>} A readable stream of text deltas.
+ * @returns {Promise<object>} The full stream result object from the Vercel AI SDK.
  * @throws {Error} If the API call fails to initiate the stream.
  */
 export async function streamAnthropicText({
 	apiKey,
 	modelId,
-	systemPrompt,
-	userPrompt,
+	messages,
 	maxTokens,
 	temperature
 }) {
 	log('debug', `Streaming Anthropic text with model: ${modelId}`);
 	try {
 		const client = getClient(apiKey);
+
+		// --- DEBUG LOGGING --- >>
+		log(
+			'debug',
+			'[streamAnthropicText] Parameters received by streamText:',
+			JSON.stringify(
+				{
+					modelId: modelId, // Log modelId being used
+					messages: messages, // Log the messages array
+					maxTokens: maxTokens,
+					temperature: temperature
+				},
+				null,
+				2
+			)
+		);
+		// --- << DEBUG LOGGING ---
+
 		const stream = await streamText({
 			model: client(modelId),
-			system: systemPrompt,
-			prompt: userPrompt,
+			messages: messages,
 			maxTokens: maxTokens,
-			temperature: temperature
+			temperature: temperature,
+			headers: {
+				'anthropic-beta': 'output-128k-2025-02-19'
+			}
 			// TODO: Add other relevant parameters
 		});
 
-		// We return the stream directly. The consumer will handle reading it.
-		// We could potentially wrap it or add logging within the stream pipe if needed.
-		return stream.textStream;
+		// *** RETURN THE FULL STREAM OBJECT, NOT JUST stream.textStream ***
+		return stream;
 	} catch (error) {
-		log('error', `Anthropic streamText failed: ${error.message}`);
+		log(
+			'error',
+			`Anthropic streamText failed: ${error.message}`,
+			error.stack // Log stack trace for more details
+		);
 		throw error;
 	}
 }
@@ -132,8 +153,7 @@ export async function streamAnthropicText({
  * @param {object} params - Parameters for object generation.
  * @param {string} params.apiKey - The Anthropic API key.
  * @param {string} params.modelId - The specific Anthropic model ID.
- * @param {string} params.systemPrompt - The system prompt (optional).
- * @param {string} params.userPrompt - The user prompt describing the desired object.
+ * @param {Array<object>} params.messages - The messages array.
  * @param {import('zod').ZodSchema} params.schema - The Zod schema for the object.
  * @param {string} params.objectName - A name for the object/tool.
  * @param {number} [params.maxTokens] - Maximum tokens for the response.
@@ -145,10 +165,9 @@ export async function streamAnthropicText({
 export async function generateAnthropicObject({
 	apiKey,
 	modelId,
-	systemPrompt,
-	userPrompt,
+	messages,
 	schema,
-	objectName = 'generated_object', // Provide a default name
+	objectName = 'generated_object',
 	maxTokens,
 	temperature,
 	maxRetries = 3
@@ -163,11 +182,10 @@ export async function generateAnthropicObject({
 			model: client(modelId),
 			mode: 'tool', // Anthropic generally uses 'tool' mode for structured output
 			schema: schema,
-			system: systemPrompt,
-			prompt: userPrompt,
+			messages: messages,
 			tool: {
-				name: objectName, // Use the provided or default name
-				description: `Generate a ${objectName} based on the prompt.` // Simple description
+				name: objectName,
+				description: `Generate a ${objectName} based on the prompt.`
 			},
 			maxTokens: maxTokens,
 			temperature: temperature,

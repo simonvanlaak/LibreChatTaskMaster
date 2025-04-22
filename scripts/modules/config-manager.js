@@ -339,6 +339,20 @@ function getOllamaBaseUrl(explicitRoot = null) {
 }
 
 /**
+ * Gets model parameters (maxTokens, temperature) for a specific role.
+ * @param {string} role - The role ('main', 'research', 'fallback').
+ * @param {string|null} explicitRoot - Optional explicit path to the project root.
+ * @returns {{maxTokens: number, temperature: number}}
+ */
+function getParametersForRole(role, explicitRoot = null) {
+	const roleConfig = getModelConfigForRole(role, explicitRoot);
+	return {
+		maxTokens: roleConfig.maxTokens,
+		temperature: roleConfig.temperature
+	};
+}
+
+/**
  * Checks if the API key for a given provider is set in the environment.
  * Checks process.env first, then session.env if session is provided.
  * @param {string} providerName - The name of the provider (e.g., 'openai', 'anthropic').
@@ -561,6 +575,7 @@ export {
 	getDefaultPriority,
 	getProjectName,
 	getOllamaBaseUrl,
+	getParametersForRole,
 
 	// API Key Checkers (still relevant)
 	isApiKeySet,

@@ -25,20 +25,19 @@ function getClient(apiKey) {
 /**
  * Generates text using a Perplexity model.
  *
- * @param {object} params - Parameters for text generation.
+ * @param {object} params - Parameters for the text generation.
  * @param {string} params.apiKey - The Perplexity API key.
- * @param {string} params.modelId - The Perplexity model ID (e.g., 'sonar-small-32k-online').
- * @param {string} [params.systemPrompt] - The system prompt (optional for some models).
- * @param {string} params.userPrompt - The user prompt.
- * @param {number} [params.maxTokens] - Maximum tokens.
- * @param {number} [params.temperature] - Temperature.
- * @returns {Promise<string>} Generated text.
+ * @param {string} params.modelId - The specific Perplexity model ID.
+ * @param {Array<object>} params.messages - The messages array.
+ * @param {number} [params.maxTokens] - Maximum tokens for the response.
+ * @param {number} [params.temperature] - Temperature for generation.
+ * @returns {Promise<string>} The generated text content.
+ * @throws {Error} If the API call fails.
  */
 export async function generatePerplexityText({
 	apiKey,
 	modelId,
-	systemPrompt,
-	userPrompt,
+	messages,
 	maxTokens,
 	temperature
 }) {
@@ -47,8 +46,7 @@ export async function generatePerplexityText({
 		const client = getClient(apiKey);
 		const result = await generateText({
 			model: client(modelId),
-			system: systemPrompt, // Pass system prompt if provided
-			prompt: userPrompt,
+			messages: messages,
 			maxTokens: maxTokens,
 			temperature: temperature
 		});
@@ -66,20 +64,19 @@ export async function generatePerplexityText({
 /**
  * Streams text using a Perplexity model.
  *
- * @param {object} params - Parameters for text streaming.
+ * @param {object} params - Parameters for the text streaming.
  * @param {string} params.apiKey - The Perplexity API key.
- * @param {string} params.modelId - The Perplexity model ID.
- * @param {string} [params.systemPrompt] - The system prompt.
- * @param {string} params.userPrompt - The user prompt.
- * @param {number} [params.maxTokens] - Maximum tokens.
- * @param {number} [params.temperature] - Temperature.
- * @returns {Promise<ReadableStream<string>>} Stream of text deltas.
+ * @param {string} params.modelId - The specific Perplexity model ID.
+ * @param {Array<object>} params.messages - The messages array.
+ * @param {number} [params.maxTokens] - Maximum tokens for the response.
+ * @param {number} [params.temperature] - Temperature for generation.
+ * @returns {Promise<object>} The full stream result object from the Vercel AI SDK.
+ * @throws {Error} If the API call fails to initiate the stream.
  */
 export async function streamPerplexityText({
 	apiKey,
 	modelId,
-	systemPrompt,
-	userPrompt,
+	messages,
 	maxTokens,
 	temperature
 }) {
@@ -88,12 +85,11 @@ export async function streamPerplexityText({
 		const client = getClient(apiKey);
 		const stream = await streamText({
 			model: client(modelId),
-			system: systemPrompt,
-			prompt: userPrompt,
+			messages: messages,
 			maxTokens: maxTokens,
 			temperature: temperature
 		});
-		return stream.textStream;
+		return stream;
 	} catch (error) {
 		log('error', `Perplexity streamText failed: ${error.message}`);
 		throw error;
@@ -102,49 +98,48 @@ export async function streamPerplexityText({
 
 /**
  * Generates a structured object using a Perplexity model.
- * Note: Perplexity's support for structured output/tool use might vary.
- * We assume it follows OpenAI's function/tool calling conventions if supported by the SDK.
+ * Note: Perplexity API might not directly support structured object generation
+ * in the same way as OpenAI or Anthropic. This function might need
+ * adjustments or might not be feasible depending on the model's capabilities
+ * and the Vercel AI SDK's support for Perplexity in this context.
  *
  * @param {object} params - Parameters for object generation.
  * @param {string} params.apiKey - The Perplexity API key.
- * @param {string} params.modelId - The Perplexity model ID.
- * @param {string} [params.systemPrompt] - System prompt.
- * @param {string} params.userPrompt - User prompt.
- * @param {import('zod').ZodSchema} params.schema - Zod schema.
- * @param {string} params.objectName - Name for the object/tool.
- * @param {number} [params.maxTokens] - Maximum tokens.
- * @param {number} [params.temperature] - Temperature.
- * @param {number} [params.maxRetries] - Max retries.
- * @returns {Promise<object>} Generated object.
+ * @param {string} params.modelId - The specific Perplexity model ID.
+ * @param {Array<object>} params.messages - The messages array.
+ * @param {import('zod').ZodSchema} params.schema - The Zod schema for the object.
+ * @param {string} params.objectName - A name for the object/tool.
+ * @param {number} [params.maxTokens] - Maximum tokens for the response.
+ * @param {number} [params.temperature] - Temperature for generation.
+ * @param {number} [params.maxRetries] - Max retries for validation/generation.
+ * @returns {Promise<object>} The generated object matching the schema.
+ * @throws {Error} If generation or validation fails or is unsupported.
  */
 export async function generatePerplexityObject({
 	apiKey,
 	modelId,
-	systemPrompt,
-	userPrompt,
+	messages,
 	schema,
 	objectName = 'generated_object',
 	maxTokens,
 	temperature,
-	maxRetries = 3
+	maxRetries = 1 // Lower retries as support might be limited
 }) {
 	log(
 		'debug',
-		`Generating Perplexity object ('${objectName}') with model: ${modelId}`
+		`Attempting to generate Perplexity object ('${objectName}') with model: ${modelId}`
+	);
+	log(
+		'warn',
+		'generateObject support for Perplexity might be limited or experimental.'
 	);
 	try {
 		const client = getClient(apiKey);
-		// Assuming Perplexity follows OpenAI-like tool mode if supported by SDK
+		// Attempt using generateObject, but be prepared for potential issues
 		const result = await generateObject({
 			model: client(modelId),
-			mode: 'tool',
 			schema: schema,
-			system: systemPrompt,
-			prompt: userPrompt,
-			tool: {
-				name: objectName,
-				description: `Generate a ${objectName} based on the prompt.`
-			},
+			messages: messages,
 			maxTokens: maxTokens,
 			temperature: temperature,
 			maxRetries: maxRetries
@@ -159,18 +154,10 @@ export async function generatePerplexityObject({
 			'error',
 			`Perplexity generateObject ('${objectName}') failed: ${error.message}`
 		);
-		// Check if the error indicates lack of tool support
-		if (
-			error.message.includes('tool use') ||
-			error.message.includes('structured output')
-		) {
-			log(
-				'warn',
-				`Model ${modelId} might not support structured output via tools.`
-			);
-		}
-		throw error;
+		throw new Error(
+			`Failed to generate object with Perplexity: ${error.message}. Structured output might not be fully supported.`
+		);
 	}
 }
 
-// TODO: Implement streamPerplexityObject if needed and supported.
+// TODO: Implement streamPerplexityObject if needed and feasible.

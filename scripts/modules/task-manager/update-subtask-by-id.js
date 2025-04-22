@@ -10,7 +10,7 @@ import {
 	stopLoadingIndicator
 } from '../ui.js';
 import { log, readJSON, writeJSON, truncate, isSilentMode } from '../utils.js';
-import { getAvailableAIModel } from '../ai-services.js';
+import { generateTextService } from '../ai-services-unified.js';
 import {
 	getDebugFlag,
 	getMainModelId,
@@ -54,6 +54,7 @@ async function updateSubtaskById(
 	};
 
 	let loadingIndicator = null;
+
 	try {
 		report(`Updating subtask ${subtaskId} with prompt: "${prompt}"`, 'info');
 
@@ -193,236 +194,55 @@ async function updateSubtaskById(
 			);
 		}
 
-		// Create the system prompt (as before)
-		const systemPrompt = `You are an AI assistant helping to update software development subtasks with additional information.
+		let additionalInformation = '';
+		try {
+			// Reverted: Keep the original system prompt
+			const systemPrompt = `You are an AI assistant helping to update software development subtasks with additional information.
 Given a subtask, you will provide additional details, implementation notes, or technical insights based on user request.
 Focus only on adding content that enhances the subtask - don't repeat existing information.
 Be technical, specific, and implementation-focused rather than general.
 Provide concrete examples, code snippets, or implementation details when relevant.`;
 
-		// Replace the old research/Claude code with the new model selection approach
-		let additionalInformation = '';
-		let modelAttempts = 0;
-		const maxModelAttempts = 2; // Try up to 2 models before giving up
+			// Reverted: Use the full JSON stringification for the user message
+			const subtaskData = JSON.stringify(subtask, null, 2);
+			const userMessageContent = `Here is the subtask to enhance:\n${subtaskData}\n\nPlease provide additional information addressing this request:\n${prompt}\n\nReturn ONLY the new information to add - do not repeat existing content.`;
 
-		while (modelAttempts < maxModelAttempts && !additionalInformation) {
-			modelAttempts++; // Increment attempt counter at the start
-			const isLastAttempt = modelAttempts >= maxModelAttempts;
-			let modelType = null; // Declare modelType outside the try block
+			const serviceRole = useResearch ? 'research' : 'main';
+			report(`Calling AI stream service with role: ${serviceRole}`, 'info');
 
-			try {
-				// Get the best available model based on our current state
-				const result = getAvailableAIModel({
-					claudeOverloaded,
-					requiresResearch: useResearch
-				});
-				modelType = result.type;
-				const client = result.client;
+			const streamResult = await generateTextService({
+				role: serviceRole,
+				session: session,
+				systemPrompt: systemPrompt, // Pass the original system prompt
+				prompt: userMessageContent // Pass the original user message content
+			});
 
-				report(
-					`Attempt ${modelAttempts}/${maxModelAttempts}: Generating subtask info using ${modelType}`,
-					'info'
-				);
-
-				// Update loading indicator text - only for text output
-				if (outputFormat === 'text') {
-					if (loadingIndicator) {
-						stopLoadingIndicator(loadingIndicator); // Stop previous indicator
-					}
-					loadingIndicator = startLoadingIndicator(
-						`Attempt ${modelAttempts}: Using ${modelType.toUpperCase()}...`
-					);
-				}
-
-				const subtaskData = JSON.stringify(subtask, null, 2);
-				const userMessageContent = `Here is the subtask to enhance:\n${subtaskData}\n\nPlease provide additional information addressing this request:\n${prompt}\n\nReturn ONLY the new information to add - do not repeat existing content.`;
-
-				if (modelType === 'perplexity') {
-					// Construct Perplexity payload
-					const perplexityModel = getResearchModelId(session);
-					const response = await client.chat.completions.create({
-						model: perplexityModel,
-						messages: [
-							{ role: 'system', content: systemPrompt },
-							{ role: 'user', content: userMessageContent }
-						],
-						temperature: getResearchTemperature(session),
-						max_tokens: getResearchMaxTokens(session)
-					});
-					additionalInformation = response.choices[0].message.content.trim();
-				} else {
-					// Claude
-					let responseText = '';
-					let streamingInterval = null;
-
-					try {
-						// Only update streaming indicator for text output
-						if (outputFormat === 'text') {
-							let dotCount = 0;
-							const readline = await import('readline');
-							streamingInterval = setInterval(() => {
-								readline.cursorTo(process.stdout, 0);
-								process.stdout.write(
-									`Receiving streaming response from Claude${'.'.repeat(dotCount)}`
-								);
-								dotCount = (dotCount + 1) % 4;
-							}, 500);
-						}
-
-						// Construct Claude payload using config getters
-						const stream = await client.messages.create({
-							model: getMainModelId(session),
-							max_tokens: getMainMaxTokens(session),
-							temperature: getMainTemperature(session),
-							system: systemPrompt,
-							messages: [{ role: 'user', content: userMessageContent }],
-							stream: true
-						});
-
-						for await (const chunk of stream) {
-							if (chunk.type === 'content_block_delta' && chunk.delta.text) {
-								responseText += chunk.delta.text;
-							}
-							if (reportProgress) {
-								await reportProgress({
-									progress:
-										(responseText.length / getMainMaxTokens(session)) * 100
-								});
-							}
-							if (mcpLog) {
-								mcpLog.info(
-									`Progress: ${(responseText.length / getMainMaxTokens(session)) * 100}%`
-								);
-							}
-						}
-					} finally {
-						if (streamingInterval) clearInterval(streamingInterval);
-						// Clear the loading dots line - only for text output
-						if (outputFormat === 'text') {
-							const readline = await import('readline');
-							readline.cursorTo(process.stdout, 0);
-							process.stdout.clearLine(0);
-						}
-					}
-
-					report(
-						`Completed streaming response from Claude API! (Attempt ${modelAttempts})`,
-						'info'
-					);
-					additionalInformation = responseText.trim();
-				}
-
-				// Success - break the loop
-				if (additionalInformation) {
-					report(
-						`Successfully generated information using ${modelType} on attempt ${modelAttempts}.`,
-						'info'
-					);
-					break;
-				} else {
-					// Handle case where AI gave empty response without erroring
-					report(
-						`AI (${modelType}) returned empty response on attempt ${modelAttempts}.`,
-						'warn'
-					);
-					if (isLastAttempt) {
-						throw new Error(
-							'AI returned empty response after maximum attempts.'
-						);
-					}
-					// Allow loop to continue to try another model/attempt if possible
-				}
-			} catch (modelError) {
-				const failedModel =
-					modelType || modelError.modelType || 'unknown model';
-				report(
-					`Attempt ${modelAttempts} failed using ${failedModel}: ${modelError.message}`,
-					'warn'
-				);
-
-				// --- More robust overload check ---
-				let isOverload = false;
-				// Check 1: SDK specific property (common pattern)
-				if (modelError.type === 'overloaded_error') {
-					isOverload = true;
-				}
-				// Check 2: Check nested error property (as originally intended)
-				else if (modelError.error?.type === 'overloaded_error') {
-					isOverload = true;
-				}
-				// Check 3: Check status code if available (e.g., 429 Too Many Requests or 529 Overloaded)
-				else if (modelError.status === 429 || modelError.status === 529) {
-					isOverload = true;
-				}
-				// Check 4: Check the message string itself (less reliable)
-				else if (modelError.message?.toLowerCase().includes('overloaded')) {
-					isOverload = true;
-				}
-				// --- End robust check ---
-
-				if (isOverload) {
-					// Use the result of the check
-					claudeOverloaded = true; // Mark Claude as overloaded for the *next* potential attempt
-					if (!isLastAttempt) {
-						report(
-							'Claude overloaded. Will attempt fallback model if available.',
-							'info'
-						);
-						// Stop the current indicator before continuing - only for text output
-						if (outputFormat === 'text' && loadingIndicator) {
-							stopLoadingIndicator(loadingIndicator);
-							loadingIndicator = null; // Reset indicator
-						}
-						continue; // Go to next iteration of the while loop to try fallback
-					} else {
-						// It was the last attempt, and it failed due to overload
-						report(
-							`Overload error on final attempt (${modelAttempts}/${maxModelAttempts}). No fallback possible.`,
-							'error'
-						);
-						// Let the error be thrown after the loop finishes, as additionalInformation will be empty.
-						// We don't throw immediately here, let the loop exit and the check after the loop handle it.
-					}
-				} else {
-					// Error was NOT an overload
-					// If it's not an overload, throw it immediately to be caught by the outer catch.
-					report(
-						`Non-overload error on attempt ${modelAttempts}: ${modelError.message}`,
-						'error'
-					);
-					throw modelError; // Re-throw non-overload errors immediately.
-				}
-			} // End inner catch
-		} // End while loop
-
-		// If loop finished without getting information
-		if (!additionalInformation) {
-			// Only show debug info for text output (CLI)
-			if (outputFormat === 'text') {
-				console.log(
-					'>>> DEBUG: additionalInformation is falsy! Value:',
-					additionalInformation
-				);
+			if (outputFormat === 'text' && loadingIndicator) {
+				// Stop indicator immediately since generateText is blocking
+				stopLoadingIndicator(loadingIndicator);
+				loadingIndicator = null;
 			}
-			throw new Error(
-				'Failed to generate additional information after all attempts.'
-			);
-		}
 
-		// Only show debug info for text output (CLI)
-		if (outputFormat === 'text') {
-			console.log(
-				'>>> DEBUG: Got additionalInformation:',
-				additionalInformation.substring(0, 50) + '...'
-			);
-		}
+			// Assign the result directly (generateTextService returns the text string)
+			additionalInformation = streamResult ? streamResult.trim() : '';
 
-		// Create timestamp
+			if (!additionalInformation) {
+				throw new Error('AI returned empty response.'); // Changed error message slightly
+			}
+			report(
+				// Corrected log message to reflect generateText
+				`Successfully generated text using AI role: ${serviceRole}.`,
+				'info'
+			);
+		} catch (aiError) {
+			report(`AI service call failed: ${aiError.message}`, 'error');
+			throw aiError;
+		} // Removed the inner finally block as streamingInterval is gone
+
 		const currentDate = new Date();
-		const timestamp = currentDate.toISOString();
 
 		// Format the additional information with timestamp
-		const formattedInformation = `\n\n<info added on ${timestamp}>\n${additionalInformation}\n</info added on ${timestamp}>`;
+		const formattedInformation = `\n\n<info added on ${currentDate.toISOString()}>\n${additionalInformation}\n</info added on ${currentDate.toISOString()}>`;
 
 		// Only show debug info for text output (CLI)
 		if (outputFormat === 'text') {
@@ -556,9 +376,9 @@ Provide concrete examples, code snippets, or implementation details when relevan
 					'  1. Run task-master list --with-subtasks to see all available subtask IDs'
 				);
 				console.log(
-					'  2. Use a valid subtask ID with the --id parameter in format \"parentId.subtaskId\"'
+					'  2. Use a valid subtask ID with the --id parameter in format "parentId.subtaskId"'
 				);
-			} else if (error.message?.includes('empty response from AI')) {
+			} else if (error.message?.includes('empty stream response')) {
 				console.log(
 					chalk.yellow(
 						'\nThe AI model returned an empty response. This might be due to the prompt or API issues. Try rephrasing or trying again later.'
@@ -575,11 +395,6 @@ Provide concrete examples, code snippets, or implementation details when relevan
 		}
 
 		return null;
-	} finally {
-		// Final cleanup check for the indicator, although it should be stopped by now
-		if (outputFormat === 'text' && loadingIndicator) {
-			stopLoadingIndicator(loadingIndicator);
-		}
 	}
 }
 

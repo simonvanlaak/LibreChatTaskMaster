@@ -71,18 +71,40 @@ alwaysApply: false
       - `getStatusWithColor(status)`: Returns status string with color formatting.
       - `formatDependenciesWithStatus(dependencies, allTasks, inTable)`: Formats dependency list with status indicators.
 
-  - **[`ai-services.js`](mdc:scripts/modules/ai-services.js) (Conceptual): AI Integration**
-    - **Purpose**:  Abstracts interactions with AI models (like Anthropic Claude and Perplexity AI) for various features. *Note: This module might be implicitly implemented within `task-manager.js` and `utils.js` or could be explicitly created for better organization as the project evolves.*
-    - **Responsibilities**:
-      - Handles API calls to AI services.
-      - Manages prompts and parameters for AI requests.
-      - Parses AI responses and extracts relevant information.
-      - Implements logic for task complexity analysis, task expansion, and PRD parsing using AI.
-    - **Potential Functions**:
-      - `getAIResponse(prompt, model, maxTokens, temperature)`: Generic function to interact with AI model.
-      - `analyzeTaskComplexityWithAI(taskDescription)`: Sends task description to AI for complexity analysis.
-      - `expandTaskWithAI(taskDescription, numSubtasks, researchContext)`: Generates subtasks using AI.
-      - `parsePRDWithAI(prdContent)`: Extracts tasks from PRD content using AI.
+  - **[`ai-services-unified.js`](mdc:scripts/modules/ai-services-unified.js): Unified AI Service Layer**
+    - **Purpose**: Provides a centralized interface for interacting with various Large Language Models (LLMs) using the Vercel AI SDK.
+    - **Responsibilities** (See also: [`ai_services.mdc`](mdc:.cursor/rules/ai_services.mdc)):
+      - Exports primary functions (`generateTextService`, `streamTextService`, `generateObjectService`) for core modules to use.
+      - Implements provider selection logic based on configuration roles (`main`, `research`, `fallback`) retrieved from [`config-manager.js`](mdc:scripts/modules/config-manager.js).
+      - Manages API key resolution (via [`utils.js`](mdc:scripts/modules/utils.js)) from environment or MCP session.
+      - Handles fallback sequences between configured providers.
+      - Implements retry logic for specific API errors.
+      - Constructs the `messages` array format required by the Vercel AI SDK.
+      - Delegates actual API calls to provider-specific implementation modules.
+    - **Key Components**: 
+      - `_unifiedServiceRunner`: Core logic for provider selection, fallback, and retries.
+      - `PROVIDER_FUNCTIONS`: Map linking provider names to their implementation functions.
+      - `generateTextService`, `streamTextService`, `generateObjectService`: Exported functions.
+
+  - **[`src/ai-providers/*.js`](mdc:src/ai-providers/): Provider-Specific Implementations**
+    - **Purpose**: Contains the wrapper code for interacting with specific LLM providers via the Vercel AI SDK.
+    - **Responsibilities** (See also: [`ai_services.mdc`](mdc:.cursor/rules/ai_services.mdc)):
+      - Imports Vercel AI SDK provider adapters (e.g., `@ai-sdk/anthropic`).
+      - Implements standardized functions (e.g., `generateAnthropicText`, `streamAnthropicText`) that wrap the core Vercel AI SDK functions (`generateText`, `streamText`).
+      - Accepts standardized parameters (`apiKey`, `modelId`, `messages`, etc.) from `ai-services-unified.js`.
+      - Returns results in the format expected by `ai-services-unified.js`.
+    
+  - **[`config-manager.js`](mdc:scripts/modules/config-manager.js): Configuration Management**
+    - **Purpose**: Manages loading, validation, and access to configuration settings, primarily from `.taskmasterconfig`.
+    - **Responsibilities** (See also: [`utilities.mdc`](mdc:.cursor/rules/utilities.mdc)):
+      - Reads and parses the `.taskmasterconfig` file.
+      - Merges file configuration with default values.
+      - Provides getters for accessing specific configuration values (e.g., `getMainProvider()`, `getMainModelId()`, `getParametersForRole()`, `getLogLevel()`).
+      - **Note**: Does *not* handle API key storage (keys are in `.env` or MCP `session.env`).
+    - **Key Components**:
+      - `getConfig()`: Loads and returns the merged configuration object.
+      - Role-specific getters (e.g., `getMainProvider`, `getMainModelId`, `getMainMaxTokens`).
+      - Global setting getters (e.g., `getLogLevel`, `getDebugFlag`).
 
   - **[`utils.js`](mdc:scripts/modules/utils.js): Core Utility Functions**
     - **Purpose**: Provides low-level, reusable utility functions used across the **CLI application**. **Note:** Configuration management is now handled by [`config-manager.js`](mdc:scripts/modules/config-manager.js).
@@ -153,10 +175,12 @@ alwaysApply: false
 
   - **Commands Initiate Actions**: User commands entered via the CLI (parsed by `commander` based on definitions in [`commands.js`](mdc:scripts/modules/commands.js)) are the entry points for most operations.
   - **Command Handlers Delegate to Core Logic**: Action handlers within [`commands.js`](mdc:scripts/modules/commands.js) call functions in core modules like [`task-manager.js`](mdc:scripts/modules/task-manager.js), [`dependency-manager.js`](mdc:scripts/modules/dependency-manager.js), and [`init.js`](mdc:scripts/init.js) (for the `init` command) to perform the actual work.
-  - **UI for Presentation**:  [`ui.js`](mdc:scripts/modules/ui.js) is used by command handlers and task/dependency managers to display information to the user. UI functions primarily consume data and format it for output, without modifying core application state.
-  - **Utilities for Common Tasks**: [`utils.js`](mdc:scripts/modules/utils.js) provides helper functions used by all other modules for configuration, logging, file operations, and common data manipulations.
-  - **AI Services Integration**: AI functionalities (complexity analysis, task expansion, PRD parsing) are invoked from [`task-manager.js`](mdc:scripts/modules/task-manager.js) and potentially [`commands.js`](mdc:scripts/modules/commands.js), likely using functions that would reside in a dedicated `ai-services.js` module or be integrated within `utils.js` or `task-manager.js`.
-  - **MCP Server Interaction**: External tools interact with the `mcp-server`. MCP Tool `execute` methods use `getProjectRootFromSession` to find the project root, then call direct function wrappers (in `mcp-server/src/core/direct-functions/`) passing the root in `args`. These wrappers handle path finding for `tasks.json` (using `path-utils.js`), validation, caching, call the core logic from `scripts/modules/` (passing logging context via the standard wrapper pattern detailed in mcp.mdc), and return a standardized result. The final MCP response is formatted by `mcp-server/src/tools/utils.js`. See [`mcp.mdc`](mdc:.cursor/rules/mcp.mdc) for details.
+  - **Core Logic Calls AI Service Layer**: Core modules requiring AI functionality (like [`task-manager.js`](mdc:scripts/modules/task-manager.js)) **import and call functions from the unified AI service layer (`ai-services-unified.js`)**, such as `generateTextService`.
+  - **AI Service Layer Orchestrates**: [`ai-services-unified.js`](mdc:scripts/modules/ai-services-unified.js) uses [`config-manager.js`](mdc:scripts/modules/config-manager.js) to get settings, selects the appropriate provider function from [`src/ai-providers/*.js`](mdc:src/ai-providers/), resolves API keys (using `resolveEnvVariable` from [`utils.js`](mdc:scripts/modules/utils.js)), and handles fallbacks/retries.
+  - **Provider Implementation Executes**: The selected function in [`src/ai-providers/*.js`](mdc:src/ai-providers/) interacts with the Vercel AI SDK core functions (`generateText`, `streamText`) using the Vercel provider adapters.
+  - **UI for Presentation**: [`ui.js`](mdc:scripts/modules/ui.js) is used by command handlers and core modules to display information to the user. UI functions primarily consume data and format it for output.
+  - **Utilities for Common Tasks**: [`utils.js`](mdc:scripts/modules/utils.js) provides helper functions (logging, file I/O, string manipulation, API key resolution) used by various modules.
+  - **MCP Server Interaction**: External tools interact with the `mcp-server`. MCP Tool `execute` methods call direct function wrappers (`*Direct` functions) which then call the core logic from `scripts/modules/`. If AI is needed, the core logic calls the unified AI service layer as described above. See [`mcp.mdc`](mdc:.cursor/rules/mcp.mdc) for details.
 
 ## Silent Mode Implementation Pattern in MCP Direct Functions
 
@@ -349,6 +373,11 @@ The `initialize_project` command provides a way to set up a new Task Master proj
 - **CLI Command**: `task-master init`
 - **MCP Tool**: `initialize_project`
 - **Functionality**:
+  - Creates necessary directories and files for a new project
+  - Sets up `tasks.json` and initial task files
+  - Configures project metadata (name, description, version)
+  - Handles shell alias creation if requested
+  - Works in both interactive and non-interactive modes
   - Creates necessary directories and files for a new project
   - Sets up `tasks.json` and initial task files
   - Configures project metadata (name, description, version)
