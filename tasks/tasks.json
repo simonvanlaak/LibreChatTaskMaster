@@ -2991,7 +2991,7 @@
           "title": "Implement `openai.js` Provider Module using Vercel AI SDK",
           "description": "Create and implement the `openai.js` module within `src/ai-providers/`. This module should contain functions to interact with the OpenAI API (streaming and non-streaming) using the **Vercel AI SDK**, adhering to the standardized input/output format defined for `ai-services-unified.js`. (Optional, implement if OpenAI models are needed).",
           "details": "",
-          "status": "pending",
+          "status": "deferred",
           "dependencies": [],
           "parentTaskId": 61
         },
@@ -3011,7 +3011,7 @@
           "title": "Implement `google.js` Provider Module using Vercel AI SDK",
           "description": "Create and implement the `google.js` module within `src/ai-providers/`. This module should contain functions to interact with Google AI models (e.g., Gemini) using the **Vercel AI SDK (`@ai-sdk/google`)**, adhering to the standardized input/output format defined for `ai-services-unified.js`.",
           "details": "",
-          "status": "pending",
+          "status": "deferred",
           "dependencies": [],
           "parentTaskId": 61
         },
@@ -3020,7 +3020,7 @@
           "title": "Implement `ollama.js` Provider Module",
           "description": "Create and implement the `ollama.js` module within `src/ai-providers/`. This module should contain functions to interact with local Ollama models using the **`ollama-ai-provider` library**, adhering to the standardized input/output format defined for `ai-services-unified.js`. Note the specific library used.",
           "details": "",
-          "status": "pending",
+          "status": "deferred",
           "dependencies": [],
           "parentTaskId": 61
         },
@@ -3029,7 +3029,7 @@
           "title": "Implement `mistral.js` Provider Module using Vercel AI SDK",
           "description": "Create and implement the `mistral.js` module within `src/ai-providers/`. This module should contain functions to interact with Mistral AI models using the **Vercel AI SDK (`@ai-sdk/mistral`)**, adhering to the standardized input/output format defined for `ai-services-unified.js`.",
           "details": "",
-          "status": "pending",
+          "status": "deferred",
           "dependencies": [],
           "parentTaskId": 61
         },
@@ -3038,7 +3038,7 @@
           "title": "Implement `azure.js` Provider Module using Vercel AI SDK",
           "description": "Create and implement the `azure.js` module within `src/ai-providers/`. This module should contain functions to interact with Azure OpenAI models using the **Vercel AI SDK (`@ai-sdk/azure`)**, adhering to the standardized input/output format defined for `ai-services-unified.js`.",
           "details": "",
-          "status": "pending",
+          "status": "deferred",
           "dependencies": [],
           "parentTaskId": 61
         },
@@ -3047,7 +3047,7 @@
           "title": "Implement `openrouter.js` Provider Module",
           "description": "Create and implement the `openrouter.js` module within `src/ai-providers/`. This module should contain functions to interact with various models via OpenRouter using the **`@openrouter/ai-sdk-provider` library**, adhering to the standardized input/output format defined for `ai-services-unified.js`. Note the specific library used.",
           "details": "",
-          "status": "pending",
+          "status": "deferred",
           "dependencies": [],
           "parentTaskId": 61
         },
@@ -3056,7 +3056,7 @@
           "title": "Implement `xai.js` Provider Module using Vercel AI SDK",
           "description": "Create and implement the `xai.js` module within `src/ai-providers/`. This module should contain functions to interact with xAI models (e.g., Grok) using the **Vercel AI SDK (`@ai-sdk/xai`)**, adhering to the standardized input/output format defined for `ai-services-unified.js`.",
           "details": "",
-          "status": "pending",
+          "status": "deferred",
           "dependencies": [],
           "parentTaskId": 61
         },
@@ -3107,7 +3107,7 @@
           "title": "Audit and Standardize Env Variable Access",
           "description": "Audit the entire codebase (core modules, provider modules, utilities) to ensure all accesses to environment variables (API keys, configuration flags) consistently use a standardized resolution function (like `resolveEnvVariable` or a new utility) that checks `process.env` first and then `session.env` if available. Refactor any direct `process.env` access where `session.env` should also be considered.",
           "details": "\n\n<info added on 2025-04-20T03:50:25.632Z>\nThis audit should distinguish between two types of configuration:\n\n1. **Sensitive credentials (API keys)**: These should exclusively use the `resolveEnvVariable` pattern to check both `process.env` and `session.env`. Verify that no API keys are hardcoded or accessed through direct `process.env` references.\n\n2. **Application configuration**: All non-credential settings should be migrated to use the centralized `.taskmasterconfig` system via the `config-manager.js` getters. This includes:\n   - Model selections and role assignments\n   - Parameter settings (temperature, maxTokens, etc.)\n   - Logging configuration\n   - Default behaviors and fallbacks\n\nImplementation notes:\n- Create a comprehensive inventory of all environment variable accesses\n- Categorize each as either credential or application configuration\n- For credentials: standardize on `resolveEnvVariable` pattern\n- For app config: migrate to appropriate `config-manager.js` getter methods\n- Document any exceptions that require special handling\n- Add validation to prevent regression (e.g., ESLint rules against direct `process.env` access)\n\nThis separation ensures security best practices for credentials while centralizing application configuration for better maintainability.\n</info added on 2025-04-20T03:50:25.632Z>\n\n<info added on 2025-04-20T06:58:36.731Z>\n**Plan & Analysis (Added on 2023-05-15T14:32:18.421Z)**:\n\n**Goal:**\n1.  **Standardize API Key Access**: Ensure all accesses to sensitive API keys (Anthropic, Perplexity, etc.) consistently use a standard function (like `resolveEnvVariable(key, session)`) that checks both `process.env` and `session.env`. Replace direct `process.env.API_KEY` access.\n2.  **Centralize App Configuration**: Ensure all non-sensitive configuration values (model names, temperature, logging levels, max tokens, etc.) are accessed *only* through `scripts/modules/config-manager.js` getters. Eliminate direct `process.env` access for these.\n\n**Strategy: Inventory -> Analyze -> Target -> Refine**\n\n1.  **Inventory (`process.env` Usage):** Performed grep search (`rg \"process\\.env\"`). Results indicate widespread usage across multiple files.\n2.  **Analysis (Categorization of Usage):**\n    *   **API Keys (Credentials):** ANTHROPIC_API_KEY, PERPLEXITY_API_KEY, OPENAI_API_KEY, etc. found in `task-manager.js`, `ai-services.js`, `commands.js`, `dependency-manager.js`, `ai-client-utils.js`, test files. Needs replacement with `resolveEnvVariable(key, session)`.\n    *   **App Configuration:** PERPLEXITY_MODEL, TEMPERATURE, MAX_TOKENS, MODEL, DEBUG, LOG_LEVEL, DEFAULT_*, PROJECT_*, TASK_MASTER_PROJECT_ROOT found in `task-manager.js`, `ai-services.js`, `scripts/init.js`, `mcp-server/src/logger.js`, `mcp-server/src/tools/utils.js`, test files. Needs replacement with `config-manager.js` getters.\n    *   **System/Environment Info:** HOME, USERPROFILE, SHELL in `scripts/init.js`. Needs review (e.g., `os.homedir()` preference).\n    *   **Test Code/Setup:** Extensive usage in test files. Acceptable for mocking, but code under test must use standard methods. May require test adjustments.\n    *   **Helper Functions/Comments:** Definitions/comments about `resolveEnvVariable`. No action needed.\n3.  **Target (High-Impact Areas & Initial Focus):**\n    *   High Impact: `task-manager.js` (~5800 lines), `ai-services.js` (~1500 lines).\n    *   Medium Impact: `commands.js`, Test Files.\n    *   Foundational: `ai-client-utils.js`, `config-manager.js`, `utils.js`.\n    *   **Initial Target Command:** `task-master analyze-complexity` for a focused, end-to-end refactoring exercise.\n\n4.  **Refine (Plan for `analyze-complexity`):**\n    a.  **Trace Code Path:** Identify functions involved in `analyze-complexity`.\n    b.  **Refactor API Key Access:** Replace direct `process.env.PERPLEXITY_API_KEY` with `resolveEnvVariable(key, session)`.\n    c.  **Refactor App Config Access:** Replace direct `process.env` for model name, temp, tokens with `config-manager.js` getters.\n    d.  **Verify `resolveEnvVariable`:** Ensure robustness, especially handling potentially undefined `session`.\n    e.  **Test:** Verify command works locally and via MCP context (if possible). Update tests.\n\nThis piecemeal approach aims to establish the refactoring pattern before tackling the entire codebase.\n</info added on 2025-04-20T06:58:36.731Z>",
-          "status": "pending",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 61
         },

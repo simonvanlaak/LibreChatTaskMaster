@@ -10,7 +10,6 @@ import boxen from 'boxen';
 import fs from 'fs';
 import https from 'https';
 import inquirer from 'inquirer';
-import ora from 'ora';
 import Table from 'cli-table3';
 
 import { log, readJSON } from './utils.js';
@@ -1775,69 +1774,124 @@ function registerCommands(programInstance) {
 					]);
 
 					let setupSuccess = true;
+					let setupConfigModified = false; // Track if config was changed during setup
+					const configToUpdate = getConfig(); // Load the current config
 
 					// Set Main Model
 					if (answers.mainModel) {
-						if (
-							!setMainModel(answers.mainModel.provider, answers.mainModel.id)
-						) {
-							console.error(chalk.red('Failed to set main model.'));
-							setupSuccess = false;
+						const modelData = findModelData(answers.mainModel.id); // Find full model data
+						if (modelData) {
+							configToUpdate.models.main = {
+								...configToUpdate.models.main, // Keep existing params
+								provider: modelData.provider,
+								modelId: modelData.id
+							};
+							console.log(
+								chalk.blue(
+									`Selected main model: ${modelData.provider} / ${modelData.id}`
+								)
+							);
+							setupConfigModified = true;
 						} else {
-							// Success message printed by setMainModel
+							console.error(
+								chalk.red(
+									`Error finding model data for main selection: ${answers.mainModel.id}`
+								)
+							);
+							setupSuccess = false;
 						}
 					}
 
 					// Set Research Model
 					if (answers.researchModel) {
-						if (
-							!setResearchModel(
-								answers.researchModel.provider,
-								answers.researchModel.id
-							)
-						) {
-							console.error(chalk.red('Failed to set research model.'));
-							setupSuccess = false;
+						const modelData = findModelData(answers.researchModel.id); // Find full model data
+						if (modelData) {
+							configToUpdate.models.research = {
+								...configToUpdate.models.research, // Keep existing params
+								provider: modelData.provider,
+								modelId: modelData.id
+							};
+							console.log(
+								chalk.blue(
+									`Selected research model: ${modelData.provider} / ${modelData.id}`
+								)
+							);
+							setupConfigModified = true;
 						} else {
-							// Success message printed by setResearchModel
+							console.error(
+								chalk.red(
+									`Error finding model data for research selection: ${answers.researchModel.id}`
+								)
+							);
+							setupSuccess = false;
 						}
 					}
 
 					// Set Fallback Model
 					if (answers.fallbackModel) {
-						if (
-							!setFallbackModel(
-								answers.fallbackModel.provider,
-								answers.fallbackModel.id
-							)
-						) {
-							console.error(chalk.red('Failed to set fallback model.'));
-							setupSuccess = false;
-						} else {
+						// User selected a specific fallback model
+						const modelData = findModelData(answers.fallbackModel.id); // Find full model data
+						if (modelData) {
+							configToUpdate.models.fallback = {
+								...configToUpdate.models.fallback, // Keep existing params
+								provider: modelData.provider,
+								modelId: modelData.id
+							};
 							console.log(
-								chalk.green(
-									`Fallback model set to: ${answers.fallbackModel.provider} / ${answers.fallbackModel.id}`
+								chalk.blue(
+									`Selected fallback model: ${modelData.provider} / ${modelData.id}`
 								)
 							);
+							setupConfigModified = true;
+						} else {
+							console.error(
+								chalk.red(
+									`Error finding model data for fallback selection: ${answers.fallbackModel.id}`
+								)
+							);
+							setupSuccess = false;
 						}
 					} else {
-						// User selected None - attempt to remove fallback from config
-						const config = readConfig();
-						if (config.models.fallback) {
-							delete config.models.fallback;
-							if (!writeConfig(config)) {
-								console.error(
-									chalk.red('Failed to remove fallback model configuration.')
-								);
-								setupSuccess = false;
-							} else {
-								console.log(chalk.green('Fallback model disabled.'));
-							}
+						// User selected None - ensure fallback is disabled
+						if (
+							configToUpdate.models.fallback?.provider ||
+							configToUpdate.models.fallback?.modelId
+						) {
+							// Only mark as modified if something was actually cleared
+							configToUpdate.models.fallback = {
+								...configToUpdate.models.fallback, // Keep existing params like maxTokens
+								provider: undefined, // Or null
+								modelId: undefined // Or null
+							};
+							console.log(chalk.blue('Fallback model disabled.'));
+							setupConfigModified = true;
 						}
 					}
 
-					if (setupSuccess) {
+					// Save the updated configuration if changes were made and no errors occurred
+					if (setupConfigModified && setupSuccess) {
+						if (!writeConfig(configToUpdate)) {
+							console.error(
+								chalk.red(
+									'Failed to save updated model configuration to .taskmasterconfig.'
+								)
+							);
+							setupSuccess = false;
+						}
+					} else if (!setupSuccess) {
+						console.error(
+							chalk.red(
+								'Errors occurred during model selection. Configuration not saved.'
+							)
+						);
+					}
+
+					if (setupSuccess && setupConfigModified) {
 						console.log(chalk.green.bold('\nModel setup complete!'));
+					} else if (setupSuccess && !setupConfigModified) {
+						console.log(
+							chalk.yellow('\nNo changes made to model configuration.')
+						);
 					}
 					return; // Exit after setup
 				}
