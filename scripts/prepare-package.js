@@ -142,7 +142,17 @@ function preparePackage() {
 		'.cursor/rules/dev_workflow.mdc',
 		'.cursor/rules/taskmaster.mdc',
 		'.cursor/rules/cursor_rules.mdc',
-		'.cursor/rules/self_improve.mdc'
+		'.cursor/rules/self_improve.mdc',
+		'assets/roocode/.roo/rules/dev_workflow.md',
+		'assets/roocode/.roo/rules/roo_rules.md',
+		'assets/roocode/.roo/rules/self_improve.md',
+		'assets/roocode/.roo/rules-architect/architect-rules',
+		'assets/roocode/.roo/rules-ask/ask-rules',
+		'assets/roocode/.roo/rules-boomerang/boomerang-rules',
+		'assets/roocode/.roo/rules-code/code-rules',
+		'assets/roocode/.roo/rules-debug/debug-rules',
+		'assets/roocode/.roo/rules-test/test-rules',
+		'assets/roocode/.roomodes'
 	];
 
 	let allFilesExist = true;
