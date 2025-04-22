@@ -79,28 +79,30 @@ alwaysApply: false
   }
   ```
 
-## Configuration Management (in `scripts/modules/utils.js`)
+## Configuration Management (via `config-manager.js`)
 
-- **Environment Variables**:
-  - ✅ DO: Provide default values for all configuration
-  - ✅ DO: Use environment variables for customization
-  - ✅ DO: Document available configuration options
-  - ❌ DON'T: Hardcode values that should be configurable
+Taskmaster configuration (excluding API keys) is primarily managed through the `.taskmasterconfig` file located in the project root and accessed via getters in [`scripts/modules/config-manager.js`](mdc:scripts/modules/config-manager.js).
 
-  ```javascript
-  // ✅ DO: Set up configuration with defaults and environment overrides
-  const CONFIG = {
-    model: process.env.MODEL || 'claude-3-opus-20240229', // Updated default model
-    maxTokens: parseInt(process.env.MAX_TOKENS || '4000'),
-    temperature: parseFloat(process.env.TEMPERATURE || '0.7'),
-    debug: process.env.DEBUG === "true",
-    logLevel: process.env.LOG_LEVEL || "info",
-    defaultSubtasks: parseInt(process.env.DEFAULT_SUBTASKS || "3"),
-    defaultPriority: process.env.DEFAULT_PRIORITY || "medium",
-    projectName: process.env.PROJECT_NAME || "Task Master Project", // Generic project name
-    projectVersion: "1.5.0" // Version should be updated via release process
-  };
-  ```
+- **`.taskmasterconfig` File**:
+  - ✅ DO: Use this JSON file to store settings like AI model selections (main, research, fallback), parameters (temperature, maxTokens), logging level, default priority/subtasks, etc.
+  - ✅ DO: Manage this file using the `task-master models --setup` command.
+  - ✅ DO: Rely on [`config-manager.js`](mdc:scripts/modules/config-manager.js) to load this file, merge with defaults, and provide validated settings.
+  - ❌ DON'T: Store API keys in this file.
+  - ❌ DON'T: Rely on the old `CONFIG` object previously defined in `utils.js`.
+
+- **Configuration Getters (`config-manager.js`)**:
+  - ✅ DO: Import and use specific getters from `config-manager.js` (e.g., `getMainProvider()`, `getLogLevel()`, `getMainMaxTokens()`) to access configuration values.
+  - ✅ DO: Pass the optional `explicitRoot` parameter to getters if you need to load config from a specific project path (mainly relevant for MCP direct functions).
+  - ❌ DON'T: Access configuration values directly from environment variables (except API keys).
+  - ❌ DON'T: Use the now-removed `CONFIG` object from `utils.js`.
+
+- **API Key Handling (`utils.js` & `config-manager.js`)**:
+  - ✅ DO: Store API keys **only** in `.env` (for CLI) or `.cursor/mcp.json` (for MCP).
+  - ✅ DO: Use `isApiKeySet(providerName, session)` from `config-manager.js` to check if a provider's key is available.
+  - ✅ DO: Internally, API keys are resolved using `resolveEnvVariable(key, session)` (from `utils.js`), which checks `process.env` and `session.env`.
+
+- **Error Handling**:
+  - ✅ DO: Be prepared to handle `ConfigurationError` if the `.taskmasterconfig` file is missing (see `runCLI` in [`commands.js`](mdc:scripts/modules/commands.js) for example).
 
 ## Logging Utilities (in `scripts/modules/utils.js`)
 
@@ -510,6 +512,11 @@ export {
   processMCPResponseData,
   createContentResponse,
   createErrorResponse,
+  getCachedOrExecute
+};
+```
+
+Refer to [`mcp.mdc`](mdc:.cursor/rules/mcp.mdc) and [`architecture.mdc`](mdc:.cursor/rules/architecture.mdc) for more context on MCP server architecture and integration. 
   getCachedOrExecute
 };
 ```

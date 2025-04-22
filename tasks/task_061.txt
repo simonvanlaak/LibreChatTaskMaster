@@ -1222,7 +1222,7 @@ function checkProviderCapability(provider, capability) {
 ### Details:
 
 
-## 30. Update Configuration Management for AI Providers [pending]
+## 30. Update Configuration Management for AI Providers [done]
 ### Dependencies: None
 ### Description: Update `config-manager.js` and related configuration logic/documentation to support the new provider/model selection mechanism for `ai-services-unified.js` (e.g., using `AI_PROVIDER`, `AI_MODEL` env vars from `process.env` or `session.env`), ensuring compatibility with existing role-based selection if needed.
 ### Details:
@@ -1374,6 +1374,24 @@ Implementation notes:
 5. Ensure backward compatibility by maintaining support for role-based configuration when explicit env vars aren't set
 </info added on 2025-04-20T14:30:12.456Z>
 </info added on 2025-04-20T03:51:51.967Z>
+
+<info added on 2025-04-22T02:41:51.174Z>
+**Implementation Update (Deviation from Original Plan):**
+
+- The configuration management system has been refactored to **eliminate environment variable overrides** (such as `AI_PROVIDER`, `AI_MODEL`, `MAX_TOKENS`, etc.) for all settings except API keys and select endpoints. All configuration values for providers, models, parameters, and logging are now sourced *exclusively* from the loaded `.taskmasterconfig` file (merged with defaults), ensuring a single source of truth.
+
+- The `resolveConfig` and `resolveAIConfig` helpers, which previously checked `process.env` and `session.env`, have been **removed**. All configuration getters now directly access the loaded configuration object.
+
+- A new `MissingConfigError` is thrown if the `.taskmasterconfig` file is not found at startup. This error is caught in the application entrypoint (`ai-services-unified.js`), which then instructs the user to initialize the configuration file before proceeding.
+
+- API key and endpoint resolution remains an exception: environment variable overrides are still supported for secrets like `OPENAI_API_KEY` or provider-specific endpoints, maintaining security best practices.
+
+- Documentation (`README.md`, inline JSDoc, and `.taskmasterconfig` schema) has been updated to clarify that **environment variables are no longer used for general configuration** (other than secrets), and that all settings must be defined in `.taskmasterconfig`.
+
+- All application components have been updated to use the new configuration getters, and any direct access to `CONFIG`, `process.env`, or the previous helpers has been removed.
+
+- This stricter approach enforces configuration-as-code principles, ensures reproducibility, and prevents configuration drift, aligning with modern best practices for immutable infrastructure and automated configuration management[2][4].
+</info added on 2025-04-22T02:41:51.174Z>
 
 ## 31. Implement Integration Tests for Unified AI Service [pending]
 ### Dependencies: 61.18

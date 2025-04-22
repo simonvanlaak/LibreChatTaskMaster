@@ -99,22 +99,26 @@ Task Master offers two primary ways to interact:
 - **subtasks**: List of smaller, more specific tasks (Example: `[{"id": 1, "title": "Configure OAuth", ...}]`) 
 - Refer to [`tasks.mdc`](mdc:.cursor/rules/tasks.mdc) for more details on the task data structure.
 
-## Environment Variables Configuration
+## Configuration Management
 
-- Task Master behavior is configured via environment variables:
-  - **ANTHROPIC_API_KEY** (Required): Your Anthropic API key for Claude.
-  - **MODEL**: Claude model to use (e.g., `claude-3-opus-20240229`).
-  - **MAX_TOKENS**: Maximum tokens for AI responses.
-  - **TEMPERATURE**: Temperature for AI model responses.
-  - **DEBUG**: Enable debug logging (`true`/`false`).
-  - **LOG_LEVEL**: Console output level (`debug`, `info`, `warn`, `error`).
-  - **DEFAULT_SUBTASKS**: Default number of subtasks for `expand`.
-  - **DEFAULT_PRIORITY**: Default priority for new tasks.
-  - **PROJECT_NAME**: Project name used in metadata.
-  - **PROJECT_VERSION**: Project version used in metadata.
-  - **PERPLEXITY_API_KEY**: API key for Perplexity AI (for `--research` flags).
-  - **PERPLEXITY_MODEL**: Perplexity model to use (e.g., `sonar-medium-online`).
-- See [`taskmaster.mdc`](mdc:.cursor/rules/taskmaster.mdc) for default values and examples.
+Taskmaster configuration is managed through two main mechanisms:
+
+1.  **`.taskmasterconfig` File (Primary):**
+    *   Located in the project root directory.
+    *   Stores most configuration settings: AI model selections (main, research, fallback), parameters (max tokens, temperature), logging level, default subtasks/priority, project name, etc.
+    *   **Managed via `task-master models --setup` command.** Do not edit manually unless you know what you are doing.
+    *   Created automatically when you run `task-master models --setup` for the first time.
+    *   View the current configuration using `task-master models`.
+
+2.  **Environment Variables (`.env` / `mcp.json`):**
+    *   Used **only** for sensitive API keys and specific endpoint URLs.
+    *   Place API keys (one per provider) in a `.env` file in the project root for CLI usage.
+    *   For MCP/Cursor integration, configure these keys in the `env` section of `.cursor/mcp.json`.
+    *   Available keys/variables: See `assets/env.example` or the `Configuration` section in [`taskmaster.mdc`](mdc:.cursor/rules/taskmaster.mdc).
+
+**Important:** Non-API key settings (like `MODEL`, `MAX_TOKENS`, `LOG_LEVEL`) are **no longer configured via environment variables**. Use `task-master models --setup` instead.
+**If AI commands FAIL in MCP** verify that the API key for the selected provider is present in the mcp.json
+**If AI commands FAIL in CLI** verify that the API key for the selected provider is present in the .env in the root of the project.
 
 ## Determining the Next Task
 

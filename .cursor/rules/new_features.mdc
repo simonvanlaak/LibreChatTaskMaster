@@ -28,7 +28,7 @@ The standard pattern for adding a feature follows this workflow:
 2. **UI Components**: Add any display functions to [`ui.js`](mdc:scripts/modules/ui.js) following [`ui.mdc`](mdc:.cursor/rules/ui.mdc).
 3. **Command Integration**: Add the CLI command to [`commands.js`](mdc:scripts/modules/commands.js) following [`commands.mdc`](mdc:.cursor/rules/commands.mdc).
 4. **Testing**: Write tests for all components of the feature (following [`tests.mdc`](mdc:.cursor/rules/tests.mdc))
-5. **Configuration**: Update any configuration in [`utils.js`](mdc:scripts/modules/utils.js) if needed, following [`utilities.mdc`](mdc:.cursor/rules/utilities.mdc).
+5. **Configuration**: Update configuration settings or add new ones in [`config-manager.js`](mdc:scripts/modules/config-manager.js) and ensure getters/setters are appropriate. Update documentation in [`utilities.mdc`](mdc:.cursor/rules/utilities.mdc) and [`taskmaster.mdc`](mdc:.cursor/rules/taskmaster.mdc). Update the `.taskmasterconfig` structure if needed.
 6. **Documentation**: Update help text and documentation in [dev_workflow.mdc](mdc:scripts/modules/dev_workflow.mdc)
 
 ## Critical Checklist for New Features
@@ -586,6 +586,11 @@ When implementing project initialization commands:
            log.error(`Error in initialize_project: ${error.message}`);
            return createErrorResponse(`Failed to initialize project: ${error.message}`);
          }
+       }
+     });
+   }
+   ```
+
        }
      });
    }
