@@ -21,13 +21,8 @@ import fs from 'fs';
 import { findNextTask, analyzeTaskComplexity } from './task-manager.js';
 import {
 	getProjectName,
-	getDefaultSubtasks,
-	getMainModelId,
-	getMainMaxTokens,
-	getMainTemperature,
 	getDebugFlag,
-	getLogLevel,
-	getDefaultPriority
+	getDefaultSubtasks
 } from './config-manager.js';
 
 // Create a color gradient for the banner
@@ -386,6 +381,9 @@ function formatDependenciesWithStatus(
 function displayHelp() {
 	displayBanner();
 
+	// Get terminal width - moved to top of function to make it available throughout
+	const terminalWidth = process.stdout.columns || 100; // Default to 100 if can't detect
+
 	console.log(
 		boxen(chalk.white.bold('Task Master CLI'), {
 			padding: 1,
@@ -397,6 +395,42 @@ function displayHelp() {
 
 	// Command categories
 	const commandCategories = [
+		{
+			title: 'Project Setup & Configuration',
+			color: 'blue',
+			commands: [
+				{
+					name: 'init',
+					args: '[--name=<name>] [--description=<desc>] [-y]',
+					desc: 'Initialize a new project with Task Master structure'
+				},
+				{
+					name: 'models',
+					args: '',
+					desc: 'View current AI model configuration and available models'
+				},
+				{
+					name: 'models --setup',
+					args: '',
+					desc: 'Run interactive setup to configure AI models'
+				},
+				{
+					name: 'models --set-main',
+					args: '<model_id>',
+					desc: 'Set the primary model for task generation'
+				},
+				{
+					name: 'models --set-research',
+					args: '<model_id>',
+					desc: 'Set the model for research operations'
+				},
+				{
+					name: 'models --set-fallback',
+					args: '<model_id>',
+					desc: 'Set the fallback model (optional)'
+				}
+			]
+		},
 		{
 			title: 'Task Generation',
 			color: 'cyan',
@@ -430,7 +464,17 @@ function displayHelp() {
 				{
 					name: 'update',
 					args: '--from=<id> --prompt="<context>"',
-					desc: 'Update tasks based on new requirements'
+					desc: 'Update multiple tasks based on new requirements'
+				},
+				{
+					name: 'update-task',
+					args: '--id=<id> --prompt="<context>"',
+					desc: 'Update a single specific task with new information'
+				},
+				{
+					name: 'update-subtask',
+					args: '--id=<parentId.subtaskId> --prompt="<context>"',
+					desc: 'Append additional information to a subtask'
 				},
 				{
 					name: 'add-task',
@@ -438,20 +482,46 @@ function displayHelp() {
 					desc: 'Add a new task using AI'
 				},
 				{
-					name: 'add-dependency',
-					args: '--id=<id> --depends-on=<id>',
-					desc: 'Add a dependency to a task'
-				},
-				{
-					name: 'remove-dependency',
-					args: '--id=<id> --depends-on=<id>',
-					desc: 'Remove a dependency from a task'
+					name: 'remove-task',
+					args: '--id=<id> [-y]',
+					desc: 'Permanently remove a task or subtask'
 				}
 			]
 		},
 		{
-			title: 'Task Analysis & Detail',
+			title: 'Subtask Management',
 			color: 'yellow',
+			commands: [
+				{
+					name: 'add-subtask',
+					args: '--parent=<id> --title="<title>" [--description="<desc>"]',
+					desc: 'Add a new subtask to a parent task'
+				},
+				{
+					name: 'add-subtask',
+					args: '--parent=<id> --task-id=<id>',
+					desc: 'Convert an existing task into a subtask'
+				},
+				{
+					name: 'remove-subtask',
+					args: '--id=<parentId.subtaskId> [--convert]',
+					desc: 'Remove a subtask (optionally convert to standalone task)'
+				},
+				{
+					name: 'clear-subtasks',
+					args: '--id=<id>',
+					desc: 'Remove all subtasks from specified tasks'
+				},
+				{
+					name: 'clear-subtasks --all',
+					args: '',
+					desc: 'Remove subtasks from all tasks'
+				}
+			]
+		},
+		{
+			title: 'Task Analysis & Breakdown',
+			color: 'magenta',
 			commands: [
 				{
 					name: 'analyze-complexity',
@@ -472,17 +542,12 @@ function displayHelp() {
 					name: 'expand --all',
 					args: '[--force] [--research]',
 					desc: 'Expand all pending tasks with subtasks'
-				},
-				{
-					name: 'clear-subtasks',
-					args: '--id=<id>',
-					desc: 'Remove subtasks from specified tasks'
 				}
 			]
 		},
 		{
 			title: 'Task Navigation & Viewing',
-			color: 'magenta',
+			color: 'cyan',
 			commands: [
 				{
 					name: 'next',
@@ -500,6 +565,16 @@ function displayHelp() {
 			title: 'Dependency Management',
 			color: 'blue',
 			commands: [
+				{
+					name: 'add-dependency',
+					args: '--id=<id> --depends-on=<id>',
+					desc: 'Add a dependency to a task'
+				},
+				{
+					name: 'remove-dependency',
+					args: '--id=<id> --depends-on=<id>',
+					desc: 'Remove a dependency from a task'
+				},
 				{
 					name: 'validate-dependencies',
 					args: '',
@@ -525,8 +600,13 @@ function displayHelp() {
 			})
 		);
 
+		// Calculate dynamic column widths - adjust ratios as needed
+		const nameWidth = Math.max(25, Math.floor(terminalWidth * 0.2)); // 20% of width but min 25
+		const argsWidth = Math.max(40, Math.floor(terminalWidth * 0.35)); // 35% of width but min 40
+		const descWidth = Math.max(45, Math.floor(terminalWidth * 0.45) - 10); // 45% of width but min 45, minus some buffer
+
 		const commandTable = new Table({
-			colWidths: [25, 40, 45],
+			colWidths: [nameWidth, argsWidth, descWidth],
 			chars: {
 				top: '',
 				'top-mid': '',
@@ -544,7 +624,8 @@ function displayHelp() {
 				'right-mid': '',
 				middle: ' '
 			},
-			style: { border: [], 'padding-left': 4 }
+			style: { border: [], 'padding-left': 4 },
+			wordWrap: true
 		});
 
 		category.commands.forEach((cmd, index) => {
@@ -559,9 +640,9 @@ function displayHelp() {
 		console.log('');
 	});
 
-	// Display environment variables section
+	// Display configuration section
 	console.log(
-		boxen(chalk.cyan.bold('Environment Variables'), {
+		boxen(chalk.cyan.bold('Configuration'), {
 			padding: { left: 2, right: 2, top: 0, bottom: 0 },
 			margin: { top: 1, bottom: 0 },
 			borderColor: 'cyan',
@@ -569,8 +650,19 @@ function displayHelp() {
 		})
 	);
 
-	const envTable = new Table({
-		colWidths: [30, 50, 30],
+	// Get terminal width if not already defined
+	const configTerminalWidth = terminalWidth || process.stdout.columns || 100;
+
+	// Calculate dynamic column widths for config table
+	const configKeyWidth = Math.max(30, Math.floor(configTerminalWidth * 0.25));
+	const configDescWidth = Math.max(50, Math.floor(configTerminalWidth * 0.45));
+	const configValueWidth = Math.max(
+		30,
+		Math.floor(configTerminalWidth * 0.3) - 10
+	);
+
+	const configTable = new Table({
+		colWidths: [configKeyWidth, configDescWidth, configValueWidth],
 		chars: {
 			top: '',
 			'top-mid': '',
@@ -588,69 +680,59 @@ function displayHelp() {
 			'right-mid': '',
 			middle: ' '
 		},
-		style: { border: [], 'padding-left': 4 }
+		style: { border: [], 'padding-left': 4 },
+		wordWrap: true
 	});
 
-	envTable.push(
+	configTable.push(
 		[
-			`${chalk.yellow('ANTHROPIC_API_KEY')}${chalk.reset('')}`,
-			`${chalk.white('Your Anthropic API key')}${chalk.reset('')}`,
-			`${chalk.dim('Required')}${chalk.reset('')}`
+			`${chalk.yellow('.taskmasterconfig')}${chalk.reset('')}`,
+			`${chalk.white('AI model configuration file (project root)')}${chalk.reset('')}`,
+			`${chalk.dim('Managed by models cmd')}${chalk.reset('')}`
 		],
 		[
-			`${chalk.yellow('MODEL')}${chalk.reset('')}`,
-			`${chalk.white('Claude model to use')}${chalk.reset('')}`,
-			`${chalk.dim(`Default: ${getMainModelId()}`)}${chalk.reset('')}`
+			`${chalk.yellow('API Keys (.env)')}${chalk.reset('')}`,
+			`${chalk.white('API keys for AI providers (ANTHROPIC_API_KEY, etc.)')}${chalk.reset('')}`,
+			`${chalk.dim('Required in .env file')}${chalk.reset('')}`
 		],
 		[
-			`${chalk.yellow('MAX_TOKENS')}${chalk.reset('')}`,
-			`${chalk.white('Maximum tokens for responses')}${chalk.reset('')}`,
-			`${chalk.dim(`Default: ${getMainMaxTokens()}`)}${chalk.reset('')}`
-		],
-		[
-			`${chalk.yellow('TEMPERATURE')}${chalk.reset('')}`,
-			`${chalk.white('Temperature for model responses')}${chalk.reset('')}`,
-			`${chalk.dim(`Default: ${getMainTemperature()}`)}${chalk.reset('')}`
-		],
-		[
-			`${chalk.yellow('PERPLEXITY_API_KEY')}${chalk.reset('')}`,
-			`${chalk.white('Perplexity API key for research')}${chalk.reset('')}`,
-			`${chalk.dim('Optional')}${chalk.reset('')}`
-		],
-		[
-			`${chalk.yellow('PERPLEXITY_MODEL')}${chalk.reset('')}`,
-			`${chalk.white('Perplexity model to use')}${chalk.reset('')}`,
-			`${chalk.dim('Default: sonar-pro')}${chalk.reset('')}`
-		],
-		[
-			`${chalk.yellow('DEBUG')}${chalk.reset('')}`,
-			`${chalk.white('Enable debug logging')}${chalk.reset('')}`,
-			`${chalk.dim(`Default: ${getDebugFlag()}`)}${chalk.reset('')}`
-		],
-		[
-			`${chalk.yellow('LOG_LEVEL')}${chalk.reset('')}`,
-			`${chalk.white('Console output level (debug,info,warn,error)')}${chalk.reset('')}`,
-			`${chalk.dim(`Default: ${getLogLevel()}`)}${chalk.reset('')}`
-		],
-		[
-			`${chalk.yellow('DEFAULT_SUBTASKS')}${chalk.reset('')}`,
-			`${chalk.white('Default number of subtasks to generate')}${chalk.reset('')}`,
-			`${chalk.dim(`Default: ${getDefaultSubtasks()}`)}${chalk.reset('')}`
-		],
-		[
-			`${chalk.yellow('DEFAULT_PRIORITY')}${chalk.reset('')}`,
-			`${chalk.white('Default task priority')}${chalk.reset('')}`,
-			`${chalk.dim(`Default: ${getDefaultPriority()}`)}${chalk.reset('')}`
-		],
-		[
-			`${chalk.yellow('PROJECT_NAME')}${chalk.reset('')}`,
-			`${chalk.white('Project name displayed in UI')}${chalk.reset('')}`,
-			`${chalk.dim(`Default: ${getProjectName()}`)}${chalk.reset('')}`
+			`${chalk.yellow('MCP Keys (mcp.json)')}${chalk.reset('')}`,
+			`${chalk.white('API keys for Cursor integration')}${chalk.reset('')}`,
+			`${chalk.dim('Required in .cursor/')}${chalk.reset('')}`
 		]
 	);
 
-	console.log(envTable.toString());
+	console.log(configTable.toString());
 	console.log('');
+
+	// Show helpful hints
+	console.log(
+		boxen(
+			chalk.white.bold('Quick Start:') +
+				'\n\n' +
+				chalk.cyan('1. Create Project: ') +
+				chalk.white('task-master init') +
+				'\n' +
+				chalk.cyan('2. Setup Models: ') +
+				chalk.white('task-master models --setup') +
+				'\n' +
+				chalk.cyan('3. Parse PRD: ') +
+				chalk.white('task-master parse-prd --input=<prd-file>') +
+				'\n' +
+				chalk.cyan('4. List Tasks: ') +
+				chalk.white('task-master list') +
+				'\n' +
+				chalk.cyan('5. Find Next Task: ') +
+				chalk.white('task-master next'),
+			{
+				padding: 1,
+				borderColor: 'yellow',
+				borderStyle: 'round',
+				margin: { top: 1 },
+				width: Math.min(configTerminalWidth - 10, 100) // Limit width to terminal width minus padding, max 100
+			}
+		)
+	);
 }
 
 /**

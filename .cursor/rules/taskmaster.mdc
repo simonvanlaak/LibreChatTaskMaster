@@ -55,6 +55,31 @@ This document provides a detailed reference for interacting with Taskmaster, cov
 
 ---
 
+## AI Model Configuration
+
+### 2. Manage Models (`models`)
+*   **MCP Tool:** `models`
+*   **CLI Command:** `task-master models [options]`
+*   **Description:** `View the current AI model configuration or set specific models for different roles (main, research, fallback).`
+*   **Key MCP Parameters/Options:**
+    *   `setMain <model_id>`: `Set the primary model ID for task generation/updates.` (CLI: `--set-main <model_id>`)
+    *   `setResearch <model_id>`: `Set the model ID for research-backed operations.` (CLI: `--set-research <model_id>`)
+    *   `setFallback <model_id>`: `Set the model ID to use if the primary fails.` (CLI: `--set-fallback <model_id>`)
+    *   `listAvailableModels <boolean>`: `If true, lists available models not currently assigned to a role.` (CLI: No direct equivalent; CLI lists available automatically)
+    *   `projectRoot <string>`: `Optional. Absolute path to the project root directory.` (CLI: Determined automatically)
+*   **Key CLI Options:**
+    *   `--set-main <model_id>`: `Set the primary model.`
+    *   `--set-research <model_id>`: `Set the research model.`
+    *   `--set-fallback <model_id>`: `Set the fallback model.`
+    *   `--setup`: `Run interactive setup to configure models and other settings.`
+*   **Usage (MCP):** Call without set flags to get current config. Use `setMain`, `setResearch`, or `setFallback` with a valid model ID to update the configuration. Use `listAvailableModels: true` to get a list of unassigned models.
+*   **Usage (CLI):** Run without flags to view current configuration and available models. Use set flags to update specific roles. Use `--setup` for guided configuration.
+*   **Notes:** Configuration is stored in `.taskmasterconfig` in the project root. This command/tool modifies that file. Use `listAvailableModels` to ensure the selected model is supported. 
+*   **API note:** API keys for selected AI providers (based on their model) need to exist in the mcp.json file to be accessible in MCP context. The API keys must be present in the local .env file for the CLI to be able to read them.
+*   **Warning:** DO NOT MANUALLY EDIT THE .taskmasterconfig FILE. Use the included commands either in the MCP or CLI format as needed. Always prioritize MCP tools when available and use the CLI as a fallback.
+
+---
+
 ## Task Listing & Viewing
 
 ### 3. Get Tasks (`get_tasks`)

@@ -107,8 +107,8 @@ Taskmaster configuration is managed through two main mechanisms:
     *   Located in the project root directory.
     *   Stores most configuration settings: AI model selections (main, research, fallback), parameters (max tokens, temperature), logging level, default subtasks/priority, project name, etc.
     *   **Managed via `task-master models --setup` command.** Do not edit manually unless you know what you are doing.
+    *   **View/Set specific models via `task-master models` command or `models` MCP tool.**
     *   Created automatically when you run `task-master models --setup` for the first time.
-    *   View the current configuration using `task-master models`.
 
 2.  **Environment Variables (`.env` / `mcp.json`):**
     *   Used **only** for sensitive API keys and specific endpoint URLs.
@@ -116,7 +116,7 @@ Taskmaster configuration is managed through two main mechanisms:
     *   For MCP/Cursor integration, configure these keys in the `env` section of `.cursor/mcp.json`.
     *   Available keys/variables: See `assets/env.example` or the `Configuration` section in [`taskmaster.mdc`](mdc:.cursor/rules/taskmaster.mdc).
 
-**Important:** Non-API key settings (like `MODEL`, `MAX_TOKENS`, `LOG_LEVEL`) are **no longer configured via environment variables**. Use `task-master models --setup` instead.
+**Important:** Non-API key settings (like model selections, `MAX_TOKENS`, `LOG_LEVEL`) are **no longer configured via environment variables**. Use the `task-master models` command (or `--setup` for interactive configuration) or the `models` MCP tool.
 **If AI commands FAIL in MCP** verify that the API key for the selected provider is present in the mcp.json
 **If AI commands FAIL in CLI** verify that the API key for the selected provider is present in the .env in the root of the project.
 
@@ -212,6 +212,11 @@ Once a task has been broken down into subtasks using `expand_task` or similar me
 - **Top-Level Function Search**:
     - Useful for understanding module structure or planning refactors.
     - Use grep/ripgrep to find exported functions/constants:
+      `rg "export (async function|function|const) \w+"` or similar patterns.
+    - Can help compare functions between files during migrations or identify potential naming conflicts.
+
+---
+*This workflow provides a general guideline. Adapt it based on your specific project needs and team practices.*
       `rg "export (async function|function|const) \w+"` or similar patterns.
     - Can help compare functions between files during migrations or identify potential naming conflicts.
 

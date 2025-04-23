@@ -701,6 +701,15 @@ function createProjectStructure(
 		replacements
 	);
 
+	// Copy .taskmasterconfig with project name
+	copyTemplateFile(
+		'.taskmasterconfig',
+		path.join(targetDir, '.taskmasterconfig'),
+		{
+			...replacements
+		}
+	);
+
 	// Copy .gitignore
 	copyTemplateFile('gitignore', path.join(targetDir, '.gitignore'));
 
