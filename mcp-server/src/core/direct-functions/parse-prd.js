@@ -12,40 +12,20 @@ import {
 	enableSilentMode,
 	disableSilentMode
 } from '../../../../scripts/modules/utils.js';
-import {
-	getAnthropicClientForMCP,
-	getModelConfig
-} from '../utils/ai-client-utils.js';
 
 /**
  * Direct function wrapper for parsing PRD documents and generating tasks.
  *
- * @param {Object} args - Command arguments containing input, numTasks or tasks, and output options.
+ * @param {Object} args - Command arguments containing projectRoot, input, output, numTasks options.
  * @param {Object} log - Logger object.
  * @param {Object} context - Context object containing session data.
  * @returns {Promise<Object>} - Result object with success status and data/error information.
  */
 export async function parsePRDDirect(args, log, context = {}) {
-	const { session } = context; // Only extract session, not reportProgress
+	const { session } = context; // Only extract session
 
 	try {
 		log.info(`Parsing PRD document with args: ${JSON.stringify(args)}`);
-
-		// Initialize AI client for PRD parsing
-		let aiClient;
-		try {
-			aiClient = getAnthropicClientForMCP(session, log);
-		} catch (error) {
-			log.error(`Failed to initialize AI client: ${error.message}`);
-			return {
-				success: false,
-				error: {
-					code: 'AI_CLIENT_ERROR',
-					message: `Cannot initialize AI client: ${error.message}`
-				},
-				fromCache: false
-			};
-		}
 
 		// Validate required parameters
 		if (!args.projectRoot) {
@@ -57,7 +37,6 @@ export async function parsePRDDirect(args, log, context = {}) {
 				fromCache: false
 			};
 		}
-
 		if (!args.input) {
 			const errorMessage = 'Input file path is required for parsePRDDirect';
 			log.error(errorMessage);
@@ -67,7 +46,6 @@ export async function parsePRDDirect(args, log, context = {}) {
 				fromCache: false
 			};
 		}
-
 		if (!args.output) {
 			const errorMessage = 'Output file path is required for parsePRDDirect';
 			log.error(errorMessage);
@@ -137,58 +115,35 @@ export async function parsePRDDirect(args, log, context = {}) {
 			success: (message, ...args) => log.info(message, ...args) // Map success to info
 		};
 
-		// Get model config from session
-		const modelConfig = getModelConfig(session);
-
 		// Enable silent mode to prevent console logs from interfering with JSON response
 		enableSilentMode();
 		try {
-			// Make sure the output directory exists
-			const outputDir = path.dirname(outputPath);
-			if (!fs.existsSync(outputDir)) {
-				log.info(`Creating output directory: ${outputDir}`);
-				fs.mkdirSync(outputDir, { recursive: true });
+			// Execute core parsePRD function - It now handles AI internally
+			const tasksDataResult = await parsePRD(inputPath, outputPath, numTasks, {
+				mcpLog: logWrapper,
+				session
+			});
+
+			// Check the result from the core function (assuming it might return data or null/undefined)
+			if (!tasksDataResult || !tasksDataResult.tasks) {
+				throw new Error(
+					'Core parsePRD function did not return valid task data.'
+				);
 			}
 
-			// Execute core parsePRD function with AI client
-			await parsePRD(
-				inputPath,
-				outputPath,
-				numTasks,
-				{
-					mcpLog: logWrapper,
-					session
-				},
-				aiClient,
-				modelConfig
+			log.info(
+				`Successfully parsed PRD and generated ${tasksDataResult.tasks?.length || 0} tasks`
 			);
 
-			// Since parsePRD doesn't return a value but writes to a file, we'll read the result
-			// to return it to the caller
-			if (fs.existsSync(outputPath)) {
-				const tasksData = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-				log.info(
-					`Successfully parsed PRD and generated ${tasksData.tasks?.length || 0} tasks`
-				);
-
-				return {
-					success: true,
-					data: {
-						message: `Successfully generated ${tasksData.tasks?.length || 0} tasks from PRD`,
-						taskCount: tasksData.tasks?.length || 0,
-						outputPath
-					},
-					fromCache: false // This operation always modifies state and should never be cached
-				};
-			} else {
-				const errorMessage = `Tasks file was not created at ${outputPath}`;
-				log.error(errorMessage);
-				return {
-					success: false,
-					error: { code: 'OUTPUT_FILE_NOT_CREATED', message: errorMessage },
-					fromCache: false
-				};
-			}
+			return {
+				success: true,
+				data: {
+					message: `Successfully generated ${tasksDataResult.tasks?.length || 0} tasks from PRD`,
+					taskCount: tasksDataResult.tasks?.length || 0,
+					outputPath
+				},
+				fromCache: false // This operation always modifies state
+			};
 		} finally {
 			// Always restore normal logging
 			disableSilentMode();
@@ -201,7 +156,7 @@ export async function parsePRDDirect(args, log, context = {}) {
 		return {
 			success: false,
 			error: {
-				code: 'PARSE_PRD_ERROR',
+				code: error.code || 'PARSE_PRD_ERROR', // Use error code if available
 				message: error.message || 'Unknown error parsing PRD'
 			},
 			fromCache: false

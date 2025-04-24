@@ -162,7 +162,7 @@ describe('Unified AI Services', () => {
 			expect(mockLog).toHaveBeenNthCalledWith(
 				2,
 				'info',
-				'Attempting service call with role: main'
+				'New AI service call with role: main'
 			);
 			expect(mockLog).toHaveBeenNthCalledWith(
 				3,
@@ -229,7 +229,7 @@ describe('Unified AI Services', () => {
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',
-				'Attempting service call with role: main'
+				'New AI service call with role: main'
 			);
 			expect(mockLog).toHaveBeenCalledWith('info', 'Retrieved AI client', {
 				provider: mockClient.provider,
@@ -277,7 +277,7 @@ describe('Unified AI Services', () => {
 			// Check subsequent fallback attempts (which also fail)
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',
-				'Attempting service call with role: fallback'
+				'New AI service call with role: fallback'
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'error',
@@ -285,7 +285,7 @@ describe('Unified AI Services', () => {
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',
-				'Attempting service call with role: research'
+				'New AI service call with role: research'
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'error',
@@ -349,7 +349,7 @@ describe('Unified AI Services', () => {
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',
-				'Attempting service call with role: fallback'
+				'New AI service call with role: fallback'
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',
@@ -431,7 +431,7 @@ describe('Unified AI Services', () => {
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',
-				'Attempting service call with role: research'
+				'New AI service call with role: research'
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',
@@ -509,7 +509,7 @@ describe('Unified AI Services', () => {
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',
-				'Attempting service call with role: research'
+				'New AI service call with role: research'
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',
@@ -554,7 +554,7 @@ describe('Unified AI Services', () => {
 			// Check logs for sequence
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',
-				'Attempting service call with role: fallback'
+				'New AI service call with role: fallback'
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'error',
@@ -568,7 +568,7 @@ describe('Unified AI Services', () => {
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',
-				'Attempting service call with role: research'
+				'New AI service call with role: research'
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',
@@ -613,7 +613,7 @@ describe('Unified AI Services', () => {
 			// Check logs for sequence
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',
-				'Attempting service call with role: research'
+				'New AI service call with role: research'
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'error',
@@ -627,7 +627,7 @@ describe('Unified AI Services', () => {
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',
-				'Attempting service call with role: fallback'
+				'New AI service call with role: fallback'
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',

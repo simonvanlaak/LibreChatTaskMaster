@@ -209,7 +209,7 @@ async function _unifiedServiceRunner(serviceType, params) {
 		let providerName, modelId, apiKey, roleParams, providerFnSet, providerApiFn;
 
 		try {
-			log('info', `Attempting service call with role: ${currentRole}`);
+			log('info', `New AI service call with role: ${currentRole}`);
 
 			// --- Corrected Config Fetching ---
 			// 1. Get Config: Provider, Model, Parameters for the current role

@@ -73,7 +73,8 @@ const DEFAULTS = {
 };
 
 // --- Internal Config Loading ---
-let loadedConfig = null; // Cache for loaded config
+let loadedConfig = null;
+let loadedConfigRoot = null; // Track which root loaded the config
 
 // Custom Error for configuration issues
 class ConfigurationError extends Error {
@@ -84,25 +85,20 @@ class ConfigurationError extends Error {
 }
 
 function _loadAndValidateConfig(explicitRoot = null) {
-	// Determine the root path to use
-	const rootToUse = explicitRoot || findProjectRoot();
 	const defaults = DEFAULTS; // Use the defined defaults
+
+	// If no explicit root is provided (e.g., during initial server load),
+	// return defaults immediately and silently.
+	if (!explicitRoot) {
+		return defaults;
+	}
+
+	// --- Proceed with loading from the provided explicitRoot ---
+	const configPath = path.join(explicitRoot, CONFIG_FILE_NAME);
+	let config = { ...defaults }; // Start with a deep copy of defaults
 	let configExists = false;
 
-	if (!rootToUse) {
-		console.warn(
-			chalk.yellow(
-				'Warning: Could not determine project root. Using default configuration.'
-			)
-		);
-		// Allow proceeding with defaults if root finding fails, but validation later might trigger error
-		// Or perhaps throw here? Let's throw later based on file existence check.
-	}
-	const configPath = rootToUse ? path.join(rootToUse, CONFIG_FILE_NAME) : null;
-
-	let config = defaults; // Start with defaults
-
-	if (configPath && fs.existsSync(configPath)) {
+	if (fs.existsSync(configPath)) {
 		configExists = true;
 		try {
 			const rawData = fs.readFileSync(configPath, 'utf-8');
@@ -125,59 +121,55 @@ function _loadAndValidateConfig(explicitRoot = null) {
 				global: { ...defaults.global, ...parsedConfig?.global }
 			};
 
-			// --- Validation (Only warn if file exists but content is invalid) ---
-			// Validate main provider/model
+			// --- Validation (Warn if file content is invalid) ---
+			// Only use console.warn here, as this part runs only when an explicitRoot *is* provided
 			if (!validateProvider(config.models.main.provider)) {
 				console.warn(
 					chalk.yellow(
-						`Warning: Invalid main provider "${config.models.main.provider}" in ${CONFIG_FILE_NAME}. Falling back to default.`
+						`Warning: Invalid main provider "${config.models.main.provider}" in ${configPath}. Falling back to default.`
 					)
 				);
 				config.models.main = { ...defaults.models.main };
 			}
-
-			// Validate research provider/model
 			if (!validateProvider(config.models.research.provider)) {
 				console.warn(
 					chalk.yellow(
-						`Warning: Invalid research provider "${config.models.research.provider}" in ${CONFIG_FILE_NAME}. Falling back to default.`
+						`Warning: Invalid research provider "${config.models.research.provider}" in ${configPath}. Falling back to default.`
 					)
 				);
 				config.models.research = { ...defaults.models.research };
 			}
-
-			// Validate fallback provider if it exists
 			if (
 				config.models.fallback?.provider &&
 				!validateProvider(config.models.fallback.provider)
 			) {
 				console.warn(
 					chalk.yellow(
-						`Warning: Invalid fallback provider "${config.models.fallback.provider}" in ${CONFIG_FILE_NAME}. Fallback model configuration will be ignored.`
+						`Warning: Invalid fallback provider "${config.models.fallback.provider}" in ${configPath}. Fallback model configuration will be ignored.`
 					)
 				);
 				config.models.fallback.provider = undefined;
 				config.models.fallback.modelId = undefined;
 			}
 		} catch (error) {
+			// Use console.error for actual errors during parsing
 			console.error(
 				chalk.red(
 					`Error reading or parsing ${configPath}: ${error.message}. Using default configuration.`
 				)
 			);
-			config = defaults; // Reset to defaults on parse error
-			// Do not throw ConfigurationError here, allow fallback to defaults if file is corrupt
+			config = { ...defaults }; // Reset to defaults on parse error
 		}
 	} else {
-		// Config file doesn't exist
-		// **Changed: Log warning instead of throwing error**
+		// Config file doesn't exist at the provided explicitRoot.
+		// Use console.warn because an explicit root *was* given.
 		console.warn(
 			chalk.yellow(
-				`Warning: ${CONFIG_FILE_NAME} not found at project root (${rootToUse || 'unknown'}). Using default configuration. Run 'task-master models --setup' to configure.`
+				`Warning: ${CONFIG_FILE_NAME} not found at provided project root (${explicitRoot}). Using default configuration. Run 'task-master models --setup' to configure.`
 			)
 		);
-		// Return defaults instead of throwing error
-		return defaults;
+		// Keep config as defaults
+		config = { ...defaults };
 	}
 
 	return config;
@@ -185,18 +177,32 @@ function _loadAndValidateConfig(explicitRoot = null) {
 
 /**
  * Gets the current configuration, loading it if necessary.
+ * Handles MCP initialization context gracefully.
  * @param {string|null} explicitRoot - Optional explicit path to the project root.
  * @param {boolean} forceReload - Force reloading the config file.
  * @returns {object} The loaded configuration object.
  */
 function getConfig(explicitRoot = null, forceReload = false) {
-	if (!loadedConfig || forceReload) {
-		loadedConfig = _loadAndValidateConfig(explicitRoot);
+	// Determine if a reload is necessary
+	const needsLoad =
+		!loadedConfig ||
+		forceReload ||
+		(explicitRoot && explicitRoot !== loadedConfigRoot);
+
+	if (needsLoad) {
+		const newConfig = _loadAndValidateConfig(explicitRoot); // _load handles null explicitRoot
+
+		// Only update the global cache if loading was forced or if an explicit root
+		// was provided (meaning we attempted to load a specific project's config).
+		// We avoid caching the initial default load triggered without an explicitRoot.
+		if (forceReload || explicitRoot) {
+			loadedConfig = newConfig;
+			loadedConfigRoot = explicitRoot; // Store the root used for this loaded config
+		}
+		return newConfig; // Return the newly loaded/default config
 	}
-	// If an explicitRoot was provided for a one-off check, don't cache it permanently
-	if (explicitRoot && !forceReload) {
-		return _loadAndValidateConfig(explicitRoot);
-	}
+
+	// If no load was needed, return the cached config
 	return loadedConfig;
 }
 

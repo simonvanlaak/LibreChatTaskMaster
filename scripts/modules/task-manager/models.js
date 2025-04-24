@@ -79,14 +79,14 @@ async function getModelConfiguration(options = {}) {
 
 		// Check API keys
 		const mainCliKeyOk = isApiKeySet(mainProvider);
-		const mainMcpKeyOk = getMcpApiKeyStatus(mainProvider);
+		const mainMcpKeyOk = getMcpApiKeyStatus(mainProvider, projectRoot);
 		const researchCliKeyOk = isApiKeySet(researchProvider);
-		const researchMcpKeyOk = getMcpApiKeyStatus(researchProvider);
+		const researchMcpKeyOk = getMcpApiKeyStatus(researchProvider, projectRoot);
 		const fallbackCliKeyOk = fallbackProvider
 			? isApiKeySet(fallbackProvider)
 			: true;
 		const fallbackMcpKeyOk = fallbackProvider
-			? getMcpApiKeyStatus(fallbackProvider)
+			? getMcpApiKeyStatus(fallbackProvider, projectRoot)
 			: true;
 
 		// Get available models to find detailed info
