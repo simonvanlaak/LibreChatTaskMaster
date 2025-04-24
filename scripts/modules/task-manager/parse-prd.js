@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
 import boxen from 'boxen';
+import { z } from 'zod';
 
 import {
 	log,
@@ -11,9 +12,32 @@ import {
 	isSilentMode
 } from '../utils.js';
 
-import { callClaude } from '../ai-services.js';
+import { generateObjectService } from '../ai-services-unified.js';
 import { getDebugFlag } from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
+
+// Define Zod schema for task validation
+const TaskSchema = z.object({
+	id: z.number(),
+	title: z.string(),
+	description: z.string(),
+	status: z.string().default('pending'),
+	dependencies: z.array(z.number()).default([]),
+	priority: z.string().default('medium'),
+	details: z.string().optional(),
+	testStrategy: z.string().optional()
+});
+
+// Define Zod schema for the complete tasks data
+const TasksDataSchema = z.object({
+	tasks: z.array(TaskSchema),
+	metadata: z.object({
+		projectName: z.string(),
+		totalTasks: z.number(),
+		sourceFile: z.string(),
+		generatedAt: z.string()
+	})
+});
 
 /**
  * Parse a PRD file and generate tasks
@@ -24,17 +48,8 @@ import generateTaskFiles from './generate-task-files.js';
  * @param {Object} options.reportProgress - Function to report progress to MCP server (optional)
  * @param {Object} options.mcpLog - MCP logger object (optional)
  * @param {Object} options.session - Session object from MCP server (optional)
- * @param {Object} aiClient - AI client to use (optional)
- * @param {Object} modelConfig - Model configuration (optional)
  */
-async function parsePRD(
-	prdPath,
-	tasksPath,
-	numTasks,
-	options = {},
-	aiClient = null,
-	modelConfig = null
-) {
+async function parsePRD(prdPath, tasksPath, numTasks, options = {}) {
 	const { reportProgress, mcpLog, session } = options;
 
 	// Determine output format based on mcpLog presence (simplification)
@@ -56,22 +71,79 @@ async function parsePRD(
 		// Read the PRD content
 		const prdContent = fs.readFileSync(prdPath, 'utf8');
 
-		// Call Claude to generate tasks, passing the provided AI client if available
-		const tasksData = await callClaude(
-			prdContent,
-			prdPath,
-			numTasks,
-			0,
-			{ reportProgress, mcpLog, session },
-			aiClient,
-			modelConfig
-		);
+		// Build system prompt for PRD parsing
+		const systemPrompt = `You are an AI assistant helping to break down a Product Requirements Document (PRD) into a set of sequential development tasks. 
+Your goal is to create ${numTasks} well-structured, actionable development tasks based on the PRD provided.
+
+Each task should follow this JSON structure:
+{
+	"id": number,
+	"title": string,
+	"description": string,
+	"status": "pending",
+	"dependencies": number[] (IDs of tasks this depends on),
+	"priority": "high" | "medium" | "low",
+	"details": string (implementation details),
+	"testStrategy": string (validation approach)
+}
+
+Guidelines:
+1. Create exactly ${numTasks} tasks, numbered from 1 to ${numTasks}
+2. Each task should be atomic and focused on a single responsibility
+3. Order tasks logically - consider dependencies and implementation sequence
+4. Early tasks should focus on setup, core functionality first, then advanced features
+5. Include clear validation/testing approach for each task
+6. Set appropriate dependency IDs (a task can only depend on tasks with lower IDs)
+7. Assign priority (high/medium/low) based on criticality and dependency order
+8. Include detailed implementation guidance in the "details" field
+9. If the PRD contains specific requirements for libraries, database schemas, frameworks, tech stacks, or any other implementation details, STRICTLY ADHERE to these requirements in your task breakdown and do not discard them under any circumstance
+10. Focus on filling in any gaps left by the PRD or areas that aren't fully specified, while preserving all explicit requirements
+11. Always aim to provide the most direct path to implementation, avoiding over-engineering or roundabout approaches`;
+
+		// Build user prompt with PRD content
+		const userPrompt = `Here's the Product Requirements Document (PRD) to break down into ${numTasks} tasks:
+
+${prdContent}
+
+Return your response in this format:
+{
+	"tasks": [
+		{
+			"id": 1,
+			"title": "Setup Project Repository",
+			"description": "...",
+			...
+		},
+		...
+	],
+	"metadata": {
+		"projectName": "PRD Implementation",
+		"totalTasks": ${numTasks},
+		"sourceFile": "${prdPath}",
+		"generatedAt": "YYYY-MM-DD"
+	}
+}`;
+
+		// Call the unified AI service
+		report('Calling AI service to generate tasks from PRD...', 'info');
+
+		// Call generateObjectService with proper parameters
+		const tasksData = await generateObjectService({
+			role: 'main', // Use 'main' role to get the model from config
+			session: session, // Pass session for API key resolution
+			schema: TasksDataSchema, // Pass the schema for validation
+			objectName: 'tasks_data', // Name the generated object
+			systemPrompt: systemPrompt, // System instructions
+			prompt: userPrompt, // User prompt with PRD content
+			reportProgress // Progress reporting function
+		});
 
 		// Create the directory if it doesn't exist
 		const tasksDir = path.dirname(tasksPath);
 		if (!fs.existsSync(tasksDir)) {
 			fs.mkdirSync(tasksDir, { recursive: true });
 		}
+
 		// Write the tasks to the file
 		writeJSON(tasksPath, tasksData);
 		report(
@@ -125,7 +197,7 @@ async function parsePRD(
 		if (outputFormat === 'text') {
 			console.error(chalk.red(`Error: ${error.message}`));
 
-			if (getDebugFlag()) {
+			if (getDebugFlag(session)) {
 				// Use getter
 				console.error(error);
 			}

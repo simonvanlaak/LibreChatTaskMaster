@@ -1659,6 +1659,18 @@ function registerCommands(programInstance) {
 
 					console.log(chalk.cyan.bold('\nInteractive Model Setup:'));
 
+					const getMainChoicesAndDefault = () => {
+						const mainChoices = allModelsForSetup.filter((modelChoice) =>
+							availableModelsForSetup
+								.find((m) => m.modelId === modelChoice.value.id)
+								?.allowedRoles?.includes('main')
+						);
+						const defaultIndex = mainChoices.findIndex(
+							(m) => m.value.id === currentModels.main?.modelId
+						);
+						return { choices: mainChoices, default: defaultIndex };
+					};
+
 					// Get all available models, including active ones
 					const allModelsForSetup = availableModelsForSetup.map((model) => ({
 						name: `${model.provider} / ${model.modelId}`,
@@ -1716,6 +1728,8 @@ function registerCommands(programInstance) {
 
 					const researchPromptData = getResearchChoicesAndDefault();
 					const fallbackPromptData = getFallbackChoicesAndDefault();
+					// Call the helper function for main model choices
+					const mainPromptData = getMainChoicesAndDefault();
 
 					// Add cancel option for all prompts
 					const cancelOption = {
@@ -1726,7 +1740,7 @@ function registerCommands(programInstance) {
 					const mainModelChoices = [
 						cancelOption,
 						new inquirer.Separator(),
-						...allModelsForSetup
+						...mainPromptData.choices
 					];
 
 					const researchModelChoices = [
@@ -1758,7 +1772,7 @@ function registerCommands(programInstance) {
 							name: 'mainModel',
 							message: 'Select the main model for generation/updates:',
 							choices: mainModelChoices,
-							default: findDefaultIndex(currentModels.main?.modelId) + 2 // +2 for cancel option and separator
+							default: mainPromptData.default + 2 // +2 for cancel option and separator
 						},
 						{
 							type: 'list',
@@ -2001,6 +2015,12 @@ function registerCommands(programInstance) {
 
 				const formatCost = (costObj) => {
 					if (!costObj) return 'N/A';
+
+					// Check if both input and output costs are 0 and return "Free"
+					if (costObj.input === 0 && costObj.output === 0) {
+						return chalk.green('Free');
+					}
+
 					const formatSingleCost = (costValue) => {
 						if (costValue === null || costValue === undefined) return 'N/A';
 						const isInteger = Number.isInteger(costValue);

@@ -27,9 +27,14 @@ function getClient(apiKey) {
 	// Remove the check for anthropicClient
 	// if (!anthropicClient) {
 	// TODO: Explore passing options like default headers if needed
-	// Create and return a new instance directly
+	// Create and return a new instance directly with standard version header
 	return createAnthropic({
-		apiKey: apiKey
+		apiKey: apiKey,
+		baseURL: 'https://api.anthropic.com/v1',
+		// Use standard version header instead of beta
+		headers: {
+			'anthropic-beta': 'output-128k-2025-02-19'
+		}
 	});
 	// }
 	// return anthropicClient;
@@ -63,10 +68,8 @@ export async function generateAnthropicText({
 			model: client(modelId),
 			messages: messages,
 			maxTokens: maxTokens,
-			temperature: temperature,
-			headers: {
-				'anthropic-beta': 'output-128k-2025-02-19'
-			}
+			temperature: temperature
+			// Beta header moved to client initialization
 			// TODO: Add other relevant parameters like topP, topK if needed
 		});
 		log(
@@ -125,10 +128,8 @@ export async function streamAnthropicText({
 			model: client(modelId),
 			messages: messages,
 			maxTokens: maxTokens,
-			temperature: temperature,
-			headers: {
-				'anthropic-beta': 'output-128k-2025-02-19'
-			}
+			temperature: temperature
+			// Beta header moved to client initialization
 			// TODO: Add other relevant parameters
 		});
 
@@ -178,6 +179,13 @@ export async function generateAnthropicObject({
 	);
 	try {
 		const client = getClient(apiKey);
+
+		// Log basic debug info
+		log(
+			'debug',
+			`Using maxTokens: ${maxTokens}, temperature: ${temperature}, model: ${modelId}`
+		);
+
 		const result = await generateObject({
 			model: client(modelId),
 			mode: 'tool', // Anthropic generally uses 'tool' mode for structured output
@@ -191,12 +199,14 @@ export async function generateAnthropicObject({
 			temperature: temperature,
 			maxRetries: maxRetries
 		});
+
 		log(
 			'debug',
 			`Anthropic generateObject result received. Tokens: ${result.usage.completionTokens}/${result.usage.promptTokens}`
 		);
 		return result.object;
 	} catch (error) {
+		// Simple error logging
 		log(
 			'error',
 			`Anthropic generateObject ('${objectName}') failed: ${error.message}`

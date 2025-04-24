@@ -1,33 +1,27 @@
 {
 	"anthropic": [
 		{
-			"id": "claude-3.5-sonnet-20240620",
-			"swe_score": 0.49,
-			"cost_per_1m_tokens": { "input": 3.0, "output": 15.0 },
-			"allowed_roles": ["main", "fallback"]
-		},
-		{
 			"id": "claude-3-7-sonnet-20250219",
 			"swe_score": 0.623,
 			"cost_per_1m_tokens": { "input": 3.0, "output": 15.0 },
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "claude-3.5-haiku-20241022",
+			"id": "claude-3-5-sonnet-20241022",
+			"swe_score": 0.49,
+			"cost_per_1m_tokens": { "input": 3.0, "output": 15.0 },
+			"allowed_roles": ["main", "fallback"]
+		},
+		{
+			"id": "claude-3-5-haiku-20241022",
 			"swe_score": 0.406,
 			"cost_per_1m_tokens": { "input": 0.8, "output": 4.0 },
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "claude-3-haiku-20240307",
-			"swe_score": 0,
-			"cost_per_1m_tokens": { "input": 0.25, "output": 1.25 },
-			"allowed_roles": ["main", "fallback"]
-		},
-		{
 			"id": "claude-3-opus-20240229",
 			"swe_score": 0,
-			"cost_per_1m_tokens": null,
+			"cost_per_1m_tokens": { "input": 15, "output": 75 },
 			"allowed_roles": ["main", "fallback"]
 		}
 	],
@@ -35,13 +29,7 @@
 		{
 			"id": "gpt-4o",
 			"swe_score": 0.332,
-			"cost_per_1m_tokens": { "input": 5.0, "output": 15.0 },
-			"allowed_roles": ["main", "fallback"]
-		},
-		{
-			"id": "gpt-4-turbo",
-			"swe_score": 0,
-			"cost_per_1m_tokens": { "input": 10.0, "output": 30.0 },
+			"cost_per_1m_tokens": { "input": 2.5, "output": 10.0 },
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
@@ -51,8 +39,26 @@
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
+			"id": "o3",
+			"swe_score": 0.5,
+			"cost_per_1m_tokens": { "input": 10.0, "output": 40.0 },
+			"allowed_roles": ["main", "fallback"]
+		},
+		{
 			"id": "o3-mini",
 			"swe_score": 0.493,
+			"cost_per_1m_tokens": { "input": 1.1, "output": 4.4 },
+			"allowed_roles": ["main", "fallback"]
+		},
+		{
+			"id": "o4-mini",
+			"swe_score": 0.45,
+			"cost_per_1m_tokens": { "input": 1.1, "output": 4.4 },
+			"allowed_roles": ["main", "fallback"]
+		},
+		{
+			"id": "o1-mini",
+			"swe_score": 0.4,
 			"cost_per_1m_tokens": { "input": 1.1, "output": 4.4 },
 			"allowed_roles": ["main", "fallback"]
 		},
@@ -63,51 +69,63 @@
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "gpt-4.1",
+			"id": "gpt-4-1",
 			"swe_score": 0.55,
 			"cost_per_1m_tokens": { "input": 2.0, "output": 8.0 },
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "gpt-4.5-preview",
+			"id": "gpt-4-5-preview",
 			"swe_score": 0.38,
 			"cost_per_1m_tokens": { "input": 75.0, "output": 150.0 },
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "gpt-4.1-mini",
+			"id": "gpt-4-1-mini",
 			"swe_score": 0,
 			"cost_per_1m_tokens": { "input": 0.4, "output": 1.6 },
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "gpt-4.1-nano",
+			"id": "gpt-4-1-nano",
 			"swe_score": 0,
 			"cost_per_1m_tokens": { "input": 0.1, "output": 0.4 },
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "gpt-3.5-turbo",
-			"swe_score": 0,
-			"cost_per_1m_tokens": { "input": 0.5, "output": 1.5 },
+			"id": "gpt-4o-mini",
+			"swe_score": 0.3,
+			"cost_per_1m_tokens": { "input": 0.15, "output": 0.6 },
 			"allowed_roles": ["main", "fallback"]
+		},
+		{
+			"id": "gpt-4o-search-preview",
+			"swe_score": 0.33,
+			"cost_per_1m_tokens": { "input": 2.5, "output": 10.0 },
+			"allowed_roles": ["main", "fallback", "research"]
+		},
+		{
+			"id": "gpt-4o-mini-search-preview",
+			"swe_score": 0.3,
+			"cost_per_1m_tokens": { "input": 0.15, "output": 0.6 },
+			"allowed_roles": ["main", "fallback", "research"]
 		}
 	],
 	"google": [
 		{
-			"id": "gemini-2.5-pro-latest",
+			"id": "gemini-2.5-pro-exp-03-25",
 			"swe_score": 0.638,
 			"cost_per_1m_tokens": null,
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "gemini-1.5-flash-latest",
+			"id": "gemini-2.5-flash-preview-04-17",
 			"swe_score": 0,
 			"cost_per_1m_tokens": null,
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "gemini-2.0-flash-experimental",
+			"id": "gemini-2.0-flash",
 			"swe_score": 0.754,
 			"cost_per_1m_tokens": { "input": 0.15, "output": 0.6 },
 			"allowed_roles": ["main", "fallback"]
@@ -123,134 +141,146 @@
 			"swe_score": 0,
 			"cost_per_1m_tokens": null,
 			"allowed_roles": ["main", "fallback"]
-		},
-		{
-			"id": "gemma-3-7b",
-			"swe_score": 0,
-			"cost_per_1m_tokens": null,
-			"allowed_roles": ["main", "fallback"]
 		}
 	],
 	"perplexity": [
 		{
 			"id": "sonar-pro",
 			"swe_score": 0,
-			"cost_per_1m_tokens": null,
-			"allowed_roles": ["main", "fallback", "research"]
+			"cost_per_1m_tokens": { "input": 3, "output": 15 },
+			"allowed_roles": ["research"]
 		},
 		{
-			"id": "sonar-mini",
+			"id": "sonar",
 			"swe_score": 0,
-			"cost_per_1m_tokens": null,
-			"allowed_roles": ["main", "fallback", "research"]
+			"cost_per_1m_tokens": { "input": 1, "output": 1 },
+			"allowed_roles": ["research"]
 		},
 		{
 			"id": "deep-research",
 			"swe_score": 0.211,
-			"cost_per_1m_tokens": { "input": 2.0, "output": 8.0 },
-			"allowed_roles": ["main", "fallback", "research"]
+			"cost_per_1m_tokens": { "input": 2, "output": 8 },
+			"allowed_roles": ["research"]
+		},
+		{
+			"id": "sonar-reasoning-pro",
+			"swe_score": 0.211,
+			"cost_per_1m_tokens": { "input": 2, "output": 8 },
+			"allowed_roles": ["main", "fallback"]
+		},
+		{
+			"id": "sonar-reasoning",
+			"swe_score": 0.211,
+			"cost_per_1m_tokens": { "input": 1, "output": 5 },
+			"allowed_roles": ["main", "fallback"]
 		}
 	],
 	"ollama": [
 		{
-			"id": "llava",
+			"id": "gemma3:27b",
 			"swe_score": 0,
-			"cost_per_1m_tokens": null,
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "deepseek-coder-v2",
+			"id": "gemma3:12b",
 			"swe_score": 0,
-			"cost_per_1m_tokens": null,
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "dolphin3",
+			"id": "qwq",
 			"swe_score": 0,
-			"cost_per_1m_tokens": null,
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "olmo2-7b",
+			"id": "deepseek-r1",
 			"swe_score": 0,
-			"cost_per_1m_tokens": null,
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "olmo2-13b",
+			"id": "mistral-small3.1",
 			"swe_score": 0,
-			"cost_per_1m_tokens": null,
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
+			"allowed_roles": ["main", "fallback"]
+		},
+		{
+			"id": "llama3.3",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
+			"allowed_roles": ["main", "fallback"]
+		},
+		{
+			"id": "phi4",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
 			"allowed_roles": ["main", "fallback"]
 		}
 	],
 	"openrouter": [
 		{
-			"id": "meta-llama/llama-4-scout",
+			"id": "google/gemini-2.0-flash-001",
 			"swe_score": 0,
-			"cost_per_1m_tokens": null,
+			"cost_per_1m_tokens": { "input": 0.1, "output": 0.4 },
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "google/gemini-2.5-pro-exp-03-25",
+			"id": "google/gemini-2.5-pro-exp-03-25:free",
 			"swe_score": 0,
-			"cost_per_1m_tokens": null,
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "openrouter/optimus-alpha",
+			"id": "deepseek/deepseek-chat-v3-0324:free",
 			"swe_score": 0,
-			"cost_per_1m_tokens": { "input": 30.0, "output": 60.0 },
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "openrouter/quasar-alpha",
+			"id": "google/gemini-2.5-pro-preview-03-25",
 			"swe_score": 0,
-			"cost_per_1m_tokens": null,
+			"cost_per_1m_tokens": { "input": 1.25, "output": 10 },
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "kimi-vl-a3b-thinking",
+			"id": "deepseek/deepseek-chat-v3-0324",
 			"swe_score": 0,
-			"cost_per_1m_tokens": null,
+			"cost_per_1m_tokens": { "input": 0.27, "output": 1.1 },
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
-			"id": "qwen2.5-max",
+			"id": "deepseek/deepseek-r1:free",
 			"swe_score": 0,
-			"cost_per_1m_tokens": null,
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
 			"allowed_roles": ["main", "fallback"]
 		}
 	],
 	"grok": [
 		{
-			"id": "grok3-beta",
+			"id": "grok3",
 			"swe_score": 0,
-			"cost_per_1m_tokens": null,
+			"cost_per_1m_tokens": { "input": 3, "output": 15 },
 			"allowed_roles": ["main", "fallback", "research"]
 		},
 		{
 			"id": "grok-3-mini",
 			"swe_score": 0,
-			"cost_per_1m_tokens": null,
-			"allowed_roles": ["main", "fallback"]
+			"cost_per_1m_tokens": { "input": 0.3, "output": 0.5 },
+			"allowed_roles": ["main", "fallback", "research"]
 		},
 		{
-			"id": "grok-2",
+			"id": "grok3-fast",
 			"swe_score": 0,
-			"cost_per_1m_tokens": null,
-			"allowed_roles": ["main", "fallback"]
+			"cost_per_1m_tokens": { "input": 5, "output": 25 },
+			"allowed_roles": ["main", "fallback", "research"]
 		},
 		{
-			"id": "grok-2-mini",
+			"id": "grok-3-mini-fast",
 			"swe_score": 0,
-			"cost_per_1m_tokens": null,
-			"allowed_roles": ["main", "fallback"]
-		},
-		{
-			"id": "grok-1.5",
-			"swe_score": 0,
-			"cost_per_1m_tokens": null,
-			"allowed_roles": ["main", "fallback"]
+			"cost_per_1m_tokens": { "input": 0.6, "output": 4 },
+			"allowed_roles": ["main", "fallback", "research"]
 		}
 	]
 }

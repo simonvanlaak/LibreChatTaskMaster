@@ -486,7 +486,7 @@ The existing `ai-services.js` should be refactored to:
 7. Add verbose output option for debugging
 8. Testing approach: Create integration tests that verify model setting functionality with various inputs
 
-## 8. Update Main Task Processing Logic [pending]
+## 8. Update Main Task Processing Logic [deferred]
 ### Dependencies: 61.4, 61.5, 61.18
 ### Description: Refactor the main task processing logic to use the new AI services module and support dynamic model selection.
 ### Details:
@@ -554,7 +554,7 @@ When updating the main task processing logic, implement the following changes to
    ```
 </info added on 2025-04-20T03:55:56.310Z>
 
-## 9. Update Research Processing Logic [pending]
+## 9. Update Research Processing Logic [deferred]
 ### Dependencies: 61.4, 61.5, 61.8, 61.18
 ### Description: Refactor the research processing logic to use the new AI services module and support dynamic model selection for research operations.
 ### Details:
@@ -712,7 +712,7 @@ When implementing the refactored research processing logic, ensure the following
 - How to verify configuration is correctly loaded
 </info added on 2025-04-20T03:55:20.433Z>
 
-## 11. Refactor PRD Parsing to use generateObjectService [pending]
+## 11. Refactor PRD Parsing to use generateObjectService [in-progress]
 ### Dependencies: 61.23
 ### Description: Update PRD processing logic (callClaude, processClaudeResponse, handleStreamingRequest in ai-services.js) to use the new `generateObjectService` from `ai-services-unified.js` with an appropriate Zod schema.
 ### Details:
@@ -961,7 +961,7 @@ To implement this refactoring, you'll need to:
 4. Update any error handling to match the new service's error patterns.
 </info added on 2025-04-20T03:53:27.455Z>
 
-## 17. Refactor General Chat/Update AI Calls [pending]
+## 17. Refactor General Chat/Update AI Calls [deferred]
 ### Dependencies: 61.23
 ### Description: Refactor functions like `sendChatWithContext` (and potentially related task update functions in `task-manager.js` if they make direct AI calls) to use `streamTextService` or `generateTextService` from `ai-services-unified.js`.
 ### Details:
@@ -1008,7 +1008,7 @@ When refactoring `sendChatWithContext` and related functions, ensure they align 
 5. Ensure any default behaviors respect configuration defaults rather than hardcoded values.
 </info added on 2025-04-20T03:53:03.709Z>
 
-## 18. Refactor Callers of AI Parsing Utilities [pending]
+## 18. Refactor Callers of AI Parsing Utilities [deferred]
 ### Dependencies: 61.11,61.12,61.13,61.14,61.15,61.16,61.17,61.19
 ### Description: Update the code that calls `parseSubtasksFromText`, `parseTaskJsonResponse`, and `parseTasksFromCompletion` to instead directly handle the structured JSON output provided by `generateObjectService` (as the refactored AI calls will now use it).
 ### Details:
@@ -1276,11 +1276,59 @@ When testing the non-streaming `generateTextService` call in `updateSubtaskById`
 </info added on 2025-04-22T06:35:14.892Z>
 </info added on 2025-04-22T06:23:23.247Z>
 
-## 20. Implement `anthropic.js` Provider Module using Vercel AI SDK [done]
+## 20. Implement `anthropic.js` Provider Module using Vercel AI SDK [in-progress]
 ### Dependencies: None
 ### Description: Create and implement the `anthropic.js` module within `src/ai-providers/`. This module should contain functions to interact with the Anthropic API (streaming and non-streaming) using the **Vercel AI SDK**, adhering to the standardized input/output format defined for `ai-services-unified.js`.
 ### Details:
 
+
+<info added on 2025-04-24T02:54:40.326Z>
+- Use the `@ai-sdk/anthropic` package to implement the provider module. You can import the default provider instance with `import { anthropic } from '@ai-sdk/anthropic'`, or create a custom instance using `createAnthropic` if you need to specify custom headers, API key, or base URL (such as for beta features or proxying)[1][4].
+
+- To address persistent 'Not Found' errors, ensure the model name matches the latest Anthropic model IDs (e.g., `claude-3-haiku-20240307`, `claude-3-5-sonnet-20241022`). Model naming is case-sensitive and must match Anthropic's published versions[4][5].
+
+- If you require custom headers (such as for beta features), use the `createAnthropic` function and pass a `headers` object. For example:
+  ```js
+  import { createAnthropic } from '@ai-sdk/anthropic';
+  const anthropic = createAnthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    headers: { 'anthropic-beta': 'tools-2024-04-04' }
+  });
+  ```
+
+- For streaming and non-streaming support, the Vercel AI SDK provides both `generateText` (non-streaming) and `streamText` (streaming) functions. Use these with the Anthropic provider instance as the `model` parameter[5].
+
+- Example usage for non-streaming:
+  ```js
+  import { generateText } from 'ai';
+  import { anthropic } from '@ai-sdk/anthropic';
+
+  const result = await generateText({
+    model: anthropic('claude-3-haiku-20240307'),
+    messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello!' }] }]
+  });
+  ```
+
+- Example usage for streaming:
+  ```js
+  import { streamText } from 'ai';
+  import { anthropic } from '@ai-sdk/anthropic';
+
+  const stream = await streamText({
+    model: anthropic('claude-3-haiku-20240307'),
+    messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello!' }] }]
+  });
+  ```
+
+- Ensure that your implementation adheres to the standardized input/output format defined for `ai-services-unified.js`, mapping the SDK's response structure to your unified format.
+
+- If you continue to encounter 'Not Found' errors, verify:
+  - The API key is valid and has access to the requested models.
+  - The model name is correct and available to your Anthropic account.
+  - Any required beta headers are included if using beta features or models[1].
+
+- Prefer direct provider instantiation with explicit headers and API key configuration for maximum compatibility and to avoid SDK-level abstraction issues[1].
+</info added on 2025-04-24T02:54:40.326Z>
 
 ## 21. Implement `perplexity.js` Provider Module using Vercel AI SDK [done]
 ### Dependencies: None
@@ -1673,7 +1721,7 @@ The new AI architecture introduces a clear separation between sensitive credenti
 </info added on 2025-04-20T03:51:04.461Z>
 
 ## 33. Cleanup Old AI Service Files [pending]
-### Dependencies: 61.32
+### Dependencies: 61.31, 61.32
 ### Description: After all other migration subtasks (refactoring, provider implementation, testing, documentation) are complete and verified, remove the old `ai-services.js` and `ai-client-factory.js` files from the `scripts/modules/` directory. Ensure no code still references them.
 ### Details:
 
