@@ -712,7 +712,7 @@ When implementing the refactored research processing logic, ensure the following
 - How to verify configuration is correctly loaded
 </info added on 2025-04-20T03:55:20.433Z>
 
-## 11. Refactor PRD Parsing to use generateObjectService [in-progress]
+## 11. Refactor PRD Parsing to use generateObjectService [done]
 ### Dependencies: 61.23
 ### Description: Update PRD processing logic (callClaude, processClaudeResponse, handleStreamingRequest in ai-services.js) to use the new `generateObjectService` from `ai-services-unified.js` with an appropriate Zod schema.
 ### Details:
@@ -747,7 +747,7 @@ const result = await generateObjectService({
 5. Ensure any default values previously hardcoded are now retrieved from the configuration system.
 </info added on 2025-04-20T03:55:01.707Z>
 
-## 12. Refactor Basic Subtask Generation to use generateObjectService [pending]
+## 12. Refactor Basic Subtask Generation to use generateObjectService [cancelled]
 ### Dependencies: 61.23
 ### Description: Update the `generateSubtasks` function in `ai-services.js` to use the new `generateObjectService` from `ai-services-unified.js` with a Zod schema for the subtask array.
 ### Details:
@@ -798,7 +798,7 @@ The refactoring should leverage the new configuration system:
    ```
 </info added on 2025-04-20T03:54:45.542Z>
 
-## 13. Refactor Research Subtask Generation to use generateObjectService [pending]
+## 13. Refactor Research Subtask Generation to use generateObjectService [cancelled]
 ### Dependencies: 61.23
 ### Description: Update the `generateSubtasksWithPerplexity` function in `ai-services.js` to first perform research (potentially keeping the Perplexity call separate or adapting it) and then use `generateObjectService` from `ai-services-unified.js` with research results included in the prompt.
 ### Details:
@@ -828,7 +828,7 @@ const { verbose } = getLoggingConfig();
 5. Ensure the transition to generateObjectService maintains all existing functionality while leveraging the new configuration system
 </info added on 2025-04-20T03:54:26.882Z>
 
-## 14. Refactor Research Task Description Generation to use generateObjectService [pending]
+## 14. Refactor Research Task Description Generation to use generateObjectService [cancelled]
 ### Dependencies: 61.23
 ### Description: Update the `generateTaskDescriptionWithPerplexity` function in `ai-services.js` to first perform research and then use `generateObjectService` from `ai-services-unified.js` to generate the structured task description.
 ### Details:
@@ -869,7 +869,7 @@ return generateObjectService({
 5. Remove any hardcoded configuration values, ensuring all settings are retrieved from the centralized configuration system.
 </info added on 2025-04-20T03:54:04.420Z>
 
-## 15. Refactor Complexity Analysis AI Call to use generateObjectService [pending]
+## 15. Refactor Complexity Analysis AI Call to use generateObjectService [cancelled]
 ### Dependencies: 61.23
 ### Description: Update the logic that calls the AI after using `generateComplexityAnalysisPrompt` in `ai-services.js` to use the new `generateObjectService` from `ai-services-unified.js` with a Zod schema for the complexity report.
 ### Details:
@@ -916,7 +916,7 @@ The complexity analysis AI call should be updated to align with the new configur
    ```
 </info added on 2025-04-20T03:53:46.120Z>
 
-## 16. Refactor Task Addition AI Call to use generateObjectService [pending]
+## 16. Refactor Task Addition AI Call to use generateObjectService [cancelled]
 ### Dependencies: 61.23
 ### Description: Update the logic that calls the AI after using `_buildAddTaskPrompt` in `ai-services.js` to use the new `generateObjectService` from `ai-services-unified.js` with a Zod schema for the single task object.
 ### Details:
@@ -1276,7 +1276,7 @@ When testing the non-streaming `generateTextService` call in `updateSubtaskById`
 </info added on 2025-04-22T06:35:14.892Z>
 </info added on 2025-04-22T06:23:23.247Z>
 
-## 20. Implement `anthropic.js` Provider Module using Vercel AI SDK [in-progress]
+## 20. Implement `anthropic.js` Provider Module using Vercel AI SDK [done]
 ### Dependencies: None
 ### Description: Create and implement the `anthropic.js` module within `src/ai-providers/`. This module should contain functions to interact with the Anthropic API (streaming and non-streaming) using the **Vercel AI SDK**, adhering to the standardized input/output format defined for `ai-services-unified.js`.
 ### Details:
@@ -1813,9 +1813,45 @@ This separation ensures security best practices for credentials while centralizi
 This piecemeal approach aims to establish the refactoring pattern before tackling the entire codebase.
 </info added on 2025-04-20T06:58:36.731Z>
 
-## 35. Review/Refactor MCP Direct Functions for Explicit Config Root Passing [done]
+## 35. Refactor add-task.js for Unified AI Service & Config [done]
 ### Dependencies: None
-### Description: Review all functions in mcp-server/src/core/direct-functions/*.js. Ensure that any calls made from these functions to getters in scripts/modules/config-manager.js (e.g., getMainProvider, getDefaultPriority, getLogLevel, etc.) explicitly pass the projectRoot (obtained from the args object, which is derived from the session context) as the first argument to the getter. This prevents the getters from incorrectly falling back to using findProjectRoot() based on the server's cwd when running in an MCP context. This is crucial for loading the correct .taskmasterconfig settings based on the user's project.
+### Description: Replace direct AI calls (old `ai-services.js` helpers) with `generateObjectService` or `generateTextService` from `ai-services-unified.js`. Pass `role` and `session`. Remove direct config getter usage (from `config-manager.js`) for AI parameters; use unified service instead. Keep `getDefaultPriority` usage.
+### Details:
+
+
+## 36. Refactor analyze-task-complexity.js for Unified AI Service & Config [pending]
+### Dependencies: None
+### Description: Replace direct AI calls with `generateObjectService` from `ai-services-unified.js`. Pass `role` and `session`. Remove direct config getter usage (from `config-manager.js`) for AI parameters; use unified service instead. Keep config getters needed for report metadata (`getProjectName`, `getDefaultSubtasks`).
+### Details:
+
+
+## 37. Refactor expand-task.js for Unified AI Service & Config [pending]
+### Dependencies: None
+### Description: Replace direct AI calls (old `ai-services.js` helpers like `generateSubtasksWithPerplexity`) with `generateObjectService` from `ai-services-unified.js`. Pass `role` and `session`. Remove direct config getter usage (from `config-manager.js`) for AI parameters; use unified service instead. Keep `getDefaultSubtasks` usage.
+### Details:
+
+
+## 38. Refactor expand-all-tasks.js for Unified AI Helpers & Config [pending]
+### Dependencies: None
+### Description: Ensure this file correctly calls the refactored `getSubtasksFromAI` helper. Update config usage to only use `getDefaultSubtasks` from `config-manager.js` directly. AI interaction itself is handled by the helper.
+### Details:
+
+
+## 39. Refactor get-subtasks-from-ai.js for Unified AI Service & Config [pending]
+### Dependencies: None
+### Description: Replace direct AI calls (old `ai-services.js` helpers) with `generateObjectService` or `generateTextService` from `ai-services-unified.js`. Pass `role` and `session`. Remove direct config getter usage (from `config-manager.js`) for AI parameters; use unified service instead.
+### Details:
+
+
+## 40. Refactor update-task-by-id.js for Unified AI Service & Config [pending]
+### Dependencies: None
+### Description: Replace direct AI calls (old `ai-services.js` helpers) with `generateObjectService` or `generateTextService` from `ai-services-unified.js`. Pass `role` and `session`. Remove direct config getter usage (from `config-manager.js`) for AI parameters and fallback logic; use unified service instead. Keep `getDebugFlag`.
+### Details:
+
+
+## 41. Refactor update-tasks.js for Unified AI Service & Config [pending]
+### Dependencies: None
+### Description: Replace direct AI calls (old `ai-services.js` helpers) with `generateObjectService` or `generateTextService` from `ai-services-unified.js`. Pass `role` and `session`. Remove direct config getter usage (from `config-manager.js`) for AI parameters and fallback logic; use unified service instead. Keep `getDebugFlag`.
 ### Details:
 
 

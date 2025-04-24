@@ -913,17 +913,18 @@ function registerCommands(programInstance) {
 					}
 				}
 
+				// Pass mcpLog and session for MCP mode
 				const newTaskId = await addTask(
 					options.file,
 					options.prompt,
 					dependencies,
 					options.priority,
 					{
-						session: process.env
+						session: process.env // Pass environment as session for CLI
 					},
-					options.research || false,
-					null,
-					manualTaskData
+					'text', // outputFormat
+					null, // manualTaskData
+					options.research || false // Pass the research flag value
 				);
 
 				console.log(chalk.green(`✓ Added new task #${newTaskId}`));

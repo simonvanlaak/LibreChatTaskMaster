@@ -24,6 +24,7 @@ import removeTask from './task-manager/remove-task.js';
 import taskExists from './task-manager/task-exists.js';
 import generateSubtaskPrompt from './task-manager/generate-subtask-prompt.js';
 import getSubtasksFromAI from './task-manager/get-subtasks-from-ai.js';
+import isTaskDependentOn from './task-manager/is-task-dependent.js';
 
 // Export task manager functions
 export {
@@ -47,5 +48,6 @@ export {
 	findTaskById,
 	taskExists,
 	generateSubtaskPrompt,
-	getSubtasksFromAI
+	getSubtasksFromAI,
+	isTaskDependentOn
 };
