@@ -34,15 +34,6 @@ import { modelsDirect } from './direct-functions/models.js';
 // Re-export utility functions
 export { findTasksJsonPath } from './utils/path-utils.js';
 
-// Re-export AI client utilities
-export {
-	getAnthropicClientForMCP,
-	getPerplexityClientForMCP,
-	getModelConfig,
-	getBestAvailableAIModel,
-	handleClaudeError
-} from './utils/ai-client-utils.js';
-
 // Use Map for potential future enhancements like introspection or dynamic dispatch
 export const directFunctions = new Map([
 	['listTasksDirect', listTasksDirect],

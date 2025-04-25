@@ -11,8 +11,6 @@ import {
 	disableSilentMode,
 	isSilentMode
 } from '../../../../scripts/modules/utils.js';
-// Removed AI client imports:
-// import { getAnthropicClientForMCP, getModelConfig } from '../utils/ai-client-utils.js';
 import path from 'path';
 import fs from 'fs';
 

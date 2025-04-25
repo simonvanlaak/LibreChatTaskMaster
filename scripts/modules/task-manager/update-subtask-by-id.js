@@ -9,54 +9,55 @@ import {
 	startLoadingIndicator,
 	stopLoadingIndicator
 } from '../ui.js';
-import { log, readJSON, writeJSON, truncate, isSilentMode } from '../utils.js';
-import { generateTextService } from '../ai-services-unified.js';
 import {
-	getDebugFlag,
-	getMainModelId,
-	getMainMaxTokens,
-	getMainTemperature,
-	getResearchModelId,
-	getResearchMaxTokens,
-	getResearchTemperature
-} from '../config-manager.js';
+	log as consoleLog,
+	readJSON,
+	writeJSON,
+	truncate,
+	isSilentMode
+} from '../utils.js';
+import { generateTextService } from '../ai-services-unified.js';
+import { getDebugFlag, isApiKeySet } from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
 
 /**
- * Update a subtask by appending additional information to its description and details
+ * Update a subtask by appending additional timestamped information using the unified AI service.
  * @param {string} tasksPath - Path to the tasks.json file
  * @param {string} subtaskId - ID of the subtask to update in format "parentId.subtaskId"
  * @param {string} prompt - Prompt for generating additional information
- * @param {boolean} useResearch - Whether to use Perplexity AI for research-backed updates
- * @param {function} reportProgress - Function to report progress to MCP server (optional)
- * @param {Object} mcpLog - MCP logger object (optional)
- * @param {Object} session - Session object from MCP server (optional)
- * @returns {Object|null} - The updated subtask or null if update failed
+ * @param {boolean} [useResearch=false] - Whether to use the research AI role.
+ * @param {Object} context - Context object containing session and mcpLog.
+ * @param {Object} [context.session] - Session object from MCP server.
+ * @param {Object} [context.mcpLog] - MCP logger object.
+ * @param {string} [outputFormat='text'] - Output format ('text' or 'json'). Automatically 'json' if mcpLog is present.
+ * @returns {Promise<Object|null>} - The updated subtask or null if update failed.
  */
 async function updateSubtaskById(
 	tasksPath,
 	subtaskId,
 	prompt,
 	useResearch = false,
-	{ reportProgress, mcpLog, session } = {}
+	context = {},
+	outputFormat = context.mcpLog ? 'json' : 'text'
 ) {
-	// Determine output format based on mcpLog presence (simplification)
-	const outputFormat = mcpLog ? 'json' : 'text';
+	const { session, mcpLog } = context;
+	const logFn = mcpLog || consoleLog;
+	const isMCP = !!mcpLog;
 
-	// Create custom reporter that checks for MCP log and silent mode
-	const report = (message, level = 'info') => {
-		if (mcpLog) {
-			mcpLog[level](message);
-		} else if (!isSilentMode() && outputFormat === 'text') {
-			// Only log to console if not in silent mode and outputFormat is 'text'
-			log(level, message);
+	// Report helper
+	const report = (level, ...args) => {
+		if (isMCP) {
+			if (typeof logFn[level] === 'function') logFn[level](...args);
+			else logFn.info(...args);
+		} else if (!isSilentMode()) {
+			logFn(level, ...args);
 		}
 	};
 
 	let loadingIndicator = null;
 
 	try {
-		report(`Updating subtask ${subtaskId} with prompt: "${prompt}"`, 'info');
+		report('info', `Updating subtask ${subtaskId} with prompt: "${prompt}"`);
 
 		// Validate subtask ID format
 		if (
@@ -75,9 +76,6 @@ async function updateSubtaskById(
 				'Prompt cannot be empty. Please provide context for the subtask update.'
 			);
 		}
-
-		// Prepare for fallback handling
-		let claudeOverloaded = false;
 
 		// Validate tasks file exists
 		if (!fs.existsSync(tasksPath)) {
@@ -121,18 +119,22 @@ async function updateSubtaskById(
 			throw new Error(`Parent task ${parentId} has no subtasks.`);
 		}
 
-		const subtask = parentTask.subtasks.find((st) => st.id === subtaskIdNum);
-		if (!subtask) {
+		const subtaskIndex = parentTask.subtasks.findIndex(
+			(st) => st.id === subtaskIdNum
+		);
+		if (subtaskIndex === -1) {
 			throw new Error(
 				`Subtask with ID ${subtaskId} not found. Please verify the subtask ID and try again.`
 			);
 		}
 
+		const subtask = parentTask.subtasks[subtaskIndex];
+
 		// Check if subtask is already completed
 		if (subtask.status === 'done' || subtask.status === 'completed') {
 			report(
-				`Subtask ${subtaskId} is already marked as done and cannot be updated`,
-				'warn'
+				'warn',
+				`Subtask ${subtaskId} is already marked as done and cannot be updated`
 			);
 
 			// Only show UI elements for text output (CLI)
@@ -208,13 +210,13 @@ Provide concrete examples, code snippets, or implementation details when relevan
 			const userMessageContent = `Here is the subtask to enhance:\n${subtaskData}\n\nPlease provide additional information addressing this request:\n${prompt}\n\nReturn ONLY the new information to add - do not repeat existing content.`;
 
 			const serviceRole = useResearch ? 'research' : 'main';
-			report(`Calling AI stream service with role: ${serviceRole}`, 'info');
+			report('info', `Calling AI text service with role: ${serviceRole}`);
 
 			const streamResult = await generateTextService({
 				role: serviceRole,
 				session: session,
-				systemPrompt: systemPrompt, // Pass the original system prompt
-				prompt: userMessageContent // Pass the original user message content
+				systemPrompt: systemPrompt,
+				prompt: userMessageContent
 			});
 
 			if (outputFormat === 'text' && loadingIndicator) {
@@ -231,11 +233,11 @@ Provide concrete examples, code snippets, or implementation details when relevan
 			}
 			report(
 				// Corrected log message to reflect generateText
-				`Successfully generated text using AI role: ${serviceRole}.`,
-				'info'
+				'success',
+				`Successfully generated text using AI role: ${serviceRole}.`
 			);
 		} catch (aiError) {
-			report(`AI service call failed: ${aiError.message}`, 'error');
+			report('error', `AI service call failed: ${aiError.message}`);
 			throw aiError;
 		} // Removed the inner finally block as streamingInterval is gone
 
@@ -245,7 +247,7 @@ Provide concrete examples, code snippets, or implementation details when relevan
 		const formattedInformation = `\n\n<info added on ${currentDate.toISOString()}>\n${additionalInformation}\n</info added on ${currentDate.toISOString()}>`;
 
 		// Only show debug info for text output (CLI)
-		if (outputFormat === 'text') {
+		if (outputFormat === 'text' && getDebugFlag(session)) {
 			console.log(
 				'>>> DEBUG: formattedInformation:',
 				formattedInformation.substring(0, 70) + '...'
@@ -254,7 +256,7 @@ Provide concrete examples, code snippets, or implementation details when relevan
 
 		// Append to subtask details and description
 		// Only show debug info for text output (CLI)
-		if (outputFormat === 'text') {
+		if (outputFormat === 'text' && getDebugFlag(session)) {
 			console.log('>>> DEBUG: Subtask details BEFORE append:', subtask.details);
 		}
 
@@ -265,7 +267,7 @@ Provide concrete examples, code snippets, or implementation details when relevan
 		}
 
 		// Only show debug info for text output (CLI)
-		if (outputFormat === 'text') {
+		if (outputFormat === 'text' && getDebugFlag(session)) {
 			console.log('>>> DEBUG: Subtask details AFTER append:', subtask.details);
 		}
 
@@ -273,7 +275,7 @@ Provide concrete examples, code snippets, or implementation details when relevan
 			// Only append to description if it makes sense (for shorter updates)
 			if (additionalInformation.length < 200) {
 				// Only show debug info for text output (CLI)
-				if (outputFormat === 'text') {
+				if (outputFormat === 'text' && getDebugFlag(session)) {
 					console.log(
 						'>>> DEBUG: Subtask description BEFORE append:',
 						subtask.description
@@ -281,7 +283,7 @@ Provide concrete examples, code snippets, or implementation details when relevan
 				}
 				subtask.description += ` [Updated: ${currentDate.toLocaleDateString()}]`;
 				// Only show debug info for text output (CLI)
-				if (outputFormat === 'text') {
+				if (outputFormat === 'text' && getDebugFlag(session)) {
 					console.log(
 						'>>> DEBUG: Subtask description AFTER append:',
 						subtask.description
@@ -291,19 +293,22 @@ Provide concrete examples, code snippets, or implementation details when relevan
 		}
 
 		// Only show debug info for text output (CLI)
-		if (outputFormat === 'text') {
+		if (outputFormat === 'text' && getDebugFlag(session)) {
 			console.log('>>> DEBUG: About to call writeJSON with updated data...');
 		}
+
+		// Update the subtask in the parent task's array
+		parentTask.subtasks[subtaskIndex] = subtask;
 
 		// Write the updated tasks to the file
 		writeJSON(tasksPath, data);
 
 		// Only show debug info for text output (CLI)
-		if (outputFormat === 'text') {
+		if (outputFormat === 'text' && getDebugFlag(session)) {
 			console.log('>>> DEBUG: writeJSON call completed.');
 		}
 
-		report(`Successfully updated subtask ${subtaskId}`, 'success');
+		report('success', `Successfully updated subtask ${subtaskId}`);
 
 		// Generate individual task files
 		await generateTaskFiles(tasksPath, path.dirname(tasksPath));
@@ -340,7 +345,7 @@ Provide concrete examples, code snippets, or implementation details when relevan
 			loadingIndicator = null;
 		}
 
-		report(`Error updating subtask: ${error.message}`, 'error');
+		report('error', `Error updating subtask: ${error.message}`);
 
 		// Only show error UI for text output (CLI)
 		if (outputFormat === 'text') {
