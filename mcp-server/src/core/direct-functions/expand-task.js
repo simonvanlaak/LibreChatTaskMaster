@@ -3,7 +3,7 @@
  * Direct function implementation for expanding a task into subtasks
  */
 
-import { expandTask } from '../../../../scripts/modules/task-manager.js';
+import expandTask from '../../../../scripts/modules/task-manager/expand-task.js'; // Correct import path
 import {
 	readJSON,
 	writeJSON,
@@ -11,10 +11,8 @@ import {
 	disableSilentMode,
 	isSilentMode
 } from '../../../../scripts/modules/utils.js';
-import {
-	getAnthropicClientForMCP,
-	getModelConfig
-} from '../utils/ai-client-utils.js';
+// Removed AI client imports:
+// import { getAnthropicClientForMCP, getModelConfig } from '../utils/ai-client-utils.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -25,15 +23,16 @@ import fs from 'fs';
  * @param {string} args.tasksJsonPath - Explicit path to the tasks.json file.
  * @param {string} args.id - The ID of the task to expand.
  * @param {number|string} [args.num] - Number of subtasks to generate.
- * @param {boolean} [args.research] - Enable Perplexity AI for research-backed subtask generation.
+ * @param {boolean} [args.research] - Enable research role for subtask generation.
  * @param {string} [args.prompt] - Additional context to guide subtask generation.
  * @param {boolean} [args.force] - Force expansion even if subtasks exist.
  * @param {Object} log - Logger object
- * @param {Object} context - Context object containing session and reportProgress
+ * @param {Object} context - Context object containing session
+ * @param {Object} [context.session] - MCP Session object
  * @returns {Promise<Object>} - Task expansion result { success: boolean, data?: any, error?: { code: string, message: string }, fromCache: boolean }
  */
 export async function expandTaskDirect(args, log, context = {}) {
-	const { session } = context;
+	const { session } = context; // Extract session
 	// Destructure expected args
 	const { tasksJsonPath, id, num, research, prompt, force } = args;
 
@@ -85,28 +84,9 @@ export async function expandTaskDirect(args, log, context = {}) {
 	const additionalContext = prompt || '';
 	const forceFlag = force === true;
 
-	// Initialize AI client if needed (for expandTask function)
-	try {
-		// This ensures the AI client is available by checking it
-		if (useResearch) {
-			log.info('Verifying AI client for research-backed expansion');
-			await getAnthropicClientForMCP(session, log);
-		}
-	} catch (error) {
-		log.error(`Failed to initialize AI client: ${error.message}`);
-		return {
-			success: false,
-			error: {
-				code: 'AI_CLIENT_ERROR',
-				message: `Cannot initialize AI client: ${error.message}`
-			},
-			fromCache: false
-		};
-	}
-
 	try {
 		log.info(
-			`[expandTaskDirect] Expanding task ${taskId} into ${numSubtasks || 'default'} subtasks. Research: ${useResearch}`
+			`[expandTaskDirect] Expanding task ${taskId} into ${numSubtasks || 'default'} subtasks. Research: ${useResearch}, Force: ${forceFlag}`
 		);
 
 		// Read tasks data
@@ -205,7 +185,16 @@ export async function expandTaskDirect(args, log, context = {}) {
 		// Process the request
 		try {
 			// Enable silent mode to prevent console logs from interfering with JSON response
-			enableSilentMode();
+			const wasSilent = isSilentMode();
+			if (!wasSilent) enableSilentMode();
+
+			const logWrapper = {
+				info: (message, ...args) => log.info(message, ...args),
+				warn: (message, ...args) => log.warn(message, ...args),
+				error: (message, ...args) => log.error(message, ...args),
+				debug: (message, ...args) => log.debug && log.debug(message, ...args),
+				success: (message, ...args) => log.info(message, ...args)
+			};
 
 			// Call expandTask with session context to ensure AI client is properly initialized
 			const result = await expandTask(
@@ -214,11 +203,11 @@ export async function expandTaskDirect(args, log, context = {}) {
 				numSubtasks,
 				useResearch,
 				additionalContext,
-				{ mcpLog: log, session } // Only pass mcpLog and session, NOT reportProgress
+				{ session: session, mcpLog: logWrapper }
 			);
 
 			// Restore normal logging
-			disableSilentMode();
+			if (!wasSilent && isSilentMode()) disableSilentMode();
 
 			// Read the updated data
 			const updatedData = readJSON(tasksPath);
@@ -244,7 +233,7 @@ export async function expandTaskDirect(args, log, context = {}) {
 			};
 		} catch (error) {
 			// Make sure to restore normal logging even if there's an error
-			disableSilentMode();
+			if (!wasSilent && isSilentMode()) disableSilentMode();
 
 			log.error(`Error expanding task: ${error.message}`);
 			return {

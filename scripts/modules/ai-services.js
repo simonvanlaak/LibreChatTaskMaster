@@ -723,7 +723,7 @@ async function generateSubtasksWithPerplexity(
 		// Formulate research query based on task
 		const researchQuery = `I need to implement "${task.title}" which involves: "${task.description}". 
 What are current best practices, libraries, design patterns, and implementation approaches? 
-Include concrete code examples and technical considerations where relevant.`;
+Include concrete, researched, code examples and technical considerations where relevant. Include high-level, mid-level and low-level implementation details for a complete implementation.`;
 
 		// Query Perplexity for research
 		const researchResponse = await perplexityClient.chat.completions.create({
@@ -731,9 +731,9 @@ Include concrete code examples and technical considerations where relevant.`;
 			messages: [
 				{
 					role: 'system',
-					content: `You are a helpful assistant that provides research on current best practices and implementation approaches for software development.
-					You are given a task and a description of the task.
-					You need to provide a list of best practices, libraries, design patterns, and implementation approaches that are relevant to the task.
+					content: `You are an expert software development assistant and researcher that provides high level, mid level and low level research on current best practices and implementation approaches for software development.
+					You are given a task and a description of the task. 
+					You need to provide a list of best practices, libraries, design patterns, and implementation approaches that are relevant to the task and up to date with today's latest best practices using those tools, libraries, design patterns and implementation approaches you are recommending.
 					You should provide concrete code examples and technical considerations where relevant.`
 				},
 				{

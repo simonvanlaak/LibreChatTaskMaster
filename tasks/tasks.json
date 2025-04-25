@@ -3126,7 +3126,7 @@
           "title": "Refactor analyze-task-complexity.js for Unified AI Service & Config",
           "description": "Replace direct AI calls with `generateObjectService` from `ai-services-unified.js`. Pass `role` and `session`. Remove direct config getter usage (from `config-manager.js`) for AI parameters; use unified service instead. Keep config getters needed for report metadata (`getProjectName`, `getDefaultSubtasks`).",
           "details": "\n\n<info added on 2025-04-24T17:45:51.956Z>\n## Additional Implementation Notes for Refactoring\n\n**General Guidance**\n\n- Ensure all AI-related logic in `analyze-task-complexity.js` is abstracted behind the `generateObjectService` interface. The function should only specify *what* to generate (schema, prompt, and parameters), not *how* the AI call is made or which model/config is used.\n- Remove any code that directly fetches AI model parameters or credentials from configuration files. All such details must be handled by the unified service layer.\n\n**1. Core Logic Function (analyze-task-complexity.js)**\n\n- Refactor the function signature to accept a `session` object and a `role` parameter, in addition to the existing arguments.\n- When preparing the service call, construct a payload object containing:\n  - The Zod schema for expected output.\n  - The prompt or input for the AI.\n  - The `role` (e.g., \"researcher\" or \"default\") based on the `useResearch` flag.\n  - The `session` context for downstream configuration and authentication.\n- Example service call:\n  ```js\n  const result = await generateObjectService({\n    schema: complexitySchema,\n    prompt: buildPrompt(task, options),\n    role,\n    session,\n  });\n  ```\n- Remove all references to direct AI client instantiation or configuration fetching.\n\n**2. CLI Command Action Handler (commands.js)**\n\n- Ensure the CLI handler for `analyze-complexity`:\n  - Accepts and parses the `--use-research` flag (or equivalent).\n  - Passes the `useResearch` flag and the current session context to the core function.\n  - Handles errors from the unified service gracefully, providing user-friendly feedback.\n\n**3. MCP Tool Definition (mcp-server/src/tools/analyze.js)**\n\n- Align the Zod schema for CLI options with the parameters expected by the core function, including `useResearch` and any new required fields.\n- Use `getMCPProjectRoot` to resolve the project path before invoking the core function.\n- Add status logging before and after the analysis, e.g., \"Analyzing task complexity...\" and \"Analysis complete.\"\n- Ensure the tool calls the core function with all required parameters, including session and resolved paths.\n\n**4. MCP Direct Function Wrapper (mcp-server/src/core/direct-functions/analyze-complexity-direct.js)**\n\n- Remove any direct AI client or config usage.\n- Implement a logger wrapper that standardizes log output for this function (e.g., `logger.info`, `logger.error`).\n- Pass the session context through to the core function to ensure all environment/config access is centralized.\n- Return a standardized response object, e.g.:\n  ```js\n  return {\n    success: true,\n    data: analysisResult,\n    message: \"Task complexity analysis completed.\",\n  };\n  ```\n\n**Testing and Validation**\n\n- After refactoring, add or update tests to ensure:\n  - The function does not break if AI service configuration changes.\n  - The correct role and session are always passed to the unified service.\n  - Errors from the unified service are handled and surfaced appropriately.\n\n**Best Practices**\n\n- Keep the core logic function pure and focused on orchestration, not implementation details.\n- Use dependency injection for session/context to facilitate testing and future extensibility.\n- Document the expected structure of the session and role parameters for maintainability.\n\nThese enhancements will ensure the refactored code is modular, maintainable, and fully decoupled from AI implementation details, aligning with modern refactoring best practices[1][3][5].\n</info added on 2025-04-24T17:45:51.956Z>",
-          "status": "in-progress",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 61
         },
@@ -3135,7 +3135,7 @@
           "title": "Refactor expand-task.js for Unified AI Service & Config",
           "description": "Replace direct AI calls (old `ai-services.js` helpers like `generateSubtasksWithPerplexity`) with `generateObjectService` from `ai-services-unified.js`. Pass `role` and `session`. Remove direct config getter usage (from `config-manager.js`) for AI parameters; use unified service instead. Keep `getDefaultSubtasks` usage.",
           "details": "\n\n<info added on 2025-04-24T17:46:51.286Z>\n- In expand-task.js, ensure that all AI parameter configuration (such as model, temperature, max tokens) is passed via the unified generateObjectService interface, not fetched directly from config files or environment variables. This centralizes AI config management and supports future service changes without further refactoring.\n\n- When preparing the service call, construct the payload to include both the prompt and any schema or validation requirements expected by generateObjectService. For example, if subtasks must conform to a Zod schema, pass the schema definition or reference as part of the call.\n\n- For the CLI handler, ensure that the --research flag is mapped to the useResearch boolean and that this is explicitly passed to the core expand-task logic. Also, propagate any session or user context from CLI options to the core function for downstream auditing or personalization.\n\n- In the MCP tool definition, validate that all CLI-exposed parameters are reflected in the Zod schema, including optional ones like prompt overrides or force regeneration. This ensures strict input validation and prevents runtime errors.\n\n- In the direct function wrapper, implement a try/catch block around the core expandTask invocation. On error, log the error with context (task id, session id) and return a standardized error response object with error code and message fields.\n\n- Add unit tests or integration tests to verify that expand-task.js no longer imports or uses any direct AI client or config getter, and that all AI calls are routed through ai-services-unified.js.\n\n- Document the expected shape of the session object and any required fields for downstream service calls, so future maintainers know what context must be provided.\n</info added on 2025-04-24T17:46:51.286Z>",
-          "status": "pending",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 61
         },
@@ -3185,7 +3185,236 @@
       "testStrategy": "Testing should verify both the functionality and user experience of the new feature:\n\n1. Unit tests:\n   - Test that the command parser correctly recognizes the --simple flag\n   - Verify that AI processing is bypassed when the flag is present\n   - Ensure timestamps are correctly formatted and added\n\n2. Integration tests:\n   - Update a task with --simple flag and verify the exact text is saved\n   - Update a subtask with --simple flag and verify the exact text is saved\n   - Compare the output format with AI-processed updates to ensure consistency\n\n3. User experience tests:\n   - Verify help documentation correctly explains the new flag\n   - Test with various input lengths to ensure proper formatting\n   - Ensure the update appears correctly when viewing task history\n\n4. Edge cases:\n   - Test with empty input text\n   - Test with very long input text\n   - Test with special characters and formatting in the input",
       "status": "pending",
       "dependencies": [],
-      "priority": "medium"
+      "priority": "medium",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Update command parsers to recognize --simple flag",
+          "description": "Modify the command parsers for both update-task and update-subtask commands to recognize and process the new --simple flag option.",
+          "dependencies": [],
+          "details": "Add the --simple flag option to the command parser configurations in the CLI module. This should be implemented as a boolean flag that doesn't require any additional arguments. Update both the update-task and update-subtask command definitions to include this new option.",
+          "status": "pending",
+          "testStrategy": "Test that both commands correctly recognize the --simple flag when provided and that the flag's presence is properly captured in the command arguments object."
+        },
+        {
+          "id": 2,
+          "title": "Implement conditional logic to bypass AI processing",
+          "description": "Modify the update logic to check for the --simple flag and conditionally skip the AI processing pipeline when the flag is present.",
+          "dependencies": [
+            1
+          ],
+          "details": "In the update handlers for both commands, add a condition to check if the --simple flag is set. If it is, create a path that bypasses the normal AI processing flow. This will require modifying the update functions to accept the flag parameter and branch the execution flow accordingly.",
+          "status": "pending",
+          "testStrategy": "Test that when the --simple flag is provided, the AI processing functions are not called, and when the flag is not provided, the normal AI processing flow is maintained."
+        },
+        {
+          "id": 3,
+          "title": "Format user input with timestamp for simple updates",
+          "description": "Implement functionality to format the user's direct text input with a timestamp in the same format as AI-processed updates when the --simple flag is used.",
+          "dependencies": [
+            2
+          ],
+          "details": "Create a utility function that takes the user's raw input text and prepends a timestamp in the same format used for AI-generated updates. This function should be called when the --simple flag is active. Ensure the timestamp format is consistent with the existing format used throughout the application.",
+          "status": "pending",
+          "testStrategy": "Verify that the timestamp format matches the AI-generated updates and that the user's text is preserved exactly as entered."
+        },
+        {
+          "id": 4,
+          "title": "Add visual indicator for manual updates",
+          "description": "Make simple updates visually distinguishable from AI-processed updates by adding a 'manual update' indicator or other visual differentiation.",
+          "dependencies": [
+            3
+          ],
+          "details": "Modify the update formatting to include a visual indicator (such as '[Manual Update]' prefix or different styling) when displaying updates that were created using the --simple flag. This will help users distinguish between AI-processed and manually entered updates.",
+          "status": "pending",
+          "testStrategy": "Check that updates made with the --simple flag are visually distinct from AI-processed updates when displayed in the task or subtask history."
+        },
+        {
+          "id": 5,
+          "title": "Implement storage of simple updates in history",
+          "description": "Ensure that updates made with the --simple flag are properly saved to the task or subtask's history in the same way as AI-processed updates.",
+          "dependencies": [
+            3,
+            4
+          ],
+          "details": "Modify the storage logic to save the formatted simple updates to the task or subtask history. The storage format should be consistent with AI-processed updates, but include the manual indicator. Ensure that the update is properly associated with the correct task or subtask.",
+          "status": "pending",
+          "testStrategy": "Test that updates made with the --simple flag are correctly saved to the history and persist between application restarts."
+        },
+        {
+          "id": 6,
+          "title": "Update help documentation for the new flag",
+          "description": "Update the help documentation for both update-task and update-subtask commands to include information about the new --simple flag.",
+          "dependencies": [
+            1
+          ],
+          "details": "Add clear descriptions of the --simple flag to the help text for both commands. The documentation should explain that the flag allows users to add timestamped notes without AI processing, directly using the text from the prompt. Include examples of how to use the flag.",
+          "status": "pending",
+          "testStrategy": "Verify that the help command correctly displays information about the --simple flag for both update commands."
+        },
+        {
+          "id": 7,
+          "title": "Implement integration tests for the simple update feature",
+          "description": "Create comprehensive integration tests to verify that the --simple flag works correctly in both commands and integrates properly with the rest of the system.",
+          "dependencies": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "details": "Develop integration tests that verify the entire flow of using the --simple flag with both update commands. Tests should confirm that updates are correctly formatted, stored, and displayed. Include edge cases such as empty input, very long input, and special characters.",
+          "status": "pending",
+          "testStrategy": "Run integration tests that simulate user input with and without the --simple flag and verify the correct behavior in each case."
+        },
+        {
+          "id": 8,
+          "title": "Perform final validation and documentation",
+          "description": "Conduct final validation of the feature across all use cases and update the user documentation to include the new functionality.",
+          "dependencies": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "details": "Perform end-to-end testing of the feature to ensure it works correctly in all scenarios. Update the user documentation with detailed information about the new --simple flag, including its purpose, how to use it, and examples. Ensure that the documentation clearly explains the difference between AI-processed updates and simple updates.",
+          "status": "pending",
+          "testStrategy": "Manually test all use cases and review documentation for completeness and clarity."
+        }
+      ]
+    },
+    {
+      "id": 63,
+      "title": "Add pnpm Support for the Taskmaster Package",
+      "description": "Implement full support for pnpm as an alternative package manager in the Taskmaster application, allowing users to install and manage the package using pnpm alongside the existing npm and yarn options.",
+      "details": "This task involves:\n\n1. Update the installation documentation to include pnpm installation commands (e.g., `pnpm add taskmaster`).\n\n2. Ensure all package scripts are compatible with pnpm's execution model:\n   - Review and modify package.json scripts if necessary\n   - Test script execution with pnpm syntax (`pnpm run <script>`)\n   - Address any pnpm-specific path or execution differences\n\n3. Create a pnpm-lock.yaml file by installing dependencies with pnpm.\n\n4. Test the application's installation and operation when installed via pnpm:\n   - Global installation (`pnpm add -g taskmaster`)\n   - Local project installation\n   - Verify CLI commands work correctly when installed with pnpm\n\n5. Update CI/CD pipelines to include testing with pnpm:\n   - Add a pnpm test matrix to GitHub Actions workflows\n   - Ensure tests pass when dependencies are installed with pnpm\n\n6. Handle any pnpm-specific dependency resolution issues:\n   - Address potential hoisting differences between npm/yarn and pnpm\n   - Test with pnpm's strict mode to ensure compatibility\n\n7. Document any pnpm-specific considerations or commands in the README and documentation.\n\n8. Consider adding a pnpm-specific installation script or helper if needed.\n\nThis implementation should maintain full feature parity regardless of which package manager is used to install Taskmaster.",
+      "testStrategy": "1. Manual Testing:\n   - Install Taskmaster globally using pnpm: `pnpm add -g taskmaster`\n   - Install Taskmaster locally in a test project: `pnpm add taskmaster`\n   - Verify all CLI commands function correctly with both installation methods\n   - Test all major features to ensure they work identically to npm/yarn installations\n\n2. Automated Testing:\n   - Create a dedicated test workflow in GitHub Actions that uses pnpm\n   - Run the full test suite using pnpm to install dependencies\n   - Verify all tests pass with the same results as npm/yarn\n\n3. Documentation Testing:\n   - Review all documentation to ensure pnpm commands are correctly documented\n   - Verify installation instructions work as written\n   - Test any pnpm-specific instructions or notes\n\n4. Compatibility Testing:\n   - Test on different operating systems (Windows, macOS, Linux)\n   - Verify compatibility with different pnpm versions (latest stable and LTS)\n   - Test in environments with multiple package managers installed\n\n5. Edge Case Testing:\n   - Test installation in a project that uses pnpm workspaces\n   - Verify behavior when upgrading from an npm/yarn installation to pnpm\n   - Test with pnpm's various flags and modes (--frozen-lockfile, --strict-peer-dependencies)\n\n6. Performance Comparison:\n   - Measure and document any performance differences between package managers\n   - Compare installation times and disk space usage\n\nSuccess criteria: Taskmaster should install and function identically regardless of whether it was installed via npm, yarn, or pnpm, with no degradation in functionality or performance.",
+      "status": "pending",
+      "dependencies": [],
+      "priority": "medium",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Update Documentation for pnpm Support",
+          "description": "Revise installation and usage documentation to include pnpm commands and instructions for installing and managing Taskmaster with pnpm.",
+          "dependencies": [],
+          "details": "Add pnpm installation commands (e.g., `pnpm add taskmaster`) and update all relevant sections in the README and official docs to reflect pnpm as a supported package manager.",
+          "status": "pending",
+          "testStrategy": "Verify that documentation changes are clear, accurate, and render correctly in all documentation formats."
+        },
+        {
+          "id": 2,
+          "title": "Ensure Package Scripts Compatibility with pnpm",
+          "description": "Review and update package.json scripts to ensure they work seamlessly with pnpm's execution model.",
+          "dependencies": [
+            1
+          ],
+          "details": "Test all scripts using `pnpm run <script>`, address any pnpm-specific path or execution differences, and modify scripts as needed for compatibility.",
+          "status": "pending",
+          "testStrategy": "Run all package scripts using pnpm and confirm expected behavior matches npm/yarn."
+        },
+        {
+          "id": 3,
+          "title": "Generate and Validate pnpm Lockfile",
+          "description": "Install dependencies using pnpm to create a pnpm-lock.yaml file and ensure it accurately reflects the project's dependency tree.",
+          "dependencies": [
+            2
+          ],
+          "details": "Run `pnpm install` to generate the lockfile, check it into version control, and verify that dependency resolution is correct and consistent.",
+          "status": "pending",
+          "testStrategy": "Compare dependency trees between npm/yarn and pnpm; ensure no missing or extraneous dependencies."
+        },
+        {
+          "id": 4,
+          "title": "Test Taskmaster Installation and Operation with pnpm",
+          "description": "Thoroughly test Taskmaster's installation and CLI operation when installed via pnpm, both globally and locally.",
+          "dependencies": [
+            3
+          ],
+          "details": "Perform global (`pnpm add -g taskmaster`) and local installations, verify CLI commands, and check for any pnpm-specific issues or incompatibilities.",
+          "status": "pending",
+          "testStrategy": "Document and resolve any errors encountered during installation or usage with pnpm."
+        },
+        {
+          "id": 5,
+          "title": "Integrate pnpm into CI/CD Pipeline",
+          "description": "Update CI/CD workflows to include pnpm in the test matrix, ensuring all tests pass when dependencies are installed with pnpm.",
+          "dependencies": [
+            4
+          ],
+          "details": "Modify GitHub Actions or other CI configurations to use pnpm/action-setup, run tests with pnpm, and cache pnpm dependencies for efficiency.",
+          "status": "pending",
+          "testStrategy": "Confirm that CI passes for all supported package managers, including pnpm, and that pnpm-specific jobs are green."
+        }
+      ]
+    },
+    {
+      "id": 64,
+      "title": "Add Yarn Support for Taskmaster Installation",
+      "description": "Implement full support for installing and managing Taskmaster using Yarn package manager, providing users with an alternative to npm and pnpm.",
+      "details": "This task involves adding comprehensive Yarn support to the Taskmaster package to ensure it can be properly installed and managed using Yarn. Implementation should include:\n\n1. Update package.json to ensure compatibility with Yarn installation methods\n2. Verify all scripts and dependencies work correctly with Yarn\n3. Add Yarn-specific configuration files (e.g., .yarnrc.yml if needed)\n4. Update installation documentation to include Yarn installation instructions\n5. Ensure all post-install scripts work correctly with Yarn\n6. Verify that all CLI commands function properly when installed via Yarn\n7. Handle any Yarn-specific package resolution or hoisting issues\n8. Test compatibility with different Yarn versions (classic and berry/v2+)\n9. Ensure proper lockfile generation and management\n10. Update any package manager detection logic in the codebase to recognize Yarn installations\n\nThe implementation should maintain feature parity regardless of which package manager (npm, pnpm, or Yarn) is used to install Taskmaster.",
+      "testStrategy": "Testing should verify complete Yarn support through the following steps:\n\n1. Fresh installation tests:\n   - Install Taskmaster using `yarn add taskmaster` (global and local installations)\n   - Verify installation completes without errors\n   - Check that all binaries and executables are properly linked\n\n2. Functionality tests:\n   - Run all Taskmaster commands on a Yarn-installed version\n   - Verify all features work identically to npm/pnpm installations\n   - Test with both Yarn v1 (classic) and Yarn v2+ (berry)\n\n3. Update/uninstall tests:\n   - Test updating the package using Yarn commands\n   - Verify clean uninstallation using Yarn\n\n4. CI integration:\n   - Add Yarn installation tests to CI pipeline\n   - Test on different operating systems (Windows, macOS, Linux)\n\n5. Documentation verification:\n   - Ensure all documentation accurately reflects Yarn installation methods\n   - Verify any Yarn-specific commands or configurations are properly documented\n\n6. Edge cases:\n   - Test installation in monorepo setups using Yarn workspaces\n   - Verify compatibility with other Yarn-specific features (plug'n'play, zero-installs)\n\nAll tests should pass with the same results as when using npm or pnpm.",
+      "status": "pending",
+      "dependencies": [],
+      "priority": "medium",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Update package.json for Yarn Compatibility",
+          "description": "Modify the package.json file to ensure all dependencies, scripts, and configurations are compatible with Yarn's installation and resolution methods.",
+          "dependencies": [],
+          "details": "Review and update dependency declarations, script syntax, and any package manager-specific fields to avoid conflicts or unsupported features when using Yarn.",
+          "status": "pending",
+          "testStrategy": "Run 'yarn install' and 'yarn run <script>' for all scripts to confirm successful execution and dependency resolution."
+        },
+        {
+          "id": 2,
+          "title": "Add Yarn-Specific Configuration Files",
+          "description": "Introduce Yarn-specific configuration files such as .yarnrc.yml if needed to optimize Yarn behavior and ensure consistent installs.",
+          "dependencies": [
+            1
+          ],
+          "details": "Determine if Yarn v2+ (Berry) or classic requires additional configuration for the project, and add or update .yarnrc.yml or .yarnrc files accordingly.",
+          "status": "pending",
+          "testStrategy": "Verify that Yarn respects the configuration by running installs and checking for expected behaviors (e.g., plug'n'play, nodeLinker settings)."
+        },
+        {
+          "id": 3,
+          "title": "Test and Fix Yarn Compatibility for Scripts and CLI",
+          "description": "Ensure all scripts, post-install hooks, and CLI commands function correctly when Taskmaster is installed and managed via Yarn.",
+          "dependencies": [
+            2
+          ],
+          "details": "Test all lifecycle scripts, post-install actions, and CLI commands using Yarn. Address any issues related to environment variables, script execution, or dependency hoisting.",
+          "status": "pending",
+          "testStrategy": "Install Taskmaster using Yarn and run all documented scripts and CLI commands, comparing results to npm/pnpm installations."
+        },
+        {
+          "id": 4,
+          "title": "Update Documentation for Yarn Installation and Usage",
+          "description": "Revise installation and usage documentation to include clear instructions for installing and managing Taskmaster with Yarn.",
+          "dependencies": [
+            3
+          ],
+          "details": "Add Yarn-specific installation commands, troubleshooting tips, and notes on version compatibility to the README and any relevant docs.",
+          "status": "pending",
+          "testStrategy": "Review documentation for accuracy and clarity; have a user follow the Yarn instructions to verify successful installation and usage."
+        },
+        {
+          "id": 5,
+          "title": "Implement and Test Package Manager Detection Logic",
+          "description": "Update or add logic in the codebase to detect Yarn installations and handle Yarn-specific behaviors, ensuring feature parity across package managers.",
+          "dependencies": [
+            4
+          ],
+          "details": "Modify detection logic to recognize Yarn (classic and berry), handle lockfile generation, and resolve any Yarn-specific package resolution or hoisting issues.",
+          "status": "pending",
+          "testStrategy": "Install Taskmaster using npm, pnpm, and Yarn (classic and berry), verifying that the application detects the package manager correctly and behaves consistently."
+        }
+      ]
     }
   ]
 }

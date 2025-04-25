@@ -1,0 +1,84 @@
+# Task ID: 64
+# Title: Add Yarn Support for Taskmaster Installation
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Implement full support for installing and managing Taskmaster using Yarn package manager, providing users with an alternative to npm and pnpm.
+# Details:
+This task involves adding comprehensive Yarn support to the Taskmaster package to ensure it can be properly installed and managed using Yarn. Implementation should include:
+
+1. Update package.json to ensure compatibility with Yarn installation methods
+2. Verify all scripts and dependencies work correctly with Yarn
+3. Add Yarn-specific configuration files (e.g., .yarnrc.yml if needed)
+4. Update installation documentation to include Yarn installation instructions
+5. Ensure all post-install scripts work correctly with Yarn
+6. Verify that all CLI commands function properly when installed via Yarn
+7. Handle any Yarn-specific package resolution or hoisting issues
+8. Test compatibility with different Yarn versions (classic and berry/v2+)
+9. Ensure proper lockfile generation and management
+10. Update any package manager detection logic in the codebase to recognize Yarn installations
+
+The implementation should maintain feature parity regardless of which package manager (npm, pnpm, or Yarn) is used to install Taskmaster.
+
+# Test Strategy:
+Testing should verify complete Yarn support through the following steps:
+
+1. Fresh installation tests:
+   - Install Taskmaster using `yarn add taskmaster` (global and local installations)
+   - Verify installation completes without errors
+   - Check that all binaries and executables are properly linked
+
+2. Functionality tests:
+   - Run all Taskmaster commands on a Yarn-installed version
+   - Verify all features work identically to npm/pnpm installations
+   - Test with both Yarn v1 (classic) and Yarn v2+ (berry)
+
+3. Update/uninstall tests:
+   - Test updating the package using Yarn commands
+   - Verify clean uninstallation using Yarn
+
+4. CI integration:
+   - Add Yarn installation tests to CI pipeline
+   - Test on different operating systems (Windows, macOS, Linux)
+
+5. Documentation verification:
+   - Ensure all documentation accurately reflects Yarn installation methods
+   - Verify any Yarn-specific commands or configurations are properly documented
+
+6. Edge cases:
+   - Test installation in monorepo setups using Yarn workspaces
+   - Verify compatibility with other Yarn-specific features (plug'n'play, zero-installs)
+
+All tests should pass with the same results as when using npm or pnpm.
+
+# Subtasks:
+## 1. Update package.json for Yarn Compatibility [pending]
+### Dependencies: None
+### Description: Modify the package.json file to ensure all dependencies, scripts, and configurations are compatible with Yarn's installation and resolution methods.
+### Details:
+Review and update dependency declarations, script syntax, and any package manager-specific fields to avoid conflicts or unsupported features when using Yarn.
+
+## 2. Add Yarn-Specific Configuration Files [pending]
+### Dependencies: 64.1
+### Description: Introduce Yarn-specific configuration files such as .yarnrc.yml if needed to optimize Yarn behavior and ensure consistent installs.
+### Details:
+Determine if Yarn v2+ (Berry) or classic requires additional configuration for the project, and add or update .yarnrc.yml or .yarnrc files accordingly.
+
+## 3. Test and Fix Yarn Compatibility for Scripts and CLI [pending]
+### Dependencies: 64.2
+### Description: Ensure all scripts, post-install hooks, and CLI commands function correctly when Taskmaster is installed and managed via Yarn.
+### Details:
+Test all lifecycle scripts, post-install actions, and CLI commands using Yarn. Address any issues related to environment variables, script execution, or dependency hoisting.
+
+## 4. Update Documentation for Yarn Installation and Usage [pending]
+### Dependencies: 64.3
+### Description: Revise installation and usage documentation to include clear instructions for installing and managing Taskmaster with Yarn.
+### Details:
+Add Yarn-specific installation commands, troubleshooting tips, and notes on version compatibility to the README and any relevant docs.
+
+## 5. Implement and Test Package Manager Detection Logic [pending]
+### Dependencies: 64.4
+### Description: Update or add logic in the codebase to detect Yarn installations and handle Yarn-specific behaviors, ensuring feature parity across package managers.
+### Details:
+Modify detection logic to recognize Yarn (classic and berry), handle lockfile generation, and resolve any Yarn-specific package resolution or hoisting issues.
+

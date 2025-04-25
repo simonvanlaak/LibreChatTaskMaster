@@ -1819,7 +1819,7 @@ This piecemeal approach aims to establish the refactoring pattern before tacklin
 ### Details:
 
 
-## 36. Refactor analyze-task-complexity.js for Unified AI Service & Config [in-progress]
+## 36. Refactor analyze-task-complexity.js for Unified AI Service & Config [done]
 ### Dependencies: None
 ### Description: Replace direct AI calls with `generateObjectService` from `ai-services-unified.js`. Pass `role` and `session`. Remove direct config getter usage (from `config-manager.js`) for AI parameters; use unified service instead. Keep config getters needed for report metadata (`getProjectName`, `getDefaultSubtasks`).
 ### Details:
@@ -1896,7 +1896,7 @@ This piecemeal approach aims to establish the refactoring pattern before tacklin
 These enhancements will ensure the refactored code is modular, maintainable, and fully decoupled from AI implementation details, aligning with modern refactoring best practices[1][3][5].
 </info added on 2025-04-24T17:45:51.956Z>
 
-## 37. Refactor expand-task.js for Unified AI Service & Config [pending]
+## 37. Refactor expand-task.js for Unified AI Service & Config [done]
 ### Dependencies: None
 ### Description: Replace direct AI calls (old `ai-services.js` helpers like `generateSubtasksWithPerplexity`) with `generateObjectService` from `ai-services-unified.js`. Pass `role` and `session`. Remove direct config getter usage (from `config-manager.js`) for AI parameters; use unified service instead. Keep `getDefaultSubtasks` usage.
 ### Details:

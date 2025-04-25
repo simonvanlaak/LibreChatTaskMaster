@@ -77,6 +77,7 @@ import {
 	getAvailableModelsList,
 	setModel
 } from './task-manager/models.js'; // Import new core functions
+import { findProjectRoot } from './utils.js';
 
 /**
  * Configure and register CLI commands
@@ -643,95 +644,76 @@ function registerCommands(programInstance) {
 	// expand command
 	programInstance
 		.command('expand')
-		.description('Break down tasks into detailed subtasks')
-		.option('-f, --file <file>', 'Path to the tasks file', 'tasks/tasks.json')
-		.option('-i, --id <id>', 'Task ID to expand')
-		.option('-a, --all', 'Expand all tasks')
+		.description('Expand a task into subtasks using AI')
+		.option('-i, --id <id>', 'ID of the task to expand')
+		.option(
+			'-a, --all',
+			'Expand all pending tasks based on complexity analysis'
+		)
 		.option(
 			'-n, --num <number>',
-			'Number of subtasks to generate (default from config)',
-			'5' // Set a simple string default here
+			'Number of subtasks to generate (uses complexity analysis by default if available)'
 		)
 		.option(
-			'--research',
-			'Enable Perplexity AI for research-backed subtask generation'
+			'-r, --research',
+			'Enable research-backed generation (e.g., using Perplexity)',
+			false
 		)
+		.option('-p, --prompt <text>', 'Additional context for subtask generation')
+		.option('-f, --force', 'Force expansion even if subtasks exist', false) // Ensure force option exists
 		.option(
-			'-p, --prompt <text>',
-			'Additional context to guide subtask generation'
-		)
-		.option(
-			'--force',
-			'Force regeneration of subtasks for tasks that already have them'
-		)
+			'--file <file>',
+			'Path to the tasks file (relative to project root)',
+			'tasks/tasks.json'
+		) // Allow file override
 		.action(async (options) => {
-			const idArg = options.id;
-			// Get the actual default if the user didn't provide --num
-			const numSubtasks =
-				options.num === '5'
-					? getDefaultSubtasks(null)
-					: parseInt(options.num, 10);
-			const useResearch = options.research || false;
-			const additionalContext = options.prompt || '';
-			const forceFlag = options.force || false;
-			const tasksPath = options.file || 'tasks/tasks.json';
+			const projectRoot = findProjectRoot();
+			if (!projectRoot) {
+				console.error(chalk.red('Error: Could not find project root.'));
+				process.exit(1);
+			}
+			const tasksPath = path.resolve(projectRoot, options.file); // Resolve tasks path
 
 			if (options.all) {
+				// --- Handle expand --all ---
+				// This currently calls expandAllTasks. If expandAllTasks internally calls
+				// the refactored expandTask, it needs to be updated to pass the empty context {}.
+				// For now, we assume expandAllTasks needs its own refactor (Subtask 61.38).
+				// We'll add a placeholder log here.
 				console.log(
-					chalk.blue(`Expanding all tasks with ${numSubtasks} subtasks each...`)
+					chalk.blue(
+						'Expanding all pending tasks... (Requires expand-all-tasks.js refactor)'
+					)
 				);
-				if (useResearch) {
-					console.log(
-						chalk.blue(
-							'Using Perplexity AI for research-backed subtask generation'
-						)
+				// Placeholder: await expandAllTasks(tasksPath, options.num, options.research, options.prompt, options.force, {});
+			} else if (options.id) {
+				// --- Handle expand --id <id> ---
+				if (!options.id) {
+					console.error(
+						chalk.red('Error: Task ID is required unless using --all.')
 					);
-				} else {
-					console.log(
-						chalk.yellow('Research-backed subtask generation disabled')
-					);
+					process.exit(1);
 				}
-				if (additionalContext) {
-					console.log(chalk.blue(`Additional context: "${additionalContext}"`));
-				}
-				await expandAllTasks(
-					tasksPath,
-					numSubtasks,
-					useResearch,
-					additionalContext,
-					forceFlag
-				);
-			} else if (idArg) {
-				console.log(
-					chalk.blue(`Expanding task ${idArg} with ${numSubtasks} subtasks...`)
-				);
-				if (useResearch) {
-					console.log(
-						chalk.blue(
-							'Using Perplexity AI for research-backed subtask generation'
-						)
-					);
-				} else {
-					console.log(
-						chalk.yellow('Research-backed subtask generation disabled')
-					);
-				}
-				if (additionalContext) {
-					console.log(chalk.blue(`Additional context: "${additionalContext}"`));
-				}
+
+				console.log(chalk.blue(`Expanding task ${options.id}...`));
+
+				// Call the refactored expandTask function
 				await expandTask(
 					tasksPath,
-					idArg,
-					numSubtasks,
-					useResearch,
-					additionalContext
+					options.id,
+					options.num, // Pass num (core function handles default)
+					options.research,
+					options.prompt,
+					// Pass empty context for CLI calls
+					{}
+					// Note: The 'force' flag is now primarily handled by the Direct Function Wrapper
+					// based on pre-checks, but the core function no longer explicitly needs it.
 				);
 			} else {
 				console.error(
-					chalk.red(
-						'Error: Please specify a task ID with --id=<id> or use --all to expand all tasks.'
-					)
+					chalk.red('Error: You must specify either a task ID (--id) or --all.')
 				);
+				programInstance.help(); // Show help
 			}
 		});
 
