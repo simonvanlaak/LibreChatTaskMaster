@@ -52,6 +52,9 @@ task-master show 1.2
 ```bash
 # Update tasks from a specific ID and provide context
 task-master update --from=<id> --prompt="<prompt>"
+
+# Update tasks using research role
+task-master update --from=<id> --prompt="<prompt>" --research
 ```
 
 ## Update a Specific Task
@@ -60,7 +63,7 @@ task-master update --from=<id> --prompt="<prompt>"
 # Update a single task by ID with new information
 task-master update-task --id=<id> --prompt="<prompt>"
 
-# Use research-backed updates with Perplexity AI
+# Use research-backed updates
 task-master update-task --id=<id> --prompt="<prompt>" --research
 ```
 
@@ -73,7 +76,7 @@ task-master update-subtask --id=<parentId.subtaskId> --prompt="<prompt>"
 # Example: Add details about API rate limiting to subtask 2 of task 5
 task-master update-subtask --id=5.2 --prompt="Add rate limiting of 100 requests per minute"
 
-# Use research-backed updates with Perplexity AI
+# Use research-backed updates
 task-master update-subtask --id=<parentId.subtaskId> --prompt="<prompt>" --research
 ```
 
@@ -187,8 +190,11 @@ task-master fix-dependencies
 ## Add a New Task
 
 ```bash
-# Add a new task using AI
+# Add a new task using AI (main role)
 task-master add-task --prompt="Description of the new task"
+
+# Add a new task using AI (research role)
+task-master add-task --prompt="Description of the new task" --research
 
 # Add a task with dependencies
 task-master add-task --prompt="Description" --dependencies=1,2,3

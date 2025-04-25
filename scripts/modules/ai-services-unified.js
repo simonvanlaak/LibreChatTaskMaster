@@ -77,17 +77,17 @@ function _resolveApiKey(providerName, session) {
 		anthropic: 'ANTHROPIC_API_KEY',
 		google: 'GOOGLE_API_KEY',
 		perplexity: 'PERPLEXITY_API_KEY',
-		grok: 'GROK_API_KEY',
 		mistral: 'MISTRAL_API_KEY',
 		azure: 'AZURE_OPENAI_API_KEY',
 		openrouter: 'OPENROUTER_API_KEY',
-		xai: 'XAI_API_KEY'
-		// ollama doesn't need an API key mapped here
+		xai: 'XAI_API_KEY',
+		ollama: 'OLLAMA_API_KEY'
 	};
 
-	if (providerName === 'ollama') {
-		return null; // Ollama typically doesn't require an API key for basic setup
-	}
+	// Double check this -- I have had to use an api key for ollama in the past
+	// if (providerName === 'ollama') {
+	// 	return null; // Ollama typically doesn't require an API key for basic setup
+	// }
 
 	const envVarName = keyMap[providerName];
 	if (!envVarName) {

@@ -27,21 +27,22 @@ npm i -g task-master-ai
 			"env": {
 				"ANTHROPIC_API_KEY": "YOUR_ANTHROPIC_API_KEY_HERE",
 				"PERPLEXITY_API_KEY": "YOUR_PERPLEXITY_API_KEY_HERE",
-				"MODEL": "claude-3-7-sonnet-20250219",
-				"PERPLEXITY_MODEL": "sonar-pro",
-				"MAX_TOKENS": 64000,
-				"TEMPERATURE": 0.2,
-				"DEFAULT_SUBTASKS": 5,
-				"DEFAULT_PRIORITY": "medium"
+				"OPENAI_API_KEY": "YOUR_OPENAI_KEY_HERE",
+				"GOOGLE_API_KEY": "YOUR_GOOGLE_KEY_HERE",
+				"MISTRAL_API_KEY": "YOUR_MISTRAL_KEY_HERE",
+				"OPENROUTER_API_KEY": "YOUR_OPENROUTER_KEY_HERE",
+				"XAI_API_KEY": "YOUR_XAI_KEY_HERE",
+				"AZURE_OPENAI_API_KEY": "YOUR_AZURE_KEY_HERE",
+				"OLLAMA_API_KEY": "YOUR_OLLAMA_KEY_HERE"
 			}
 		}
 	}
 }
 ```
 
-2. **Enable the MCP** in your editor settings
+3. **Enable the MCP** in your editor settings
 
-3. **Prompt the AI** to initialize Task Master:
+4. **Prompt the AI** to initialize Task Master:
 
 ```
 Can you please initialize taskmaster-ai into my project?
@@ -53,9 +54,9 @@ The AI will:
 - Set up initial configuration files
 - Guide you through the rest of the process
 
-4. Place your PRD document in the `scripts/` directory (e.g., `scripts/prd.txt`)
+5. Place your PRD document in the `scripts/` directory (e.g., `scripts/prd.txt`)
 
-5. **Use natural language commands** to interact with Task Master:
+6. **Use natural language commands** to interact with Task Master:
 
 ```
 Can you parse my PRD at scripts/prd.txt?
@@ -247,13 +248,16 @@ If during implementation, you discover that:
 Tell the agent:
 
 ```
-We've changed our approach. We're now using Express instead of Fastify. Please update all future tasks to reflect this change.
+We've decided to use MongoDB instead of PostgreSQL. Can you update all future tasks (from ID 4) to reflect this change?
 ```
 
 The agent will execute:
 
 ```bash
-task-master update --from=4 --prompt="Now we are using Express instead of Fastify."
+task-master update --from=4 --prompt="Now we are using MongoDB instead of PostgreSQL."
+
+# OR, if research is needed to find best practices for MongoDB:
+task-master update --from=4 --prompt="Update to use MongoDB, researching best practices" --research
 ```
 
 This will rewrite or re-scope subsequent tasks in tasks.json while preserving completed work.
@@ -296,7 +300,7 @@ The agent will execute:
 task-master expand --all
 ```
 
-For research-backed subtask generation using Perplexity AI:
+For research-backed subtask generation using the configured research model:
 
 ```
 Please break down task 5 using research-backed generation.

@@ -376,11 +376,11 @@ function isApiKeySet(providerName, session = null) {
 		anthropic: 'ANTHROPIC_API_KEY',
 		google: 'GOOGLE_API_KEY',
 		perplexity: 'PERPLEXITY_API_KEY',
-		grok: 'GROK_API_KEY', // Assuming GROK_API_KEY based on env.example
 		mistral: 'MISTRAL_API_KEY',
 		azure: 'AZURE_OPENAI_API_KEY', // Azure needs endpoint too, but key presence is a start
 		openrouter: 'OPENROUTER_API_KEY',
-		xai: 'XAI_API_KEY'
+		xai: 'XAI_API_KEY',
+		ollama: 'OLLAMA_API_KEY'
 		// Add other providers as needed
 	};
 
@@ -435,9 +435,12 @@ function getMcpApiKeyStatus(providerName) {
 				placeholderValue = 'YOUR_ANTHROPIC_API_KEY_HERE';
 				break;
 			case 'openai':
-			case 'openrouter':
 				apiKeyToCheck = mcpEnv.OPENAI_API_KEY;
 				placeholderValue = 'YOUR_OPENAI_API_KEY_HERE'; // Assuming placeholder matches OPENAI
+				break;
+			case 'openrouter':
+				apiKeyToCheck = mcpEnv.OPENROUTER_API_KEY;
+				placeholderValue = 'YOUR_OPENROUTER_API_KEY_HERE';
 				break;
 			case 'google':
 				apiKeyToCheck = mcpEnv.GOOGLE_API_KEY;
@@ -447,13 +450,19 @@ function getMcpApiKeyStatus(providerName) {
 				apiKeyToCheck = mcpEnv.PERPLEXITY_API_KEY;
 				placeholderValue = 'YOUR_PERPLEXITY_API_KEY_HERE';
 				break;
-			case 'grok':
 			case 'xai':
-				apiKeyToCheck = mcpEnv.GROK_API_KEY;
-				placeholderValue = 'YOUR_GROK_API_KEY_HERE';
+				apiKeyToCheck = mcpEnv.XAI_API_KEY;
+				placeholderValue = 'YOUR_XAI_API_KEY_HERE';
 				break;
 			case 'ollama':
 				return true; // No key needed
+			case 'mistral':
+				apiKeyToCheck = mcpEnv.MISTRAL_API_KEY;
+				placeholderValue = 'YOUR_MISTRAL_API_KEY_HERE';
+				break;
+			case 'azure':
+				apiKeyToCheck = mcpEnv.AZURE_OPENAI_API_KEY;
+				placeholderValue = 'YOUR_AZURE_OPENAI_API_KEY_HERE';
 			default:
 				return false; // Unknown provider
 		}

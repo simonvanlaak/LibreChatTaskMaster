@@ -3,7 +3,6 @@ description: Guidelines for implementing utility functions
 globs: scripts/modules/utils.js, mcp-server/src/**/*
 alwaysApply: false
 ---
-
 # Utility Function Guidelines
 
 ## General Principles
@@ -85,24 +84,24 @@ Taskmaster configuration (excluding API keys) is primarily managed through the `
 
 - **`.taskmasterconfig` File**:
   - ✅ DO: Use this JSON file to store settings like AI model selections (main, research, fallback), parameters (temperature, maxTokens), logging level, default priority/subtasks, etc.
-  - ✅ DO: Manage this file using the `task-master models --setup` command.
-  - ✅ DO: Rely on [`config-manager.js`](mdc:scripts/modules/config-manager.js) to load this file, merge with defaults, and provide validated settings.
+  - ✅ DO: Manage this file using the `task-master models --setup` CLI command or the `models` MCP tool.
+  - ✅ DO: Rely on [`config-manager.js`](mdc:scripts/modules/config-manager.js) to load this file (using the correct project root passed from MCP or found via CLI utils), merge with defaults, and provide validated settings.
   - ❌ DON'T: Store API keys in this file.
-  - ❌ DON'T: Rely on the old `CONFIG` object previously defined in `utils.js`.
+  - ❌ DON'T: Manually edit this file unless necessary.
 
 - **Configuration Getters (`config-manager.js`)**:
-  - ✅ DO: Import and use specific getters from `config-manager.js` (e.g., `getMainProvider()`, `getLogLevel()`, `getMainMaxTokens()`) to access configuration values.
-  - ✅ DO: Pass the optional `explicitRoot` parameter to getters if you need to load config from a specific project path (mainly relevant for MCP direct functions).
+  - ✅ DO: Import and use specific getters from `config-manager.js` (e.g., `getMainProvider()`, `getLogLevel()`, `getMainMaxTokens()`) to access configuration values *needed for application logic* (like `getDefaultSubtasks`).
+  - ✅ DO: Pass the `explicitRoot` parameter to getters if calling from MCP direct functions to ensure the correct project's config is loaded.
+  - ❌ DON'T: Call AI-specific getters (like `getMainModelId`, `getMainMaxTokens`) from core logic functions (`scripts/modules/task-manager/*`). Instead, pass the `role` to the unified AI service.
   - ❌ DON'T: Access configuration values directly from environment variables (except API keys).
-  - ❌ DON'T: Use the now-removed `CONFIG` object from `utils.js`.
 
-- **API Key Handling (`utils.js` & `config-manager.js`)**:
-  - ✅ DO: Store API keys **only** in `.env` (for CLI) or `.cursor/mcp.json` (for MCP).
-  - ✅ DO: Use `isApiKeySet(providerName, session)` from `config-manager.js` to check if a provider's key is available.
-  - ✅ DO: Internally, API keys are resolved using `resolveEnvVariable(key, session)` (from `utils.js`), which checks `process.env` and `session.env`.
+- **API Key Handling (`utils.js` & `ai-services-unified.js`)**:
+  - ✅ DO: Store API keys **only** in `.env` (for CLI, loaded by `dotenv` in `scripts/dev.js`) or `.cursor/mcp.json` (for MCP, accessed via `session.env`).
+  - ✅ DO: Use `isApiKeySet(providerName, session)` from `config-manager.js` to check if a provider's key is available *before* potentially attempting an AI call if needed, but note the unified service performs its own internal check.
+  - ✅ DO: Understand that the unified service layer (`ai-services-unified.js`) internally resolves API keys using `resolveEnvVariable(key, session)` from `utils.js`.
 
 - **Error Handling**:
-  - ✅ DO: Be prepared to handle `ConfigurationError` if the `.taskmasterconfig` file is missing (see `runCLI` in [`commands.js`](mdc:scripts/modules/commands.js) for example).
+  - ✅ DO: Handle potential `ConfigurationError` if the `.taskmasterconfig` file is missing or invalid when accessed via `getConfig` (e.g., in `commands.js` or direct functions).
 
 ## Logging Utilities (in `scripts/modules/utils.js`)
 
@@ -512,11 +511,6 @@ export {
   processMCPResponseData,
   createContentResponse,
   createErrorResponse,
-  getCachedOrExecute
-};
-```
-
-Refer to [`mcp.mdc`](mdc:.cursor/rules/mcp.mdc) and [`architecture.mdc`](mdc:.cursor/rules/architecture.mdc) for more context on MCP server architecture and integration. 
   getCachedOrExecute
 };
 ```

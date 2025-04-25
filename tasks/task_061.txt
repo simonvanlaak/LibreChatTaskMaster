@@ -87,7 +87,7 @@ const clients = {
   gemini: createClient({ provider: 'gemini', apiKey: process.env.GEMINI_API_KEY }),
   openrouter: createClient({ provider: 'openrouter', apiKey: process.env.OPENROUTER_API_KEY }),
   perplexity: createClient({ provider: 'perplexity', apiKey: process.env.PERPLEXITY_API_KEY }),
-  grok: createClient({ provider: 'grok', apiKey: process.env.GROK_API_KEY })
+  grok: createClient({ provider: 'xai', apiKey: process.env.XAI_API_KEY })
 };
 
 export function getClient(model) {
@@ -364,7 +364,7 @@ function validateEnvironment(provider) {
     perplexity: ['PERPLEXITY_API_KEY'],
     openrouter: ['OPENROUTER_API_KEY'],
     ollama: ['OLLAMA_BASE_URL'],
-    grok: ['GROK_API_KEY', 'GROK_BASE_URL']
+    xai: ['XAI_API_KEY']
   };
   
   const missing = requirements[provider]?.filter(env => !process.env[env]) || [];
@@ -642,7 +642,7 @@ When implementing the refactored research processing logic, ensure the following
    ```
 </info added on 2025-04-20T03:55:39.633Z>
 
-## 10. Create Comprehensive Documentation and Examples [pending]
+## 10. Create Comprehensive Documentation and Examples [done]
 ### Dependencies: 61.6, 61.7, 61.8, 61.9
 ### Description: Develop comprehensive documentation for the new model management features, including examples, troubleshooting guides, and best practices.
 ### Details:
@@ -1720,7 +1720,7 @@ The new AI architecture introduces a clear separation between sensitive credenti
 - Add a configuration validation section explaining how the system verifies settings
 </info added on 2025-04-20T03:51:04.461Z>
 
-## 33. Cleanup Old AI Service Files [pending]
+## 33. Cleanup Old AI Service Files [done]
 ### Dependencies: 61.31, 61.32
 ### Description: After all other migration subtasks (refactoring, provider implementation, testing, documentation) are complete and verified, remove the old `ai-services.js` and `ai-client-factory.js` files from the `scripts/modules/` directory. Ensure no code still references them.
 ### Details:
@@ -2158,6 +2158,12 @@ These enhancements ensure robust validation, unified service usage, and maintain
 ## 43. Remove all unnecessary console logs [pending]
 ### Dependencies: None
 ### Description: 
+### Details:
+
+
+## 44. Add setters for temperature, max tokens on per role basis. [pending]
+### Dependencies: None
+### Description: NOT per model/provider basis though we could probably just define those in the .taskmasterconfig file but then they would be hard-coded. if we let users define them on a per role basis, they will define incorrect values. maybe a good middle ground is to do both - we enforce maximum using known max tokens for input and output at the .taskmasterconfig level but then we also give setters to adjust temp/input tokens/output tokens for each of the 3 roles.
 ### Details:
 
 
