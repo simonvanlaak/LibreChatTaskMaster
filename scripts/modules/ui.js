@@ -9,21 +9,11 @@ import boxen from 'boxen';
 import ora from 'ora';
 import Table from 'cli-table3';
 import gradient from 'gradient-string';
-import {
-	log,
-	findTaskById,
-	readJSON,
-	readComplexityReport,
-	truncate
-} from './utils.js';
+import { log, findTaskById, readJSON, truncate } from './utils.js';
 import path from 'path';
 import fs from 'fs';
 import { findNextTask, analyzeTaskComplexity } from './task-manager.js';
-import {
-	getProjectName,
-	getDebugFlag,
-	getDefaultSubtasks
-} from './config-manager.js';
+import { getProjectName, getDefaultSubtasks } from './config-manager.js';
 
 // Create a color gradient for the banner
 const coolGradient = gradient(['#00b4d8', '#0077b6', '#03045e']);

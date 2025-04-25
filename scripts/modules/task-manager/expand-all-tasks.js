@@ -1,6 +1,4 @@
-import fs from 'fs';
-import path from 'path';
-import { log, readJSON, writeJSON, isSilentMode } from '../utils.js';
+import { log, readJSON, isSilentMode } from '../utils.js';
 import { startLoadingIndicator, stopLoadingIndicator } from '../ui.js';
 import expandTask from './expand-task.js';
 import { getDebugFlag } from '../config-manager.js';

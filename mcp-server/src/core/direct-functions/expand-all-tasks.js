@@ -8,8 +8,6 @@ import {
 	disableSilentMode,
 	isSilentMode
 } from '../../../../scripts/modules/utils.js';
-import path from 'path';
-import fs from 'fs';
 
 /**
  * Expand all pending tasks with subtasks (Direct Function Wrapper)

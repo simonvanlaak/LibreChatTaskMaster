@@ -3421,7 +3421,7 @@
           "title": "Remove all unused imports",
           "description": "",
           "details": "",
-          "status": "pending",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 61
         },
@@ -3439,6 +3439,15 @@
           "title": "Add setters for temperature, max tokens on per role basis.",
           "description": "NOT per model/provider basis though we could probably just define those in the .taskmasterconfig file but then they would be hard-coded. if we let users define them on a per role basis, they will define incorrect values. maybe a good middle ground is to do both - we enforce maximum using known max tokens for input and output at the .taskmasterconfig level but then we also give setters to adjust temp/input tokens/output tokens for each of the 3 roles.",
           "details": "",
+          "status": "pending",
+          "dependencies": [],
+          "parentTaskId": 61
+        },
+        {
+          "id": 45,
+          "title": "Add support for Bedrock provider with ai sdk and unified service",
+          "description": "",
+          "details": "\n\n<info added on 2025-04-25T19:03:42.584Z>\n- Install the Bedrock provider for the AI SDK using your package manager (e.g., npm i @ai-sdk/amazon-bedrock) and ensure the core AI SDK is present[3][4].\n\n- To integrate with your existing config manager, externalize all Bedrock-specific configuration (such as region, model name, and credential provider) into your config management system. For example, store values like region (\"us-east-1\") and model identifier (\"meta.llama3-8b-instruct-v1:0\") in your config files or environment variables, and load them at runtime.\n\n- For credentials, leverage the AWS SDK credential provider chain to avoid hardcoding secrets. Use the @aws-sdk/credential-providers package and pass a credentialProvider (e.g., fromNodeProviderChain()) to the Bedrock provider. This allows your config manager to control credential sourcing via environment, profiles, or IAM roles, consistent with other AWS integrations[1].\n\n- Example integration with config manager:\n  ```js\n  import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';\n  import { fromNodeProviderChain } from '@aws-sdk/credential-providers';\n\n  // Assume configManager.get returns your config values\n  const region = configManager.get('bedrock.region');\n  const model = configManager.get('bedrock.model');\n\n  const bedrock = createAmazonBedrock({\n    region,\n    credentialProvider: fromNodeProviderChain(),\n  });\n\n  // Use with AI SDK methods\n  const { text } = await generateText({\n    model: bedrock(model),\n    prompt: 'Your prompt here',\n  });\n  ```\n\n- If your config manager supports dynamic provider selection, you can abstract the provider initialization so switching between Bedrock and other providers (like OpenAI or Anthropic) is seamless.\n\n- Be aware that Bedrock exposes multiple models from different vendors, each with potentially different API behaviors. Your config should allow specifying the exact model string, and your integration should handle any model-specific options or response formats[5].\n\n- For unified service integration, ensure your service layer can route requests to Bedrock using the configured provider instance, and normalize responses if you support multiple AI backends.\n</info added on 2025-04-25T19:03:42.584Z>",
           "status": "pending",
           "dependencies": [],
           "parentTaskId": 61
@@ -3760,6 +3769,28 @@
           "testStrategy": "Perform a complete installation with Yarn and follow through any website account setup process. Compare the experience with npm installation to ensure identical behavior. Test edge cases such as account creation failures, login issues, and configuration changes. If no website or account setup is required, confirm and document this in the test results."
         }
       ]
+    },
+    {
+      "id": 65,
+      "title": "Add Bun Support for Taskmaster Installation",
+      "description": "Implement full support for installing and managing Taskmaster using the Bun package manager, ensuring the installation process and user experience are identical to npm, pnpm, and Yarn.",
+      "details": "Update the Taskmaster installation scripts and documentation to support Bun as a first-class package manager. Ensure that users can install Taskmaster and run all CLI commands (including 'init' via scripts/init.js) using Bun, with the same directory structure, template copying, package.json merging, and MCP config setup as with npm, pnpm, and Yarn. Verify that all dependencies are compatible with Bun and that any Bun-specific configuration (such as lockfile handling or binary linking) is handled correctly. If the installation process includes a website or account setup, document and test these flows for parity; if not, explicitly confirm and document that no such steps are required. Update all relevant documentation and installation guides to include Bun instructions for macOS, Linux, and Windows (including WSL and PowerShell). Address any known Bun-specific issues (e.g., sporadic install hangs) with clear troubleshooting guidance.",
+      "testStrategy": "1. Install Taskmaster using Bun on macOS, Linux, and Windows (including WSL and PowerShell), following the updated documentation. 2. Run the full installation and initialization process, verifying that the directory structure, templates, and MCP config are set up identically to npm, pnpm, and Yarn. 3. Execute all CLI commands (including 'init') and confirm functional parity. 4. If a website or account setup is required, test these flows for consistency; if not, confirm and document this. 5. Check for Bun-specific issues (e.g., install hangs) and verify that troubleshooting steps are effective. 6. Ensure the documentation is clear, accurate, and up to date for all supported platforms.",
+      "status": "pending",
+      "dependencies": [],
+      "priority": "medium",
+      "subtasks": []
+    },
+    {
+      "id": 66,
+      "title": "Support Status Filtering in Show Command for Subtasks",
+      "description": "Enhance the 'show' command to accept a status parameter that filters subtasks by their current status, allowing users to view only subtasks matching a specific status.",
+      "details": "This task involves modifying the existing 'show' command functionality to support status-based filtering of subtasks. Implementation details include:\n\n1. Update the command parser to accept a new '--status' or '-s' flag followed by a status value (e.g., 'task-master show --status=in-progress' or 'task-master show -s completed').\n\n2. Modify the show command handler in the appropriate module (likely in scripts/modules/) to:\n   - Parse and validate the status parameter\n   - Filter the subtasks collection based on the provided status before displaying results\n   - Handle invalid status values gracefully with appropriate error messages\n   - Support standard status values (e.g., 'not-started', 'in-progress', 'completed', 'blocked')\n   - Consider supporting multiple status values (comma-separated or multiple flags)\n\n3. Update the help documentation to include information about the new status filtering option.\n\n4. Ensure backward compatibility - the show command should function as before when no status parameter is provided.\n\n5. Consider adding a '--status-list' option to display all available status values for reference.\n\n6. Update any relevant unit tests to cover the new functionality.\n\n7. If the application uses a database or persistent storage, ensure the filtering happens at the query level for performance when possible.\n\n8. Maintain consistent formatting and styling of output regardless of filtering.",
+      "testStrategy": "Testing for this feature should include:\n\n1. Unit tests:\n   - Test parsing of the status parameter in various formats (--status=value, -s value)\n   - Test filtering logic with different status values\n   - Test error handling for invalid status values\n   - Test backward compatibility (no status parameter)\n   - Test edge cases (empty status, case sensitivity, etc.)\n\n2. Integration tests:\n   - Verify that the command correctly filters subtasks when a valid status is provided\n   - Verify that all subtasks are shown when no status filter is applied\n   - Test with a project containing subtasks of various statuses\n\n3. Manual testing:\n   - Create a test project with multiple subtasks having different statuses\n   - Run the show command with different status filters and verify results\n   - Test with both long-form (--status) and short-form (-s) parameters\n   - Verify help documentation correctly explains the new parameter\n\n4. Edge case testing:\n   - Test with non-existent status values\n   - Test with empty project (no subtasks)\n   - Test with a project where all subtasks have the same status\n\n5. Documentation verification:\n   - Ensure the README or help documentation is updated to include the new parameter\n   - Verify examples in documentation work as expected\n\nAll tests should pass before considering this task complete.",
+      "status": "pending",
+      "dependencies": [],
+      "priority": "medium",
+      "subtasks": []
     }
   ]
 }

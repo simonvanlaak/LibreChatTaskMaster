@@ -17,7 +17,7 @@ import {
 	isSilentMode
 } from '../utils.js';
 import { generateTextService } from '../ai-services-unified.js';
-import { getDebugFlag, isApiKeySet } from '../config-manager.js';
+import { getDebugFlag } from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
 
 /**

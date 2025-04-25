@@ -6,8 +6,7 @@
 import { updateTasks } from '../../../../scripts/modules/task-manager.js';
 import {
 	enableSilentMode,
-	disableSilentMode,
-	isSilentMode
+	disableSilentMode
 } from '../../../../scripts/modules/utils.js';
 
 /**

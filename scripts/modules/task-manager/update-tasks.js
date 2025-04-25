@@ -18,15 +18,7 @@ import {
 	stopLoadingIndicator
 } from '../ui.js';
 
-import {
-	getDebugFlag,
-	getResearchModelId,
-	getResearchTemperature,
-	getResearchMaxTokens,
-	getMainModelId,
-	getMainMaxTokens,
-	getMainTemperature
-} from '../config-manager.js';
+import { getDebugFlag } from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
 import { generateTextService } from '../ai-services-unified.js';
 

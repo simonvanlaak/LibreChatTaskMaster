@@ -2,14 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
 import { fileURLToPath } from 'url';
-import { ZodError } from 'zod';
-import {
-	log,
-	readJSON,
-	writeJSON,
-	resolveEnvVariable,
-	findProjectRoot
-} from './utils.js';
+import { log, resolveEnvVariable, findProjectRoot } from './utils.js';
 
 // Calculate __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);

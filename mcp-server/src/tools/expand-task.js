@@ -11,7 +11,6 @@ import {
 } from './utils.js';
 import { expandTaskDirect } from '../core/direct-functions/expand-task.js';
 import { findTasksJsonPath } from '../core/utils/path-utils.js';
-import path from 'path';
 
 /**
  * Register the expand-task tool with the MCP server

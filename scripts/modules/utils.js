@@ -6,7 +6,6 @@
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
-import { ZodError } from 'zod';
 // Import specific config getters needed here
 import { getLogLevel, getDebugFlag } from './config-manager.js';
 

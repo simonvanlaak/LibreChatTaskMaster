@@ -2149,7 +2149,7 @@ These enhancements ensure the refactored file is robust, maintainable, and align
 These enhancements ensure robust validation, unified service usage, and maintainable, predictable batch update behavior.
 </info added on 2025-04-24T17:49:25.126Z>
 
-## 42. Remove all unused imports [pending]
+## 42. Remove all unused imports [done]
 ### Dependencies: None
 ### Description: 
 ### Details:
@@ -2166,4 +2166,45 @@ These enhancements ensure robust validation, unified service usage, and maintain
 ### Description: NOT per model/provider basis though we could probably just define those in the .taskmasterconfig file but then they would be hard-coded. if we let users define them on a per role basis, they will define incorrect values. maybe a good middle ground is to do both - we enforce maximum using known max tokens for input and output at the .taskmasterconfig level but then we also give setters to adjust temp/input tokens/output tokens for each of the 3 roles.
 ### Details:
 
+
+## 45. Add support for Bedrock provider with ai sdk and unified service [pending]
+### Dependencies: None
+### Description: 
+### Details:
+
+
+<info added on 2025-04-25T19:03:42.584Z>
+- Install the Bedrock provider for the AI SDK using your package manager (e.g., npm i @ai-sdk/amazon-bedrock) and ensure the core AI SDK is present[3][4].
+
+- To integrate with your existing config manager, externalize all Bedrock-specific configuration (such as region, model name, and credential provider) into your config management system. For example, store values like region ("us-east-1") and model identifier ("meta.llama3-8b-instruct-v1:0") in your config files or environment variables, and load them at runtime.
+
+- For credentials, leverage the AWS SDK credential provider chain to avoid hardcoding secrets. Use the @aws-sdk/credential-providers package and pass a credentialProvider (e.g., fromNodeProviderChain()) to the Bedrock provider. This allows your config manager to control credential sourcing via environment, profiles, or IAM roles, consistent with other AWS integrations[1].
+
+- Example integration with config manager:
+  ```js
+  import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
+  import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
+
+  // Assume configManager.get returns your config values
+  const region = configManager.get('bedrock.region');
+  const model = configManager.get('bedrock.model');
+
+  const bedrock = createAmazonBedrock({
+    region,
+    credentialProvider: fromNodeProviderChain(),
+  });
+
+  // Use with AI SDK methods
+  const { text } = await generateText({
+    model: bedrock(model),
+    prompt: 'Your prompt here',
+  });
+  ```
+
+- If your config manager supports dynamic provider selection, you can abstract the provider initialization so switching between Bedrock and other providers (like OpenAI or Anthropic) is seamless.
+
+- Be aware that Bedrock exposes multiple models from different vendors, each with potentially different API behaviors. Your config should allow specifying the exact model string, and your integration should handle any model-specific options or response formats[5].
+
+- For unified service integration, ensure your service layer can route requests to Bedrock using the configured provider instance, and normalize responses if you support multiple AI backends.
+</info added on 2025-04-25T19:03:42.584Z>
 

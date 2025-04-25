@@ -6,9 +6,7 @@
 import { z } from 'zod';
 import {
 	createErrorResponse,
-	createContentResponse,
 	getProjectRootFromSession,
-	executeTaskMasterCommand,
 	handleApiResult
 } from './utils.js';
 import { addTaskDirect } from '../core/task-master-core.js';

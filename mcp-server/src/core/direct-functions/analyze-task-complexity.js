@@ -9,7 +9,6 @@ import {
 	isSilentMode
 } from '../../../../scripts/modules/utils.js';
 import fs from 'fs';
-import path from 'path';
 
 /**
  * Analyze task complexity and generate recommendations

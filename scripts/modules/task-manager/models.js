@@ -10,7 +10,6 @@ import {
 	getResearchModelId,
 	getFallbackModelId,
 	getAvailableModels,
-	VALID_PROVIDERS,
 	getMainProvider,
 	getResearchProvider,
 	getFallbackProvider,

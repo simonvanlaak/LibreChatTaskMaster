@@ -8,17 +8,7 @@ import { startLoadingIndicator, stopLoadingIndicator } from '../ui.js';
 
 import { generateTextService } from '../ai-services-unified.js';
 
-import {
-	getDebugFlag,
-	getProjectName,
-	getMainModelId,
-	getMainMaxTokens,
-	getMainTemperature,
-	getResearchModelId,
-	getResearchMaxTokens,
-	getResearchTemperature,
-	getDefaultSubtasks
-} from '../config-manager.js';
+import { getDebugFlag, getProjectName } from '../config-manager.js';
 
 /**
  * Generates the prompt for complexity analysis.

@@ -11,8 +11,6 @@ import fs from 'fs';
 import https from 'https';
 import inquirer from 'inquirer';
 import Table from 'cli-table3';
-import { exec } from 'child_process';
-import readline from 'readline';
 
 import { log, readJSON } from './utils.js';
 import {
@@ -43,16 +41,7 @@ import {
 } from './dependency-manager.js';
 
 import {
-	getMainModelId,
-	getResearchModelId,
-	getFallbackModelId,
-	getAvailableModels,
-	VALID_PROVIDERS,
-	getMainProvider,
-	getResearchProvider,
-	getFallbackProvider,
 	isApiKeySet,
-	getMcpApiKeyStatus,
 	getDebugFlag,
 	getConfig,
 	writeConfig,

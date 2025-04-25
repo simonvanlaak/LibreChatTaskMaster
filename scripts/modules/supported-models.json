@@ -257,7 +257,7 @@
 			"allowed_roles": ["main", "fallback"]
 		}
 	],
-	"grok": [
+	"xai": [
 		{
 			"id": "grok3",
 			"swe_score": 0,

@@ -4,11 +4,7 @@
  */
 
 import { z } from 'zod';
-import {
-	handleApiResult,
-	createErrorResponse,
-	getProjectRootFromSession
-} from './utils.js';
+import { handleApiResult, createErrorResponse } from './utils.js';
 import { updateTasksDirect } from '../core/task-master-core.js';
 import { findTasksJsonPath } from '../core/utils/path-utils.js';
 import path from 'path';
