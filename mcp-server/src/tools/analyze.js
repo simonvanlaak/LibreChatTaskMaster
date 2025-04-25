@@ -9,9 +9,10 @@ import {
 	createErrorResponse,
 	getProjectRootFromSession
 } from './utils.js';
-import { analyzeTaskComplexityDirect } from '../core/task-master-core.js';
+import { analyzeTaskComplexityDirect } from '../core/direct-functions/analyze-task-complexity.js';
 import { findTasksJsonPath } from '../core/utils/path-utils.js';
 import path from 'path';
+import fs from 'fs';
 
 /**
  * Register the analyze tool with the MCP server
@@ -27,13 +28,13 @@ export function registerAnalyzeTool(server) {
 				.string()
 				.optional()
 				.describe(
-					'Output file path for the report (default: scripts/task-complexity-report.json)'
+					'Output file path relative to project root (default: scripts/task-complexity-report.json)'
 				),
 			model: z
 				.string()
 				.optional()
 				.describe(
-					'LLM model to use for analysis (defaults to configured model)'
+					'Deprecated: LLM model override (model is determined by configured role)'
 				),
 			threshold: z.coerce
 				.number()
@@ -47,12 +48,13 @@ export function registerAnalyzeTool(server) {
 				.string()
 				.optional()
 				.describe(
-					'Absolute path to the tasks file (default: tasks/tasks.json)'
+					'Path to the tasks file relative to project root (default: tasks/tasks.json)'
 				),
 			research: z
 				.boolean()
 				.optional()
-				.describe('Use Perplexity AI for research-backed complexity analysis'),
+				.default(false)
+				.describe('Use research role for complexity analysis'),
 			projectRoot: z
 				.string()
 				.describe('The directory of the project. Must be an absolute path.')
@@ -60,17 +62,15 @@ export function registerAnalyzeTool(server) {
 		execute: async (args, { log, session }) => {
 			try {
 				log.info(
-					`Analyzing task complexity with args: ${JSON.stringify(args)}`
+					`Executing analyze_project_complexity tool with args: ${JSON.stringify(args)}`
 				);
 
-				// Get project root from args or session
-				const rootFolder =
-					args.projectRoot || getProjectRootFromSession(session, log);
-
+				const rootFolder = args.projectRoot;
 				if (!rootFolder) {
-					return createErrorResponse(
-						'Could not determine project root. Please provide it explicitly or ensure your session contains valid root information.'
-					);
+					return createErrorResponse('projectRoot is required.');
+				}
+				if (!path.isAbsolute(rootFolder)) {
+					return createErrorResponse('projectRoot must be an absolute path.');
 				}
 
 				let tasksJsonPath;
@@ -82,7 +82,7 @@ export function registerAnalyzeTool(server) {
 				} catch (error) {
 					log.error(`Error finding tasks.json: ${error.message}`);
 					return createErrorResponse(
-						`Failed to find tasks.json: ${error.message}`
+						`Failed to find tasks.json within project root '${rootFolder}': ${error.message}`
 					);
 				}
 
@@ -90,11 +90,25 @@ export function registerAnalyzeTool(server) {
 					? path.resolve(rootFolder, args.output)
 					: path.resolve(rootFolder, 'scripts', 'task-complexity-report.json');
 
+				const outputDir = path.dirname(outputPath);
+				try {
+					if (!fs.existsSync(outputDir)) {
+						fs.mkdirSync(outputDir, { recursive: true });
+						log.info(`Created output directory: ${outputDir}`);
+					}
+				} catch (dirError) {
+					log.error(
+						`Failed to create output directory ${outputDir}: ${dirError.message}`
+					);
+					return createErrorResponse(
+						`Failed to create output directory: ${dirError.message}`
+					);
+				}
+
 				const result = await analyzeTaskComplexityDirect(
 					{
 						tasksJsonPath: tasksJsonPath,
 						outputPath: outputPath,
-						model: args.model,
 						threshold: args.threshold,
 						research: args.research
 					},
@@ -103,20 +117,17 @@ export function registerAnalyzeTool(server) {
 				);
 
 				if (result.success) {
-					log.info(`Task complexity analysis complete: ${result.data.message}`);
-					log.info(
-						`Report summary: ${JSON.stringify(result.data.reportSummary)}`
-					);
+					log.info(`Tool analyze_project_complexity finished successfully.`);
 				} else {
 					log.error(
-						`Failed to analyze task complexity: ${result.error.message}`
+						`Tool analyze_project_complexity failed: ${result.error?.message || 'Unknown error'}`
 					);
 				}
 
 				return handleApiResult(result, log, 'Error analyzing task complexity');
 			} catch (error) {
-				log.error(`Error in analyze tool: ${error.message}`);
-				return createErrorResponse(error.message);
+				log.error(`Critical error in analyze tool execute: ${error.message}`);
+				return createErrorResponse(`Internal tool error: ${error.message}`);
 			}
 		}
 	});

@@ -1819,11 +1819,82 @@ This piecemeal approach aims to establish the refactoring pattern before tacklin
 ### Details:
 
 
-## 36. Refactor analyze-task-complexity.js for Unified AI Service & Config [pending]
+## 36. Refactor analyze-task-complexity.js for Unified AI Service & Config [in-progress]
 ### Dependencies: None
 ### Description: Replace direct AI calls with `generateObjectService` from `ai-services-unified.js`. Pass `role` and `session`. Remove direct config getter usage (from `config-manager.js`) for AI parameters; use unified service instead. Keep config getters needed for report metadata (`getProjectName`, `getDefaultSubtasks`).
 ### Details:
 
+
+<info added on 2025-04-24T17:45:51.956Z>
+## Additional Implementation Notes for Refactoring
+
+**General Guidance**
+
+- Ensure all AI-related logic in `analyze-task-complexity.js` is abstracted behind the `generateObjectService` interface. The function should only specify *what* to generate (schema, prompt, and parameters), not *how* the AI call is made or which model/config is used.
+- Remove any code that directly fetches AI model parameters or credentials from configuration files. All such details must be handled by the unified service layer.
+
+**1. Core Logic Function (analyze-task-complexity.js)**
+
+- Refactor the function signature to accept a `session` object and a `role` parameter, in addition to the existing arguments.
+- When preparing the service call, construct a payload object containing:
+  - The Zod schema for expected output.
+  - The prompt or input for the AI.
+  - The `role` (e.g., "researcher" or "default") based on the `useResearch` flag.
+  - The `session` context for downstream configuration and authentication.
+- Example service call:
+  ```js
+  const result = await generateObjectService({
+    schema: complexitySchema,
+    prompt: buildPrompt(task, options),
+    role,
+    session,
+  });
+  ```
+- Remove all references to direct AI client instantiation or configuration fetching.
+
+**2. CLI Command Action Handler (commands.js)**
+
+- Ensure the CLI handler for `analyze-complexity`:
+  - Accepts and parses the `--use-research` flag (or equivalent).
+  - Passes the `useResearch` flag and the current session context to the core function.
+  - Handles errors from the unified service gracefully, providing user-friendly feedback.
+
+**3. MCP Tool Definition (mcp-server/src/tools/analyze.js)**
+
+- Align the Zod schema for CLI options with the parameters expected by the core function, including `useResearch` and any new required fields.
+- Use `getMCPProjectRoot` to resolve the project path before invoking the core function.
+- Add status logging before and after the analysis, e.g., "Analyzing task complexity..." and "Analysis complete."
+- Ensure the tool calls the core function with all required parameters, including session and resolved paths.
+
+**4. MCP Direct Function Wrapper (mcp-server/src/core/direct-functions/analyze-complexity-direct.js)**
+
+- Remove any direct AI client or config usage.
+- Implement a logger wrapper that standardizes log output for this function (e.g., `logger.info`, `logger.error`).
+- Pass the session context through to the core function to ensure all environment/config access is centralized.
+- Return a standardized response object, e.g.:
+  ```js
+  return {
+    success: true,
+    data: analysisResult,
+    message: "Task complexity analysis completed.",
+  };
+  ```
+
+**Testing and Validation**
+
+- After refactoring, add or update tests to ensure:
+  - The function does not break if AI service configuration changes.
+  - The correct role and session are always passed to the unified service.
+  - Errors from the unified service are handled and surfaced appropriately.
+
+**Best Practices**
+
+- Keep the core logic function pure and focused on orchestration, not implementation details.
+- Use dependency injection for session/context to facilitate testing and future extensibility.
+- Document the expected structure of the session and role parameters for maintainability.
+
+These enhancements will ensure the refactored code is modular, maintainable, and fully decoupled from AI implementation details, aligning with modern refactoring best practices[1][3][5].
+</info added on 2025-04-24T17:45:51.956Z>
 
 ## 37. Refactor expand-task.js for Unified AI Service & Config [pending]
 ### Dependencies: None
@@ -1831,11 +1902,60 @@ This piecemeal approach aims to establish the refactoring pattern before tacklin
 ### Details:
 
 
+<info added on 2025-04-24T17:46:51.286Z>
+- In expand-task.js, ensure that all AI parameter configuration (such as model, temperature, max tokens) is passed via the unified generateObjectService interface, not fetched directly from config files or environment variables. This centralizes AI config management and supports future service changes without further refactoring.
+
+- When preparing the service call, construct the payload to include both the prompt and any schema or validation requirements expected by generateObjectService. For example, if subtasks must conform to a Zod schema, pass the schema definition or reference as part of the call.
+
+- For the CLI handler, ensure that the --research flag is mapped to the useResearch boolean and that this is explicitly passed to the core expand-task logic. Also, propagate any session or user context from CLI options to the core function for downstream auditing or personalization.
+
+- In the MCP tool definition, validate that all CLI-exposed parameters are reflected in the Zod schema, including optional ones like prompt overrides or force regeneration. This ensures strict input validation and prevents runtime errors.
+
+- In the direct function wrapper, implement a try/catch block around the core expandTask invocation. On error, log the error with context (task id, session id) and return a standardized error response object with error code and message fields.
+
+- Add unit tests or integration tests to verify that expand-task.js no longer imports or uses any direct AI client or config getter, and that all AI calls are routed through ai-services-unified.js.
+
+- Document the expected shape of the session object and any required fields for downstream service calls, so future maintainers know what context must be provided.
+</info added on 2025-04-24T17:46:51.286Z>
+
 ## 38. Refactor expand-all-tasks.js for Unified AI Helpers & Config [pending]
 ### Dependencies: None
 ### Description: Ensure this file correctly calls the refactored `getSubtasksFromAI` helper. Update config usage to only use `getDefaultSubtasks` from `config-manager.js` directly. AI interaction itself is handled by the helper.
 ### Details:
 
+
+<info added on 2025-04-24T17:48:09.354Z>
+## Additional Implementation Notes for Refactoring expand-all-tasks.js
+
+- Replace any direct imports of AI clients (e.g., OpenAI, Anthropic) and configuration getters with a single import of `expandTask` from `expand-task.js`, which now encapsulates all AI and config logic.
+- Ensure that the orchestration logic in `expand-all-tasks.js`:
+  - Iterates over all pending tasks, checking for existing subtasks before invoking expansion.
+  - For each task, calls `expandTask` and passes both the `useResearch` flag and the current `session` object as received from upstream callers.
+  - Does not contain any logic for AI prompt construction, API calls, or config file reading—these are now delegated to the unified helpers.
+- Maintain progress reporting by emitting status updates (e.g., via events or logging) before and after each task expansion, and ensure that errors from `expandTask` are caught and reported with sufficient context (task ID, error message).
+- Example code snippet for calling the refactored helper:
+
+```js
+// Pseudocode for orchestration loop
+for (const task of pendingTasks) {
+  try {
+    reportProgress(`Expanding task ${task.id}...`);
+    await expandTask({
+      task,
+      useResearch,
+      session,
+    });
+    reportProgress(`Task ${task.id} expanded.`);
+  } catch (err) {
+    reportError(`Failed to expand task ${task.id}: ${err.message}`);
+  }
+}
+```
+
+- Remove any fallback or legacy code paths that previously handled AI or config logic directly within this file.
+- Ensure that all configuration defaults are accessed exclusively via `getDefaultSubtasks` from `config-manager.js` and only within the unified helper, not in `expand-all-tasks.js`.
+- Add or update JSDoc comments to clarify that this module is now a pure orchestrator and does not perform AI or config operations directly.
+</info added on 2025-04-24T17:48:09.354Z>
 
 ## 39. Refactor get-subtasks-from-ai.js for Unified AI Service & Config [pending]
 ### Dependencies: None
@@ -1843,15 +1963,189 @@ This piecemeal approach aims to establish the refactoring pattern before tacklin
 ### Details:
 
 
+<info added on 2025-04-24T17:48:35.005Z>
+**Additional Implementation Notes for Refactoring get-subtasks-from-ai.js**
+
+- **Zod Schema Definition**:  
+  Define a Zod schema that precisely matches the expected subtask object structure. For example, if a subtask should have an id (string), title (string), and status (string), use:
+  ```js
+  import { z } from 'zod';
+
+  const SubtaskSchema = z.object({
+    id: z.string(),
+    title: z.string(),
+    status: z.string(),
+    // Add other fields as needed
+  });
+
+  const SubtasksArraySchema = z.array(SubtaskSchema);
+  ```
+  This ensures robust runtime validation and clear error reporting if the AI response does not match expectations[5][1][3].
+
+- **Unified Service Invocation**:  
+  Replace all direct AI client and config usage with:
+  ```js
+  import { generateObjectService } from './ai-services-unified';
+
+  // Example usage:
+  const subtasks = await generateObjectService({
+    schema: SubtasksArraySchema,
+    prompt,
+    role,
+    session,
+  });
+  ```
+  This centralizes AI invocation and parameter management, ensuring consistency and easier maintenance.
+
+- **Role Determination**:  
+  Use the `useResearch` flag to select the AI role:
+  ```js
+  const role = useResearch ? 'researcher' : 'default';
+  ```
+
+- **Error Handling**:  
+  Implement structured error handling:
+  ```js
+  try {
+    // AI service call
+  } catch (err) {
+    if (err.name === 'ServiceUnavailableError') {
+      // Handle AI service unavailability
+    } else if (err.name === 'ZodError') {
+      // Handle schema validation errors
+      // err.errors contains detailed validation issues
+    } else if (err.name === 'PromptConstructionError') {
+      // Handle prompt construction issues
+    } else {
+      // Handle unexpected errors
+    }
+    throw err; // or wrap and rethrow as needed
+  }
+  ```
+  This pattern ensures that consumers can distinguish between different failure modes and respond appropriately.
+
+- **Consumer Contract**:  
+  Update the function signature to require both `useResearch` and `session` parameters, and document this in JSDoc/type annotations for clarity.
+
+- **Prompt Construction**:  
+  Move all prompt construction logic outside the core function if possible, or encapsulate it so that errors can be caught and reported as `PromptConstructionError`.
+
+- **No AI Implementation Details**:  
+  The refactored function should not expose or depend on any AI implementation specifics—only the unified service interface and schema validation.
+
+- **Testing**:  
+  Add or update tests to cover:
+  - Successful subtask generation
+  - Schema validation failures (invalid AI output)
+  - Service unavailability scenarios
+  - Prompt construction errors
+
+These enhancements ensure the refactored file is robust, maintainable, and aligned with the unified AI service architecture, leveraging Zod for strict runtime validation and clear error boundaries[5][1][3].
+</info added on 2025-04-24T17:48:35.005Z>
+
 ## 40. Refactor update-task-by-id.js for Unified AI Service & Config [pending]
 ### Dependencies: None
 ### Description: Replace direct AI calls (old `ai-services.js` helpers) with `generateObjectService` or `generateTextService` from `ai-services-unified.js`. Pass `role` and `session`. Remove direct config getter usage (from `config-manager.js`) for AI parameters and fallback logic; use unified service instead. Keep `getDebugFlag`.
 ### Details:
 
 
+<info added on 2025-04-24T17:48:58.133Z>
+- When defining the Zod schema for task update validation, consider using Zod's function schemas to validate both the input parameters and the expected output of the update function. This approach helps separate validation logic from business logic and ensures type safety throughout the update process[1][2].
+
+- For the core logic, use Zod's `.implement()` method to wrap the update function, so that all inputs (such as task ID, prompt, and options) are validated before execution, and outputs are type-checked. This reduces runtime errors and enforces contract compliance between layers[1][2].
+
+- In the MCP tool definition, ensure that the Zod schema explicitly validates all required parameters (e.g., `id` as a string, `prompt` as a string, `research` as a boolean or optional flag). This guarantees that only well-formed requests reach the core logic, improving reliability and error reporting[3][5].
+
+- When preparing the unified AI service call, pass the validated and sanitized data from the Zod schema directly to `generateObjectService`, ensuring that no unvalidated data is sent to the AI layer.
+
+- For output formatting, leverage Zod's ability to define and enforce the shape of the returned object, ensuring that the response structure (including success/failure status and updated task data) is always consistent and predictable[1][2][3].
+
+- If you need to validate or transform nested objects (such as task metadata or options), use Zod's object and nested schema capabilities to define these structures precisely, catching errors early and simplifying downstream logic[3][5].
+</info added on 2025-04-24T17:48:58.133Z>
+
 ## 41. Refactor update-tasks.js for Unified AI Service & Config [pending]
 ### Dependencies: None
 ### Description: Replace direct AI calls (old `ai-services.js` helpers) with `generateObjectService` or `generateTextService` from `ai-services-unified.js`. Pass `role` and `session`. Remove direct config getter usage (from `config-manager.js`) for AI parameters and fallback logic; use unified service instead. Keep `getDebugFlag`.
 ### Details:
 
+
+<info added on 2025-04-24T17:49:25.126Z>
+## Additional Implementation Notes for Refactoring update-tasks.js
+
+- **Zod Schema for Batch Updates**:  
+  Define a Zod schema to validate the structure of the batch update payload. For example, if updating tasks requires an array of task objects with specific fields, use:
+  ```typescript
+  import { z } from "zod";
+
+  const TaskUpdateSchema = z.object({
+    id: z.number(),
+    status: z.string(),
+    // add other fields as needed
+  });
+
+  const BatchUpdateSchema = z.object({
+    tasks: z.array(TaskUpdateSchema),
+    from: z.number(),
+    prompt: z.string().optional(),
+    useResearch: z.boolean().optional(),
+  });
+  ```
+  This ensures all incoming data for batch updates is validated at runtime, catching malformed input early and providing clear error messages[4][5].
+
+- **Function Schema Validation**:  
+  If exposing the update logic as a callable function (e.g., for CLI or API), consider using Zod's function schema to validate both input and output:
+  ```typescript
+  const updateTasksFunction = z
+    .function()
+    .args(BatchUpdateSchema, z.object({ session: z.any() }))
+    .returns(z.promise(z.object({ success: z.boolean(), updated: z.number() })))
+    .implement(async (input, { session }) => {
+      // implementation here
+    });
+  ```
+  This pattern enforces correct usage and output shape, improving reliability[1].
+
+- **Error Handling and Reporting**:  
+  Use Zod's `.safeParse()` or `.parse()` methods to validate input. On validation failure, return or throw a formatted error to the caller (CLI, API, etc.), ensuring actionable feedback for users[5].
+
+- **Consistent JSON Output**:  
+  When invoking the core update function from wrappers (CLI, MCP), ensure the output is always serialized as JSON. This is critical for downstream consumers and for automated tooling.
+
+- **Logger Wrapper Example**:  
+  Implement a logger utility that can be toggled for silent mode:
+  ```typescript
+  function createLogger(silent: boolean) {
+    return {
+      log: (...args: any[]) => { if (!silent) console.log(...args); },
+      error: (...args: any[]) => { if (!silent) console.error(...args); }
+    };
+  }
+  ```
+  Pass this logger to the core logic for consistent, suppressible output.
+
+- **Session Context Usage**:  
+  Ensure all AI service calls and config access are routed through the provided session context, not global config getters. This supports multi-user and multi-session environments.
+
+- **Task Filtering Logic**:  
+  Before invoking the AI service, filter the tasks array to only include those with `id >= from` and `status === "pending"`. This preserves the intended batch update semantics.
+
+- **Preserve File Regeneration**:  
+  After updating tasks, ensure any logic that regenerates or writes task files is retained and invoked as before.
+
+- **CLI and API Parameter Validation**:  
+  Use the same Zod schemas to validate CLI arguments and API payloads, ensuring consistency across all entry points[5].
+
+- **Example: Validating CLI Arguments**
+  ```typescript
+  const cliArgsSchema = z.object({
+    from: z.string().regex(/^\d+$/).transform(Number),
+    research: z.boolean().optional(),
+    session: z.any(),
+  });
+
+  const parsedArgs = cliArgsSchema.parse(cliArgs);
+  ```
+
+These enhancements ensure robust validation, unified service usage, and maintainable, predictable batch update behavior.
+</info added on 2025-04-24T17:49:25.126Z>
 

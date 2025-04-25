@@ -1,0 +1,40 @@
+# Task ID: 62
+# Title: Add --simple Flag to Update Commands for Direct Text Input
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Implement a --simple flag for update-task and update-subtask commands that allows users to add timestamped notes without AI processing, directly using the text from the prompt.
+# Details:
+This task involves modifying the update-task and update-subtask commands to accept a new --simple flag option. When this flag is present, the system should bypass the AI processing pipeline and directly use the text provided by the user as the update content. The implementation should:
+
+1. Update the command parsers for both update-task and update-subtask to recognize the --simple flag
+2. Modify the update logic to check for this flag and conditionally skip AI processing
+3. When the flag is present, format the user's input text with a timestamp in the same format as AI-processed updates
+4. Ensure the update is properly saved to the task or subtask's history
+5. Update the help documentation to include information about this new flag
+6. The timestamp format should match the existing format used for AI-generated updates
+7. The simple update should be visually distinguishable from AI updates in the display (consider adding a 'manual update' indicator)
+8. Maintain all existing functionality when the flag is not used
+
+# Test Strategy:
+Testing should verify both the functionality and user experience of the new feature:
+
+1. Unit tests:
+   - Test that the command parser correctly recognizes the --simple flag
+   - Verify that AI processing is bypassed when the flag is present
+   - Ensure timestamps are correctly formatted and added
+
+2. Integration tests:
+   - Update a task with --simple flag and verify the exact text is saved
+   - Update a subtask with --simple flag and verify the exact text is saved
+   - Compare the output format with AI-processed updates to ensure consistency
+
+3. User experience tests:
+   - Verify help documentation correctly explains the new flag
+   - Test with various input lengths to ensure proper formatting
+   - Ensure the update appears correctly when viewing task history
+
+4. Edge cases:
+   - Test with empty input text
+   - Test with very long input text
+   - Test with special characters and formatting in the input
