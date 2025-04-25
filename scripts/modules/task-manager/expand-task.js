@@ -312,14 +312,18 @@ function parseSubtasksFromText(
 
 /**
  * Expand a task into subtasks using the unified AI service (generateTextService).
+ * Appends new subtasks by default. Replaces existing subtasks if force=true.
+ * Integrates complexity report to determine subtask count and prompt if available,
+ * unless numSubtasks is explicitly provided.
  * @param {string} tasksPath - Path to the tasks.json file
  * @param {number} taskId - Task ID to expand
- * @param {number} [numSubtasks] - Optional: Target number of subtasks. Uses config default if not provided.
+ * @param {number | null | undefined} [numSubtasks] - Optional: Explicit target number of subtasks. If null/undefined, check complexity report or config default.
  * @param {boolean} [useResearch=false] - Whether to use the research AI role.
  * @param {string} [additionalContext=''] - Optional additional context.
  * @param {Object} context - Context object containing session and mcpLog.
  * @param {Object} [context.session] - Session object from MCP.
  * @param {Object} [context.mcpLog] - MCP logger object.
+ * @param {boolean} [force=false] - If true, replace existing subtasks; otherwise, append.
  * @returns {Promise<Object>} The updated parent task object with new subtasks.
  * @throws {Error} If task not found, AI service fails, or parsing fails.
  */
@@ -329,7 +333,8 @@ async function expandTask(
 	numSubtasks,
 	useResearch = false,
 	additionalContext = '',
-	context = {}
+	context = {},
+	force = false
 ) {
 	const { session, mcpLog } = context;
 	const outputFormat = mcpLog ? 'json' : 'text';
@@ -361,56 +366,142 @@ async function expandTask(
 		logger.info(`Expanding task ${taskId}: ${task.title}`);
 		// --- End Task Loading/Filtering ---
 
-		// --- Subtask Count & Complexity Check (Unchanged) ---
-		let subtaskCount = parseInt(numSubtasks, 10);
-		if (isNaN(subtaskCount) || subtaskCount <= 0) {
-			subtaskCount = getDefaultSubtasks(session); // Pass session
-			logger.info(`Using default number of subtasks: ${subtaskCount}`);
+		// --- Handle Force Flag: Clear existing subtasks if force=true ---
+		if (force && Array.isArray(task.subtasks) && task.subtasks.length > 0) {
+			logger.info(
+				`Force flag set. Clearing existing ${task.subtasks.length} subtasks for task ${taskId}.`
+			);
+			task.subtasks = []; // Clear existing subtasks
 		}
-		// ... (complexity report check logic remains) ...
-		// --- End Subtask Count & Complexity Check ---
+		// --- End Force Flag Handling ---
 
-		// --- AI Subtask Generation using generateTextService ---
-		let generatedSubtasks = [];
-		const nextSubtaskId = (task.subtasks?.length || 0) + 1;
+		// --- Complexity Report Integration ---
+		let finalSubtaskCount;
+		let promptContent = '';
+		let complexityReasoningContext = '';
+		let systemPrompt; // Declare systemPrompt here
 
-		let loadingIndicator = null;
-		if (outputFormat === 'text') {
-			loadingIndicator = startLoadingIndicator(
-				`Generating ${subtaskCount} subtasks...`
+		const projectRoot = path.dirname(path.dirname(tasksPath));
+		const complexityReportPath = path.join(
+			projectRoot,
+			'scripts/task-complexity-report.json'
+		);
+		let taskAnalysis = null;
+
+		try {
+			if (fs.existsSync(complexityReportPath)) {
+				const complexityReport = readJSON(complexityReportPath);
+				taskAnalysis = complexityReport?.complexityAnalysis?.find(
+					(a) => a.taskId === task.id
+				);
+				if (taskAnalysis) {
+					logger.info(
+						`Found complexity analysis for task ${task.id}: Score ${taskAnalysis.complexityScore}`
+					);
+					if (taskAnalysis.reasoning) {
+						complexityReasoningContext = `\nComplexity Analysis Reasoning: ${taskAnalysis.reasoning}`;
+					}
+				} else {
+					logger.info(
+						`No complexity analysis found for task ${task.id} in report.`
+					);
+				}
+			} else {
+				logger.info(
+					`Complexity report not found at ${complexityReportPath}. Skipping complexity check.`
+				);
+			}
+		} catch (reportError) {
+			logger.warn(
+				`Could not read or parse complexity report: ${reportError.message}. Proceeding without it.`
 			);
 		}
 
-		let responseText = ''; // To store the raw text response
+		// Determine final subtask count
+		const explicitNumSubtasks = parseInt(numSubtasks, 10);
+		if (!isNaN(explicitNumSubtasks) && explicitNumSubtasks > 0) {
+			finalSubtaskCount = explicitNumSubtasks;
+			logger.info(
+				`Using explicitly provided subtask count: ${finalSubtaskCount}`
+			);
+		} else if (taskAnalysis?.recommendedSubtasks) {
+			finalSubtaskCount = parseInt(taskAnalysis.recommendedSubtasks, 10);
+			logger.info(
+				`Using subtask count from complexity report: ${finalSubtaskCount}`
+			);
+		} else {
+			finalSubtaskCount = getDefaultSubtasks(session);
+			logger.info(`Using default number of subtasks: ${finalSubtaskCount}`);
+		}
+		if (isNaN(finalSubtaskCount) || finalSubtaskCount <= 0) {
+			logger.warn(
+				`Invalid subtask count determined (${finalSubtaskCount}), defaulting to 3.`
+			);
+			finalSubtaskCount = 3;
+		}
+
+		// Determine prompt content AND system prompt
+		const nextSubtaskId = (task.subtasks?.length || 0) + 1;
+
+		if (taskAnalysis?.expansionPrompt) {
+			// Use prompt from complexity report
+			promptContent = taskAnalysis.expansionPrompt;
+			// Append additional context and reasoning
+			promptContent += `\n\n${additionalContext}`.trim();
+			promptContent += `${complexityReasoningContext}`.trim();
+
+			// --- Use Simplified System Prompt for Report Prompts ---
+			systemPrompt = `You are an AI assistant helping with task breakdown. Generate exactly ${finalSubtaskCount} subtasks based on the provided prompt and context. Respond ONLY with a valid JSON object containing a single key "subtasks" whose value is an array of the generated subtask objects. Each subtask object in the array must have keys: "id", "title", "description", "dependencies", "details", "status". Ensure the 'id' starts from ${nextSubtaskId} and is sequential. Ensure 'dependencies' only reference valid prior subtask IDs generated in this response (starting from ${nextSubtaskId}). Ensure 'status' is 'pending'. Do not include any other text or explanation.`;
+			logger.info(
+				`Using expansion prompt from complexity report and simplified system prompt for task ${task.id}.`
+			);
+			// --- End Simplified System Prompt ---
+		} else {
+			// Use standard prompt generation
+			const combinedAdditionalContext =
+				`${additionalContext}${complexityReasoningContext}`.trim();
+			if (useResearch) {
+				promptContent = generateResearchUserPrompt(
+					task,
+					finalSubtaskCount,
+					combinedAdditionalContext,
+					nextSubtaskId
+				);
+				// Use the specific research system prompt if needed, or a standard one
+				systemPrompt = `You are an AI assistant that responds ONLY with valid JSON objects as requested. The object should contain a 'subtasks' array.`; // Or keep generateResearchSystemPrompt if it exists
+			} else {
+				promptContent = generateMainUserPrompt(
+					task,
+					finalSubtaskCount,
+					combinedAdditionalContext,
+					nextSubtaskId
+				);
+				// Use the original detailed system prompt for standard generation
+				systemPrompt = generateMainSystemPrompt(finalSubtaskCount);
+			}
+			logger.info(`Using standard prompt generation for task ${task.id}.`);
+		}
+		// --- End Complexity Report / Prompt Logic ---
+
+		// --- AI Subtask Generation using generateTextService ---
+		let generatedSubtasks = [];
+		let loadingIndicator = null;
+		if (outputFormat === 'text') {
+			loadingIndicator = startLoadingIndicator(
+				`Generating ${finalSubtaskCount} subtasks...`
+			);
+		}
+
+		let responseText = '';
 
 		try {
-			// 1. Determine Role and Generate Prompts
 			const role = useResearch ? 'research' : 'main';
 			logger.info(`Using AI service with role: ${role}`);
-			let prompt;
-			let systemPrompt;
-			if (useResearch) {
-				prompt = generateResearchUserPrompt(
-					task,
-					subtaskCount,
-					additionalContext,
-					nextSubtaskId
-				);
-				systemPrompt = `You are an AI assistant that responds ONLY with valid JSON objects as requested. The object should contain a 'subtasks' array.`;
-			} else {
-				prompt = generateMainUserPrompt(
-					task,
-					subtaskCount,
-					additionalContext,
-					nextSubtaskId
-				);
-				systemPrompt = generateMainSystemPrompt(subtaskCount);
-			}
 
-			// 2. Call generateTextService
+			// Call generateTextService with the determined prompts
 			responseText = await generateTextService({
-				prompt,
-				systemPrompt,
+				prompt: promptContent,
+				systemPrompt: systemPrompt, // Use the determined system prompt
 				role,
 				session
 			});
@@ -419,46 +510,45 @@ async function expandTask(
 				'success'
 			);
 
-			// 3. Parse Subtasks from Text Response
-			try {
-				generatedSubtasks = parseSubtasksFromText(
-					responseText,
-					nextSubtaskId,
-					subtaskCount,
-					task.id,
-					logger // Pass the logger
-				);
-				logger.info(
-					`Successfully parsed ${generatedSubtasks.length} subtasks from AI response.`
-				);
-			} catch (parseError) {
-				// Log error and throw
-				logger.error(
-					`Failed to parse subtasks from AI response: ${parseError.message}`
-				);
-				if (getDebugFlag(session)) {
-					// Use getter with session
-					logger.error(`Raw AI Response:\n${responseText}`);
-				}
-				throw new Error(
-					`Failed to parse valid subtasks from AI response: ${parseError.message}`
-				);
-			}
-			// --- End AI Subtask Generation ---
+			// Parse Subtasks
+			generatedSubtasks = parseSubtasksFromText(
+				responseText,
+				nextSubtaskId,
+				finalSubtaskCount,
+				task.id,
+				logger
+			);
+			logger.info(
+				`Successfully parsed ${generatedSubtasks.length} subtasks from AI response.`
+			);
 		} catch (error) {
 			if (loadingIndicator) stopLoadingIndicator(loadingIndicator);
 			logger.error(
-				`Error generating subtasks via AI service: ${error.message}`,
+				`Error during AI call or parsing for task ${taskId}: ${error.message}`, // Added task ID context
 				'error'
 			);
-			throw error; // Re-throw AI service error
+			// Log raw response in debug mode if parsing failed
+			if (
+				error.message.includes('Failed to parse valid subtasks') &&
+				getDebugFlag(session)
+			) {
+				logger.error(`Raw AI Response that failed parsing:\n${responseText}`);
+			}
+			throw error;
 		} finally {
 			if (loadingIndicator) stopLoadingIndicator(loadingIndicator);
 		}
 
-		// --- Task Update & File Writing (Unchanged) ---
-		task.subtasks = generatedSubtasks;
-		data.tasks[taskIndex] = task;
+		// --- Task Update & File Writing ---
+		// Ensure task.subtasks is an array before appending
+		if (!Array.isArray(task.subtasks)) {
+			task.subtasks = [];
+		}
+		// Append the newly generated and validated subtasks
+		task.subtasks.push(...generatedSubtasks);
+		// --- End Change: Append instead of replace ---
+
+		data.tasks[taskIndex] = task; // Assign the modified task back
 		logger.info(`Writing updated tasks to ${tasksPath}`);
 		writeJSON(tasksPath, data);
 		logger.info(`Generating individual task files...`);
@@ -471,7 +561,6 @@ async function expandTask(
 		// Catches errors from file reading, parsing, AI call etc.
 		logger.error(`Error expanding task ${taskId}: ${error.message}`, 'error');
 		if (outputFormat === 'text' && getDebugFlag(session)) {
-			// Use getter with session
 			console.error(error); // Log full stack in debug CLI mode
 		}
 		throw error; // Re-throw for the caller

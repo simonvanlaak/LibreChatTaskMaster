@@ -1918,7 +1918,7 @@ These enhancements will ensure the refactored code is modular, maintainable, and
 - Document the expected shape of the session object and any required fields for downstream service calls, so future maintainers know what context must be provided.
 </info added on 2025-04-24T17:46:51.286Z>
 
-## 38. Refactor expand-all-tasks.js for Unified AI Helpers & Config [pending]
+## 38. Refactor expand-all-tasks.js for Unified AI Helpers & Config [done]
 ### Dependencies: None
 ### Description: Ensure this file correctly calls the refactored `getSubtasksFromAI` helper. Update config usage to only use `getDefaultSubtasks` from `config-manager.js` directly. AI interaction itself is handled by the helper.
 ### Details:

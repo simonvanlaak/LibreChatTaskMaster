@@ -676,18 +676,32 @@ function registerCommands(programInstance) {
 
 			if (options.all) {
 				// --- Handle expand --all ---
-				// This currently calls expandAllTasks. If expandAllTasks internally calls
-				// the refactored expandTask, it needs to be updated to pass the empty context {}.
-				// For now, we assume expandAllTasks needs its own refactor (Subtask 61.38).
-				// We'll add a placeholder log here.
-				console.log(
-					chalk.blue(
-						'Expanding all pending tasks... (Requires expand-all-tasks.js refactor)'
-					)
-				);
-				// Placeholder: await expandAllTasks(tasksPath, options.num, options.research, options.prompt, options.force, {});
+				console.log(chalk.blue('Expanding all pending tasks...'));
+				// Updated call to the refactored expandAllTasks
+				try {
+					const result = await expandAllTasks(
+						tasksPath,
+						options.num, // Pass num
+						options.research, // Pass research flag
+						options.prompt, // Pass additional context
+						options.force, // Pass force flag
+						{} // Pass empty context for CLI calls
+						// outputFormat defaults to 'text' in expandAllTasks for CLI
+					);
+					// Optional: Display summary from result
+					console.log(chalk.green(`Expansion Summary:`));
+					console.log(chalk.green(` - Attempted: ${result.tasksToExpand}`));
+					console.log(chalk.green(` - Expanded:  ${result.expandedCount}`));
+					console.log(chalk.yellow(` - Skipped:   ${result.skippedCount}`));
+					console.log(chalk.red(` - Failed:    ${result.failedCount}`));
+				} catch (error) {
+					console.error(
+						chalk.red(`Error expanding all tasks: ${error.message}`)
+					);
+					process.exit(1);
+				}
 			} else if (options.id) {
-				// --- Handle expand --id <id> ---
+				// --- Handle expand --id <id> (Should be correct from previous refactor) ---
 				if (!options.id) {
 					console.error(
 						chalk.red('Error: Task ID is required unless using --all.')
@@ -696,19 +710,24 @@ function registerCommands(programInstance) {
 				}
 
 				console.log(chalk.blue(`Expanding task ${options.id}...`));
-
-				// Call the refactored expandTask function
-				await expandTask(
-					tasksPath,
-					options.id,
-					options.num, // Pass num (core function handles default)
-					options.research,
-					options.prompt,
-					// Pass empty context for CLI calls
-					{}
-					// Note: The 'force' flag is now primarily handled by the Direct Function Wrapper
-					// based on pre-checks, but the core function no longer explicitly needs it.
-				);
+				try {
+					// Call the refactored expandTask function
+					await expandTask(
+						tasksPath,
+						options.id,
+						options.num,
+						options.research,
+						options.prompt,
+						{}, // Pass empty context for CLI calls
+						options.force // Pass the force flag down
+					);
+					// expandTask logs its own success/failure for single task
+				} catch (error) {
+					console.error(
+						chalk.red(`Error expanding task ${options.id}: ${error.message}`)
+					);
+					process.exit(1);
+				}
 			} else {
 				console.error(
 					chalk.red('Error: You must specify either a task ID (--id) or --all.')

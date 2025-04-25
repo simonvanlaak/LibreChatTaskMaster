@@ -2386,7 +2386,128 @@
       "dependencies": [],
       "priority": "medium",
       "details": "This implementation should include:\n\n1. Create a new command `graph` or `visualize` that displays the dependency graph.\n\n2. Design an ASCII/Unicode-based graph rendering system that:\n   - Represents each task as a node with its ID and abbreviated title\n   - Shows dependencies as directional lines between nodes (→, ↑, ↓, etc.)\n   - Uses color coding for different task statuses (e.g., green for completed, yellow for in-progress, red for blocked)\n   - Handles complex dependency chains with proper spacing and alignment\n\n3. Implement layout algorithms to:\n   - Minimize crossing lines for better readability\n   - Properly space nodes to avoid overlapping\n   - Support both vertical and horizontal graph orientations (as a configurable option)\n\n4. Add detection and highlighting of circular dependencies with a distinct color/pattern\n\n5. Include a legend explaining the color coding and symbols used\n\n6. Ensure the graph is responsive to terminal width, with options to:\n   - Automatically scale to fit the current terminal size\n   - Allow zooming in/out of specific sections for large graphs\n   - Support pagination or scrolling for very large dependency networks\n\n7. Add options to filter the graph by:\n   - Specific task IDs or ranges\n   - Task status\n   - Dependency depth (e.g., show only direct dependencies or N levels deep)\n\n8. Ensure accessibility by using distinct patterns in addition to colors for users with color vision deficiencies\n\n9. Optimize performance for projects with many tasks and complex dependency relationships",
-      "testStrategy": "1. Unit Tests:\n   - Test the graph generation algorithm with various dependency structures\n   - Verify correct node placement and connection rendering\n   - Test circular dependency detection\n   - Verify color coding matches task statuses\n\n2. Integration Tests:\n   - Test the command with projects of varying sizes (small, medium, large)\n   - Verify correct handling of different terminal sizes\n   - Test all filtering options\n\n3. Visual Verification:\n   - Create test cases with predefined dependency structures and verify the visual output matches expected patterns\n   - Test with terminals of different sizes, including very narrow terminals\n   - Verify readability of complex graphs\n\n4. Edge Cases:\n   - Test with no dependencies (single nodes only)\n   - Test with circular dependencies\n   - Test with very deep dependency chains\n   - Test with wide dependency networks (many parallel tasks)\n   - Test with the maximum supported number of tasks\n\n5. Usability Testing:\n   - Have team members use the feature and provide feedback on readability and usefulness\n   - Test in different terminal emulators to ensure compatibility\n   - Verify the feature works in terminals with limited color support\n\n6. Performance Testing:\n   - Measure rendering time for large projects\n   - Ensure reasonable performance with 100+ interconnected tasks"
+      "testStrategy": "1. Unit Tests:\n   - Test the graph generation algorithm with various dependency structures\n   - Verify correct node placement and connection rendering\n   - Test circular dependency detection\n   - Verify color coding matches task statuses\n\n2. Integration Tests:\n   - Test the command with projects of varying sizes (small, medium, large)\n   - Verify correct handling of different terminal sizes\n   - Test all filtering options\n\n3. Visual Verification:\n   - Create test cases with predefined dependency structures and verify the visual output matches expected patterns\n   - Test with terminals of different sizes, including very narrow terminals\n   - Verify readability of complex graphs\n\n4. Edge Cases:\n   - Test with no dependencies (single nodes only)\n   - Test with circular dependencies\n   - Test with very deep dependency chains\n   - Test with wide dependency networks (many parallel tasks)\n   - Test with the maximum supported number of tasks\n\n5. Usability Testing:\n   - Have team members use the feature and provide feedback on readability and usefulness\n   - Test in different terminal emulators to ensure compatibility\n   - Verify the feature works in terminals with limited color support\n\n6. Performance Testing:\n   - Measure rendering time for large projects\n   - Ensure reasonable performance with 100+ interconnected tasks",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "CLI Command Setup",
+          "description": "Design and implement the command-line interface for the dependency graph tool, including argument parsing and help documentation.",
+          "dependencies": [],
+          "details": "Define commands for input file specification, output options, filtering, and other user-configurable parameters.",
+          "status": "pending"
+        },
+        {
+          "id": 2,
+          "title": "Graph Layout Algorithms",
+          "description": "Develop or integrate algorithms to compute optimal node and edge placement for clear and readable graph layouts in a terminal environment.",
+          "dependencies": [
+            1
+          ],
+          "details": "Consider topological sorting, hierarchical, and force-directed layouts suitable for ASCII/Unicode rendering.",
+          "status": "pending"
+        },
+        {
+          "id": 3,
+          "title": "ASCII/Unicode Rendering Engine",
+          "description": "Implement rendering logic to display the dependency graph using ASCII and Unicode characters in the terminal.",
+          "dependencies": [
+            2
+          ],
+          "details": "Support for various node and edge styles, and ensure compatibility with different terminal types.",
+          "status": "pending"
+        },
+        {
+          "id": 4,
+          "title": "Color Coding Support",
+          "description": "Add color coding to nodes and edges to visually distinguish types, statuses, or other attributes in the graph.",
+          "dependencies": [
+            3
+          ],
+          "details": "Use ANSI escape codes for color; provide options for colorblind-friendly palettes.",
+          "status": "pending"
+        },
+        {
+          "id": 5,
+          "title": "Circular Dependency Detection",
+          "description": "Implement algorithms to detect and highlight circular dependencies within the graph.",
+          "dependencies": [
+            2
+          ],
+          "details": "Clearly mark cycles in the rendered output and provide warnings or errors as appropriate.",
+          "status": "pending"
+        },
+        {
+          "id": 6,
+          "title": "Filtering and Search Functionality",
+          "description": "Enable users to filter nodes and edges by criteria such as name, type, or dependency depth.",
+          "dependencies": [
+            1,
+            2
+          ],
+          "details": "Support command-line flags for filtering and interactive search if feasible.",
+          "status": "pending"
+        },
+        {
+          "id": 7,
+          "title": "Accessibility Features",
+          "description": "Ensure the tool is accessible, including support for screen readers, high-contrast modes, and keyboard navigation.",
+          "dependencies": [
+            3,
+            4
+          ],
+          "details": "Provide alternative text output and ensure color is not the sole means of conveying information.",
+          "status": "pending"
+        },
+        {
+          "id": 8,
+          "title": "Performance Optimization",
+          "description": "Profile and optimize the tool for large graphs to ensure responsive rendering and low memory usage.",
+          "dependencies": [
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "details": "Implement lazy loading, efficient data structures, and parallel processing where appropriate.",
+          "status": "pending"
+        },
+        {
+          "id": 9,
+          "title": "Documentation",
+          "description": "Write comprehensive user and developer documentation covering installation, usage, configuration, and extension.",
+          "dependencies": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "details": "Include examples, troubleshooting, and contribution guidelines.",
+          "status": "pending"
+        },
+        {
+          "id": 10,
+          "title": "Testing and Validation",
+          "description": "Develop automated tests for all major features, including CLI parsing, layout correctness, rendering, color coding, filtering, and cycle detection.",
+          "dependencies": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "details": "Include unit, integration, and regression tests; validate accessibility and performance claims.",
+          "status": "pending"
+        }
+      ]
     },
     {
       "id": 42,
@@ -2665,7 +2786,67 @@
       "dependencies": [],
       "priority": "medium",
       "details": "Develop a new command `suggest-subtask <task-id>` that generates intelligent subtask suggestions for a specified parent task. The implementation should:\n\n1. Accept a parent task ID as input and validate it exists\n2. Gather a snapshot of all existing tasks in the system (titles only, with their statuses and dependencies)\n3. Retrieve the full details of the specified parent task\n4. Use this context to generate a relevant subtask suggestion that would logically help complete the parent task\n5. Present the suggestion to the user in the CLI with options to:\n   - Accept (a): Add the subtask to the system under the parent task\n   - Decline (d): Reject the suggestion without adding anything\n   - Regenerate (r): Generate a new alternative subtask suggestion\n   - Edit (e): Accept but allow editing the title/description before adding\n\nThe suggestion algorithm should consider:\n- The parent task's description and requirements\n- Current progress (% complete) of the parent task\n- Existing subtasks already created for this parent\n- Similar patterns from other tasks in the system\n- Logical next steps based on software development best practices\n\nWhen a subtask is accepted, it should be properly linked to the parent task and assigned appropriate default values for priority and status.",
-      "testStrategy": "Testing should verify both the functionality and the quality of suggestions:\n\n1. Unit tests:\n   - Test command parsing and validation of task IDs\n   - Test snapshot creation of existing tasks\n   - Test the suggestion generation with mocked data\n   - Test the user interaction flow with simulated inputs\n\n2. Integration tests:\n   - Create a test parent task and verify subtask suggestions are contextually relevant\n   - Test the accept/decline/regenerate workflow end-to-end\n   - Verify proper linking of accepted subtasks to parent tasks\n   - Test with various types of parent tasks (frontend, backend, documentation, etc.)\n\n3. Quality assessment:\n   - Create a benchmark set of 10 diverse parent tasks\n   - Generate 3 subtask suggestions for each and have team members rate relevance on 1-5 scale\n   - Ensure average relevance score exceeds 3.5/5\n   - Verify suggestions don't duplicate existing subtasks\n\n4. Edge cases:\n   - Test with a parent task that has no description\n   - Test with a parent task that already has many subtasks\n   - Test with a newly created system with minimal task history"
+      "testStrategy": "Testing should verify both the functionality and the quality of suggestions:\n\n1. Unit tests:\n   - Test command parsing and validation of task IDs\n   - Test snapshot creation of existing tasks\n   - Test the suggestion generation with mocked data\n   - Test the user interaction flow with simulated inputs\n\n2. Integration tests:\n   - Create a test parent task and verify subtask suggestions are contextually relevant\n   - Test the accept/decline/regenerate workflow end-to-end\n   - Verify proper linking of accepted subtasks to parent tasks\n   - Test with various types of parent tasks (frontend, backend, documentation, etc.)\n\n3. Quality assessment:\n   - Create a benchmark set of 10 diverse parent tasks\n   - Generate 3 subtask suggestions for each and have team members rate relevance on 1-5 scale\n   - Ensure average relevance score exceeds 3.5/5\n   - Verify suggestions don't duplicate existing subtasks\n\n4. Edge cases:\n   - Test with a parent task that has no description\n   - Test with a parent task that already has many subtasks\n   - Test with a newly created system with minimal task history",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Implement parent task validation",
+          "description": "Create validation logic to ensure subtasks are being added to valid parent tasks",
+          "dependencies": [],
+          "details": "Develop functions to verify that the parent task exists in the system before allowing subtask creation. Handle error cases gracefully with informative messages. Include validation for task ID format and existence in the database.",
+          "status": "pending"
+        },
+        {
+          "id": 2,
+          "title": "Build context gathering mechanism",
+          "description": "Develop a system to collect relevant context from parent task and existing subtasks",
+          "dependencies": [
+            1
+          ],
+          "details": "Create functions to extract information from the parent task including title, description, and metadata. Also gather information about any existing subtasks to provide context for AI suggestions. Format this data appropriately for the AI prompt.",
+          "status": "pending"
+        },
+        {
+          "id": 3,
+          "title": "Develop AI suggestion logic for subtasks",
+          "description": "Create the core AI integration to generate relevant subtask suggestions",
+          "dependencies": [
+            2
+          ],
+          "details": "Implement the AI prompt engineering and response handling for subtask generation. Ensure the AI provides structured output with appropriate fields for subtasks. Include error handling for API failures and malformed responses.",
+          "status": "pending"
+        },
+        {
+          "id": 4,
+          "title": "Create interactive CLI interface",
+          "description": "Build a user-friendly command-line interface for the subtask suggestion feature",
+          "dependencies": [
+            3
+          ],
+          "details": "Develop CLI commands and options for requesting subtask suggestions. Include interactive elements for selecting, modifying, or rejecting suggested subtasks. Ensure clear user feedback throughout the process.",
+          "status": "pending"
+        },
+        {
+          "id": 5,
+          "title": "Implement subtask linking functionality",
+          "description": "Create system to properly link suggested subtasks to their parent task",
+          "dependencies": [
+            4
+          ],
+          "details": "Develop the database operations to save accepted subtasks and link them to the parent task. Include functionality for setting dependencies between subtasks. Ensure proper transaction handling to maintain data integrity.",
+          "status": "pending"
+        },
+        {
+          "id": 6,
+          "title": "Perform comprehensive testing",
+          "description": "Test the subtask suggestion feature across various scenarios",
+          "dependencies": [
+            5
+          ],
+          "details": "Create unit tests for each component. Develop integration tests for the full feature workflow. Test edge cases including invalid inputs, API failures, and unusual task structures. Document test results and fix any identified issues.",
+          "status": "pending"
+        }
+      ]
     },
     {
       "id": 54,
@@ -2725,7 +2906,8 @@
       "dependencies": [],
       "priority": "medium",
       "details": "Currently, the application is attempting to manually modify users' package.json files, which is not the recommended approach for npm packages. Instead:\n\n1. Review all code that directly manipulates package.json files in users' projects\n2. Remove these manual modifications\n3. Properly define all dependencies in the package.json of task-master-ai itself\n4. Ensure all peer dependencies are correctly specified\n5. For any scripts that need to be available to users, use proper npm bin linking or npx commands\n6. Update the installation process to leverage npm's built-in dependency management\n7. If configuration is needed in users' projects, implement a proper initialization command that creates config files rather than modifying package.json\n8. Document the new approach in the README and any other relevant documentation\n\nThis change will make the package more reliable, follow npm best practices, and prevent potential conflicts or errors when modifying users' project files.",
-      "testStrategy": "1. Create a fresh test project directory\n2. Install the updated task-master-ai package using npm install task-master-ai\n3. Verify that no code attempts to modify the test project's package.json\n4. Confirm all dependencies are properly installed in node_modules\n5. Test all commands to ensure they work without the previous manual package.json modifications\n6. Try installing in projects with various existing configurations to ensure no conflicts occur\n7. Test the uninstall process to verify it cleanly removes the package without leaving unwanted modifications\n8. Verify the package works in different npm environments (npm 6, 7, 8) and with different Node.js versions\n9. Create an integration test that simulates a real user workflow from installation through usage"
+      "testStrategy": "1. Create a fresh test project directory\n2. Install the updated task-master-ai package using npm install task-master-ai\n3. Verify that no code attempts to modify the test project's package.json\n4. Confirm all dependencies are properly installed in node_modules\n5. Test all commands to ensure they work without the previous manual package.json modifications\n6. Try installing in projects with various existing configurations to ensure no conflicts occur\n7. Test the uninstall process to verify it cleanly removes the package without leaving unwanted modifications\n8. Verify the package works in different npm environments (npm 6, 7, 8) and with different Node.js versions\n9. Create an integration test that simulates a real user workflow from installation through usage",
+      "subtasks": []
     },
     {
       "id": 60,
@@ -3135,7 +3317,7 @@
           "title": "Refactor expand-task.js for Unified AI Service & Config",
           "description": "Replace direct AI calls (old `ai-services.js` helpers like `generateSubtasksWithPerplexity`) with `generateObjectService` from `ai-services-unified.js`. Pass `role` and `session`. Remove direct config getter usage (from `config-manager.js`) for AI parameters; use unified service instead. Keep `getDefaultSubtasks` usage.",
           "details": "\n\n<info added on 2025-04-24T17:46:51.286Z>\n- In expand-task.js, ensure that all AI parameter configuration (such as model, temperature, max tokens) is passed via the unified generateObjectService interface, not fetched directly from config files or environment variables. This centralizes AI config management and supports future service changes without further refactoring.\n\n- When preparing the service call, construct the payload to include both the prompt and any schema or validation requirements expected by generateObjectService. For example, if subtasks must conform to a Zod schema, pass the schema definition or reference as part of the call.\n\n- For the CLI handler, ensure that the --research flag is mapped to the useResearch boolean and that this is explicitly passed to the core expand-task logic. Also, propagate any session or user context from CLI options to the core function for downstream auditing or personalization.\n\n- In the MCP tool definition, validate that all CLI-exposed parameters are reflected in the Zod schema, including optional ones like prompt overrides or force regeneration. This ensures strict input validation and prevents runtime errors.\n\n- In the direct function wrapper, implement a try/catch block around the core expandTask invocation. On error, log the error with context (task id, session id) and return a standardized error response object with error code and message fields.\n\n- Add unit tests or integration tests to verify that expand-task.js no longer imports or uses any direct AI client or config getter, and that all AI calls are routed through ai-services-unified.js.\n\n- Document the expected shape of the session object and any required fields for downstream service calls, so future maintainers know what context must be provided.\n</info added on 2025-04-24T17:46:51.286Z>",
-          "status": "in-progress",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 61
         },
@@ -3363,12 +3545,56 @@
       "subtasks": [
         {
           "id": 1,
-          "title": "Implement Yarn Support for Taskmaster",
-          "description": "Add comprehensive support for installing and managing Taskmaster using Yarn package manager, ensuring feature parity with npm and pnpm installations.",
+          "title": "Update package.json for Yarn Compatibility",
+          "description": "Modify the package.json file to ensure all dependencies, scripts, and configurations are compatible with Yarn's installation and resolution methods.",
           "dependencies": [],
-          "details": "1. Update package.json to ensure compatibility with Yarn by reviewing and adjusting dependencies, scripts, and configuration fields that might behave differently with Yarn.\n2. Create necessary Yarn configuration files (.yarnrc.yml) to handle Yarn-specific behaviors, especially if supporting both Yarn classic and Yarn Berry (v2+).\n3. Modify any post-install scripts to detect and handle Yarn-specific environments correctly.\n4. Update package manager detection logic in the codebase to properly identify when Taskmaster is installed via Yarn.\n5. Test and resolve any Yarn-specific package resolution or hoisting issues that might affect functionality.\n6. Update installation documentation to include clear instructions for installing with Yarn, including any version-specific considerations.\n7. Ensure proper lockfile generation by testing installation and updates with Yarn.\n8. Verify that all CLI commands function correctly when the package is installed via Yarn.",
+          "details": "Review and update dependency declarations, script syntax, and any package manager-specific fields to avoid conflicts or unsupported features when using Yarn.",
           "status": "pending",
-          "testStrategy": "1. Test installation using both Yarn classic and Yarn Berry (v2+) to ensure compatibility.\n2. Verify all CLI commands work correctly when installed via Yarn.\n3. Test the post-install process to ensure it completes successfully.\n4. Compare behavior between npm, pnpm, and Yarn installations to confirm feature parity.\n5. Test on different operating systems to ensure cross-platform compatibility with Yarn.\n6. Verify proper lockfile generation and dependency resolution."
+          "testStrategy": "Run 'yarn install' and 'yarn run <script>' for all scripts to confirm successful execution and dependency resolution."
+        },
+        {
+          "id": 2,
+          "title": "Add Yarn-Specific Configuration Files",
+          "description": "Introduce Yarn-specific configuration files such as .yarnrc.yml if needed to optimize Yarn behavior and ensure consistent installs.",
+          "dependencies": [
+            1
+          ],
+          "details": "Determine if Yarn v2+ (Berry) or classic requires additional configuration for the project, and add or update .yarnrc.yml or .yarnrc files accordingly.",
+          "status": "pending",
+          "testStrategy": "Verify that Yarn respects the configuration by running installs and checking for expected behaviors (e.g., plug'n'play, nodeLinker settings)."
+        },
+        {
+          "id": 3,
+          "title": "Test and Fix Yarn Compatibility for Scripts and CLI",
+          "description": "Ensure all scripts, post-install hooks, and CLI commands function correctly when Taskmaster is installed and managed via Yarn.",
+          "dependencies": [
+            2
+          ],
+          "details": "Test all lifecycle scripts, post-install actions, and CLI commands using Yarn. Address any issues related to environment variables, script execution, or dependency hoisting.",
+          "status": "pending",
+          "testStrategy": "Install Taskmaster using Yarn and run all documented scripts and CLI commands, comparing results to npm/pnpm installations."
+        },
+        {
+          "id": 4,
+          "title": "Update Documentation for Yarn Installation and Usage",
+          "description": "Revise installation and usage documentation to include clear instructions for installing and managing Taskmaster with Yarn.",
+          "dependencies": [
+            3
+          ],
+          "details": "Add Yarn-specific installation commands, troubleshooting tips, and notes on version compatibility to the README and any relevant docs.",
+          "status": "pending",
+          "testStrategy": "Review documentation for accuracy and clarity; have a user follow the Yarn instructions to verify successful installation and usage."
+        },
+        {
+          "id": 5,
+          "title": "Implement and Test Package Manager Detection Logic",
+          "description": "Update or add logic in the codebase to detect Yarn installations and handle Yarn-specific behaviors, ensuring feature parity across package managers.",
+          "dependencies": [
+            4
+          ],
+          "details": "Modify detection logic to recognize Yarn (classic and berry), handle lockfile generation, and resolve any Yarn-specific package resolution or hoisting issues.",
+          "status": "pending",
+          "testStrategy": "Install Taskmaster using npm, pnpm, and Yarn (classic and berry), verifying that the application detects the package manager correctly and behaves consistently."
         }
       ]
     }
