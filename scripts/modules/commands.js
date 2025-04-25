@@ -211,7 +211,7 @@ function registerCommands(programInstance) {
 		)
 		.action(async (options) => {
 			const tasksPath = options.file;
-			const fromId = parseInt(options.from, 10);
+			const fromId = parseInt(options.from, 10); // Validation happens here
 			const prompt = options.prompt;
 			const useResearch = options.research || false;
 
@@ -260,7 +260,14 @@ function registerCommands(programInstance) {
 				);
 			}
 
-			await updateTasks(tasksPath, fromId, prompt, useResearch);
+			// Call core updateTasks, passing empty context for CLI
+			await updateTasks(
+				tasksPath,
+				fromId,
+				prompt,
+				useResearch,
+				{} // Pass empty context
+			);
 		});
 
 	// update-task command

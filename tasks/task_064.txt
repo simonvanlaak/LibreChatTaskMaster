@@ -3,22 +3,29 @@
 # Status: pending
 # Dependencies: None
 # Priority: medium
-# Description: Implement full support for installing and managing Taskmaster using Yarn package manager, providing users with an alternative to npm and pnpm.
+# Description: Implement full support for installing and managing Taskmaster using Yarn package manager, ensuring users have the exact same experience as with npm or pnpm. The installation process, including any CLI prompts or web interfaces, must serve the exact same content and user experience regardless of whether npm, pnpm, or Yarn is used. The project uses 'module' as the package type, defines binaries 'task-master' and 'task-master-mcp', and its core logic resides in 'scripts/modules/'. The 'init' command (via scripts/init.js) creates the directory structure (.cursor/rules, scripts, tasks), copies templates (.env.example, .gitignore, rule files, dev.js), manages package.json merging, and sets up MCP config (.cursor/mcp.json). All dependencies are standard npm dependencies listed in package.json, and manual modifications are being removed.
 # Details:
 This task involves adding comprehensive Yarn support to the Taskmaster package to ensure it can be properly installed and managed using Yarn. Implementation should include:
 
-1. Update package.json to ensure compatibility with Yarn installation methods
+1. Update package.json to ensure compatibility with Yarn installation methods, considering the 'module' package type and binary definitions
 2. Verify all scripts and dependencies work correctly with Yarn
 3. Add Yarn-specific configuration files (e.g., .yarnrc.yml if needed)
 4. Update installation documentation to include Yarn installation instructions
 5. Ensure all post-install scripts work correctly with Yarn
 6. Verify that all CLI commands function properly when installed via Yarn
-7. Handle any Yarn-specific package resolution or hoisting issues
-8. Test compatibility with different Yarn versions (classic and berry/v2+)
-9. Ensure proper lockfile generation and management
-10. Update any package manager detection logic in the codebase to recognize Yarn installations
+7. Ensure binaries `task-master` and `task-master-mcp` are properly linked
+8. Test the `scripts/init.js` file with Yarn to verify it correctly:
+   - Creates directory structure (`.cursor/rules`, `scripts`, `tasks`)
+   - Copies templates (`.env.example`, `.gitignore`, rule files, `dev.js`)
+   - Manages `package.json` merging
+   - Sets up MCP config (`.cursor/mcp.json`)
+9. Handle any Yarn-specific package resolution or hoisting issues
+10. Test compatibility with different Yarn versions (classic and berry/v2+)
+11. Ensure proper lockfile generation and management
+12. Update any package manager detection logic in the codebase to recognize Yarn installations
+13. Verify that core logic in `scripts/modules/` works correctly when installed via Yarn
 
-The implementation should maintain feature parity regardless of which package manager (npm, pnpm, or Yarn) is used to install Taskmaster.
+The implementation should maintain feature parity and identical user experience regardless of which package manager (npm, pnpm, or Yarn) is used to install Taskmaster.
 
 # Test Strategy:
 Testing should verify complete Yarn support through the following steps:
@@ -26,12 +33,14 @@ Testing should verify complete Yarn support through the following steps:
 1. Fresh installation tests:
    - Install Taskmaster using `yarn add taskmaster` (global and local installations)
    - Verify installation completes without errors
-   - Check that all binaries and executables are properly linked
+   - Check that binaries `task-master` and `task-master-mcp` are properly linked
+   - Test the `init` command to ensure it correctly sets up the directory structure and files as defined in scripts/init.js
 
 2. Functionality tests:
    - Run all Taskmaster commands on a Yarn-installed version
-   - Verify all features work identically to npm/pnpm installations
+   - Verify all features work identically to npm installations
    - Test with both Yarn v1 (classic) and Yarn v2+ (berry)
+   - Verify proper handling of 'module' package type
 
 3. Update/uninstall tests:
    - Test updating the package using Yarn commands
@@ -49,36 +58,60 @@ Testing should verify complete Yarn support through the following steps:
    - Test installation in monorepo setups using Yarn workspaces
    - Verify compatibility with other Yarn-specific features (plug'n'play, zero-installs)
 
-All tests should pass with the same results as when using npm or pnpm.
+7. Structure Testing:
+   - Verify that the core logic in `scripts/modules/` is accessible and functions correctly
+   - Confirm that the `init` command properly creates all required directories and files as per scripts/init.js
+   - Test package.json merging functionality
+   - Verify MCP config setup
+
+All tests should pass with the same results as when using npm, with identical user experience throughout the installation and usage process.
 
 # Subtasks:
 ## 1. Update package.json for Yarn Compatibility [pending]
 ### Dependencies: None
-### Description: Modify the package.json file to ensure all dependencies, scripts, and configurations are compatible with Yarn's installation and resolution methods.
+### Description: Modify the package.json file to ensure all dependencies, scripts, and configurations are compatible with Yarn's installation and resolution methods. Confirm that any scripts responsible for showing a website or prompt during install behave identically with Yarn and npm. Ensure compatibility with 'module' package type and correct binary definitions.
 ### Details:
-Review and update dependency declarations, script syntax, and any package manager-specific fields to avoid conflicts or unsupported features when using Yarn.
+Review and update dependency declarations, script syntax, and any package manager-specific fields to avoid conflicts or unsupported features when using Yarn. Pay special attention to any scripts that trigger a website or prompt during installation, ensuring they serve the same content as npm. Validate that scripts/init.js and binaries are referenced correctly for ESM ('module') projects.
 
 ## 2. Add Yarn-Specific Configuration Files [pending]
 ### Dependencies: 64.1
-### Description: Introduce Yarn-specific configuration files such as .yarnrc.yml if needed to optimize Yarn behavior and ensure consistent installs.
+### Description: Introduce Yarn-specific configuration files such as .yarnrc.yml if needed to optimize Yarn behavior and ensure consistent installs for 'module' package type and binary definitions.
 ### Details:
-Determine if Yarn v2+ (Berry) or classic requires additional configuration for the project, and add or update .yarnrc.yml or .yarnrc files accordingly.
+Determine if Yarn v2+ (Berry) or classic requires additional configuration for the project, and add or update .yarnrc.yml or .yarnrc files accordingly. Ensure configuration supports ESM and binary linking.
 
 ## 3. Test and Fix Yarn Compatibility for Scripts and CLI [pending]
 ### Dependencies: 64.2
-### Description: Ensure all scripts, post-install hooks, and CLI commands function correctly when Taskmaster is installed and managed via Yarn.
+### Description: Ensure all scripts, post-install hooks, and CLI commands function correctly when Taskmaster is installed and managed via Yarn. Confirm that any website or UI shown during installation is identical to npm. Validate that binaries and the init process (scripts/init.js) work as expected.
 ### Details:
-Test all lifecycle scripts, post-install actions, and CLI commands using Yarn. Address any issues related to environment variables, script execution, or dependency hoisting.
+Test all lifecycle scripts, post-install actions, and CLI commands using Yarn. Address any issues related to environment variables, script execution, or dependency hoisting. Ensure any website or prompt shown during install is the same as with npm. Validate that binaries 'task-master' and 'task-master-mcp' are linked and that scripts/init.js creates the correct structure and templates.
 
 ## 4. Update Documentation for Yarn Installation and Usage [pending]
 ### Dependencies: 64.3
-### Description: Revise installation and usage documentation to include clear instructions for installing and managing Taskmaster with Yarn.
+### Description: Revise installation and usage documentation to include clear instructions for installing and managing Taskmaster with Yarn. Clearly state that the installation process, including any website or UI shown, is identical to npm. Ensure documentation reflects the use of 'module' package type, binaries, and the init process as defined in scripts/init.js.
 ### Details:
-Add Yarn-specific installation commands, troubleshooting tips, and notes on version compatibility to the README and any relevant docs.
+Add Yarn-specific installation commands, troubleshooting tips, and notes on version compatibility to the README and any relevant docs. Document that any installation website or prompt is the same as with npm. Include notes on the 'module' package type, binaries, and the directory/template setup performed by scripts/init.js.
 
 ## 5. Implement and Test Package Manager Detection Logic [pending]
 ### Dependencies: 64.4
-### Description: Update or add logic in the codebase to detect Yarn installations and handle Yarn-specific behaviors, ensuring feature parity across package managers.
+### Description: Update or add logic in the codebase to detect Yarn installations and handle Yarn-specific behaviors, ensuring feature parity across package managers. Ensure detection logic works for 'module' package type and binary definitions.
 ### Details:
-Modify detection logic to recognize Yarn (classic and berry), handle lockfile generation, and resolve any Yarn-specific package resolution or hoisting issues.
+Modify detection logic to recognize Yarn (classic and berry), handle lockfile generation, and resolve any Yarn-specific package resolution or hoisting issues. Ensure detection logic supports ESM and binary linking.
+
+## 6. Verify Installation UI/Website Consistency [pending]
+### Dependencies: 64.3
+### Description: Ensure any installation UIs, websites, or interactive prompts—including any website or prompt shown during install—appear and function identically when installing with Yarn compared to npm. Confirm that the experience is consistent for the 'module' package type and the init process.
+### Details:
+Identify all user-facing elements during the installation process, including any website or prompt shown during install, and verify they are consistent across package managers. If a website is shown during installation, ensure it appears the same regardless of package manager used. Validate that any prompts or UIs triggered by scripts/init.js are identical.
+
+## 7. Test init.js Script with Yarn [pending]
+### Dependencies: 64.3
+### Description: Verify that the scripts/init.js file works correctly when Taskmaster is installed via Yarn, creating the proper directory structure and copying all required templates as defined in the project structure.
+### Details:
+Test the init command to ensure it properly creates .cursor/rules, scripts, and tasks directories, copies templates (.env.example, .gitignore, rule files, dev.js), handles package.json merging, and sets up MCP config (.cursor/mcp.json) as per scripts/init.js.
+
+## 8. Verify Binary Links with Yarn [pending]
+### Dependencies: 64.3
+### Description: Ensure that the task-master and task-master-mcp binaries are properly defined in package.json, linked, and executable when installed via Yarn, in both global and local installations.
+### Details:
+Check that the binaries defined in package.json are correctly linked in node_modules/.bin when installed with Yarn, and that they can be executed without errors. Validate that binaries work for ESM ('module') projects and are accessible after both global and local installs.
 

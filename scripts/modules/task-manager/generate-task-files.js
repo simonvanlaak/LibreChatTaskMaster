@@ -19,7 +19,7 @@ function generateTaskFiles(tasksPath, outputDir, options = {}) {
 		// Determine if we're in MCP mode by checking for mcpLog
 		const isMcpMode = !!options?.mcpLog;
 
-		log('info', `Reading tasks from ${tasksPath}...`);
+		log('info', `Preparing to regenerate task files in ${tasksPath}`);
 
 		const data = readJSON(tasksPath);
 		if (!data || !data.tasks) {
@@ -31,13 +31,10 @@ function generateTaskFiles(tasksPath, outputDir, options = {}) {
 			fs.mkdirSync(outputDir, { recursive: true });
 		}
 
-		log('info', `Found ${data.tasks.length} tasks to generate files for.`);
+		log('info', `Found ${data.tasks.length} tasks to regenerate`);
 
 		// Validate and fix dependencies before generating files
-		log(
-			'info',
-			`Validating and fixing dependencies before generating files...`
-		);
+		log('info', `Validating and fixing dependencies`);
 		validateAndFixDependencies(data, tasksPath);
 
 		// Generate task files
@@ -120,7 +117,7 @@ function generateTaskFiles(tasksPath, outputDir, options = {}) {
 
 			// Write the file
 			fs.writeFileSync(taskPath, content);
-			log('info', `Generated: task_${task.id.toString().padStart(3, '0')}.txt`);
+			// log('info', `Generated: task_${task.id.toString().padStart(3, '0')}.txt`); // Pollutes the CLI output
 		});
 
 		log(

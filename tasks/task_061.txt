@@ -1957,7 +1957,7 @@ for (const task of pendingTasks) {
 - Add or update JSDoc comments to clarify that this module is now a pure orchestrator and does not perform AI or config operations directly.
 </info added on 2025-04-24T17:48:09.354Z>
 
-## 39. Refactor get-subtasks-from-ai.js for Unified AI Service & Config [pending]
+## 39. Refactor get-subtasks-from-ai.js for Unified AI Service & Config [done]
 ### Dependencies: None
 ### Description: Replace direct AI calls (old `ai-services.js` helpers) with `generateObjectService` or `generateTextService` from `ai-services-unified.js`. Pass `role` and `session`. Remove direct config getter usage (from `config-manager.js`) for AI parameters; use unified service instead.
 ### Details:
@@ -2043,7 +2043,7 @@ for (const task of pendingTasks) {
 These enhancements ensure the refactored file is robust, maintainable, and aligned with the unified AI service architecture, leveraging Zod for strict runtime validation and clear error boundaries[5][1][3].
 </info added on 2025-04-24T17:48:35.005Z>
 
-## 40. Refactor update-task-by-id.js for Unified AI Service & Config [pending]
+## 40. Refactor update-task-by-id.js for Unified AI Service & Config [done]
 ### Dependencies: None
 ### Description: Replace direct AI calls (old `ai-services.js` helpers) with `generateObjectService` or `generateTextService` from `ai-services-unified.js`. Pass `role` and `session`. Remove direct config getter usage (from `config-manager.js`) for AI parameters and fallback logic; use unified service instead. Keep `getDebugFlag`.
 ### Details:
@@ -2063,7 +2063,7 @@ These enhancements ensure the refactored file is robust, maintainable, and align
 - If you need to validate or transform nested objects (such as task metadata or options), use Zod's object and nested schema capabilities to define these structures precisely, catching errors early and simplifying downstream logic[3][5].
 </info added on 2025-04-24T17:48:58.133Z>
 
-## 41. Refactor update-tasks.js for Unified AI Service & Config [pending]
+## 41. Refactor update-tasks.js for Unified AI Service & Config [done]
 ### Dependencies: None
 ### Description: Replace direct AI calls (old `ai-services.js` helpers) with `generateObjectService` or `generateTextService` from `ai-services-unified.js`. Pass `role` and `session`. Remove direct config getter usage (from `config-manager.js`) for AI parameters and fallback logic; use unified service instead. Keep `getDebugFlag`.
 ### Details:
@@ -2148,4 +2148,16 @@ These enhancements ensure the refactored file is robust, maintainable, and align
 
 These enhancements ensure robust validation, unified service usage, and maintainable, predictable batch update behavior.
 </info added on 2025-04-24T17:49:25.126Z>
+
+## 42. Remove all unused imports [pending]
+### Dependencies: None
+### Description: 
+### Details:
+
+
+## 43. Remove all unnecessary console logs [pending]
+### Dependencies: None
+### Description: 
+### Details:
+
 
