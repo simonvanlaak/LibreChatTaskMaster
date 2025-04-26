@@ -1425,37 +1425,37 @@ function checkProviderCapability(provider, capability) {
 ```
 </info added on 2025-04-20T03:52:13.065Z>
 
-## 24. Implement `google.js` Provider Module using Vercel AI SDK [deferred]
+## 24. Implement `google.js` Provider Module using Vercel AI SDK [pending]
 ### Dependencies: None
 ### Description: Create and implement the `google.js` module within `src/ai-providers/`. This module should contain functions to interact with Google AI models (e.g., Gemini) using the **Vercel AI SDK (`@ai-sdk/google`)**, adhering to the standardized input/output format defined for `ai-services-unified.js`.
 ### Details:
 
 
-## 25. Implement `ollama.js` Provider Module [deferred]
+## 25. Implement `ollama.js` Provider Module [pending]
 ### Dependencies: None
 ### Description: Create and implement the `ollama.js` module within `src/ai-providers/`. This module should contain functions to interact with local Ollama models using the **`ollama-ai-provider` library**, adhering to the standardized input/output format defined for `ai-services-unified.js`. Note the specific library used.
 ### Details:
 
 
-## 26. Implement `mistral.js` Provider Module using Vercel AI SDK [deferred]
+## 26. Implement `mistral.js` Provider Module using Vercel AI SDK [pending]
 ### Dependencies: None
 ### Description: Create and implement the `mistral.js` module within `src/ai-providers/`. This module should contain functions to interact with Mistral AI models using the **Vercel AI SDK (`@ai-sdk/mistral`)**, adhering to the standardized input/output format defined for `ai-services-unified.js`.
 ### Details:
 
 
-## 27. Implement `azure.js` Provider Module using Vercel AI SDK [deferred]
+## 27. Implement `azure.js` Provider Module using Vercel AI SDK [pending]
 ### Dependencies: None
 ### Description: Create and implement the `azure.js` module within `src/ai-providers/`. This module should contain functions to interact with Azure OpenAI models using the **Vercel AI SDK (`@ai-sdk/azure`)**, adhering to the standardized input/output format defined for `ai-services-unified.js`.
 ### Details:
 
 
-## 28. Implement `openrouter.js` Provider Module [deferred]
+## 28. Implement `openrouter.js` Provider Module [pending]
 ### Dependencies: None
 ### Description: Create and implement the `openrouter.js` module within `src/ai-providers/`. This module should contain functions to interact with various models via OpenRouter using the **`@openrouter/ai-sdk-provider` library**, adhering to the standardized input/output format defined for `ai-services-unified.js`. Note the specific library used.
 ### Details:
 
 
-## 29. Implement `xai.js` Provider Module using Vercel AI SDK [deferred]
+## 29. Implement `xai.js` Provider Module using Vercel AI SDK [pending]
 ### Dependencies: None
 ### Description: Create and implement the `xai.js` module within `src/ai-providers/`. This module should contain functions to interact with xAI models (e.g., Grok) using the **Vercel AI SDK (`@ai-sdk/xai`)**, adhering to the standardized input/output format defined for `ai-services-unified.js`.
 ### Details:

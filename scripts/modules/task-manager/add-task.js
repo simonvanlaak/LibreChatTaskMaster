@@ -131,6 +131,7 @@ async function addTask(
 		if (manualTaskData) {
 			report('Using manually provided task data', 'info');
 			taskData = manualTaskData;
+			report('DEBUG: Taking MANUAL task data path.', 'debug');
 
 			// Basic validation for manual data
 			if (
@@ -144,6 +145,7 @@ async function addTask(
 				);
 			}
 		} else {
+			report('DEBUG: Taking AI task generation path.', 'debug');
 			// --- Refactored AI Interaction ---
 			report('Generating task data with AI...', 'info');
 
@@ -180,12 +182,26 @@ async function addTask(
         "testStrategy": "Detailed approach for verifying task completion."
       }`;
 
+			// Add any manually provided details to the prompt for context
+			let contextFromArgs = '';
+			if (manualTaskData?.title)
+				contextFromArgs += `\n- Suggested Title: "${manualTaskData.title}"`;
+			if (manualTaskData?.description)
+				contextFromArgs += `\n- Suggested Description: "${manualTaskData.description}"`;
+			if (manualTaskData?.details)
+				contextFromArgs += `\n- Additional Details Context: "${manualTaskData.details}"`;
+			if (manualTaskData?.testStrategy)
+				contextFromArgs += `\n- Additional Test Strategy Context: "${manualTaskData.testStrategy}"`;
+
 			// User Prompt
 			const userPrompt = `Create a comprehensive new task (Task #${newTaskId}) for a software development project based on this description: "${prompt}"
       
       ${contextTasks}
+      ${contextFromArgs ? `\nConsider these additional details provided by the user:${contextFromArgs}` : ''}
       
-      Return your answer as a single JSON object matching the schema precisely.
+      Return your answer as a single JSON object matching the schema precisely:
+      ${taskStructureDesc}
+      
       Make sure the details and test strategy are thorough and specific.`;
 
 			// Start the loading indicator - only for text mode

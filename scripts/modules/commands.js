@@ -913,14 +913,16 @@ function registerCommands(programInstance) {
 				// Pass mcpLog and session for MCP mode
 				const newTaskId = await addTask(
 					options.file,
-					options.prompt,
+					options.prompt, // Pass prompt (will be null/undefined if not provided)
 					dependencies,
 					options.priority,
 					{
-						session: process.env // Pass environment as session for CLI
+						// For CLI, session context isn't directly available like MCP
+						// We don't need to pass session here for CLI API key resolution
+						// as dotenv loads .env, and utils.resolveEnvVariable checks process.env
 					},
 					'text', // outputFormat
-					null, // manualTaskData
+					manualTaskData, // Pass the potentially created manualTaskData object
 					options.research || false // Pass the research flag value
 				);
 
