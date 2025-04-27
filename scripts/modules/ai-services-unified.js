@@ -27,6 +27,7 @@ import * as perplexity from '../../src/ai-providers/perplexity.js';
 import * as google from '../../src/ai-providers/google.js'; // Import Google provider
 import * as openai from '../../src/ai-providers/openai.js'; // ADD: Import OpenAI provider
 import * as xai from '../../src/ai-providers/xai.js'; // ADD: Import xAI provider
+import * as openrouter from '../../src/ai-providers/openrouter.js'; // ADD: Import OpenRouter provider
 // TODO: Import other provider modules when implemented (ollama, etc.)
 
 // --- Provider Function Map ---
@@ -61,6 +62,12 @@ const PROVIDER_FUNCTIONS = {
 		generateText: xai.generateXaiText,
 		streamText: xai.streamXaiText,
 		generateObject: xai.generateXaiObject // Note: Object generation might be unsupported
+	},
+	openrouter: {
+		// ADD: OpenRouter entry
+		generateText: openrouter.generateOpenRouterText,
+		streamText: openrouter.streamOpenRouterText,
+		generateObject: openrouter.generateOpenRouterObject
 	}
 	// TODO: Add entries for ollama, etc. when implemented
 };
@@ -148,7 +155,7 @@ function _resolveApiKey(providerName, session) {
 		perplexity: 'PERPLEXITY_API_KEY',
 		mistral: 'MISTRAL_API_KEY',
 		azure: 'AZURE_OPENAI_API_KEY',
-		openrouter: 'OPENROUTER_API_KEY',
+		openrouter: 'OPENROUTER_API_KEY', // ADD OpenRouter key
 		xai: 'XAI_API_KEY'
 	};
 
@@ -410,11 +417,34 @@ async function _unifiedServiceRunner(serviceType, params) {
 			const cleanMessage = _extractErrorMessage(error); // Extract clean message
 			log(
 				'error', // Log as error since this role attempt failed
-				`Service call failed for role ${currentRole} (Provider: ${providerName || 'unknown'}): ${cleanMessage}` // Log the clean message
+				`Service call failed for role ${currentRole} (Provider: ${providerName || 'unknown'}, Model: ${modelId || 'unknown'}): ${cleanMessage}` // Log the clean message
 			);
 			lastError = error; // Store the original error for potential debugging
 			lastCleanErrorMessage = cleanMessage; // Store the clean message for final throw
-			// Continue to the next role in the sequence
+
+			// --- ADDED: Specific check for tool use error in generateObject ---
+			if (serviceType === 'generateObject') {
+				const lowerCaseMessage = cleanMessage.toLowerCase();
+				// Check for specific error messages indicating lack of tool support
+				if (
+					lowerCaseMessage.includes(
+						'no endpoints found that support tool use'
+					) ||
+					lowerCaseMessage.includes('does not support tool_use') ||
+					lowerCaseMessage.includes('tool use is not supported') ||
+					lowerCaseMessage.includes('tools are not supported') ||
+					lowerCaseMessage.includes('function calling is not supported')
+				) {
+					const specificErrorMsg = `Model '${modelId || 'unknown'}' via provider '${providerName || 'unknown'}' does not support the 'tool use' required by generateObjectService. Please configure a model that supports tool/function calling for the '${currentRole}' role, or use generateTextService if structured output is not strictly required.`;
+					log('error', `[Tool Support Error] ${specificErrorMsg}`);
+					// Throw a more specific error immediately, breaking the fallback loop for this specific issue.
+					// Using a generic Error for simplicity, could use a custom ConfigurationError.
+					throw new Error(specificErrorMsg);
+				}
+			}
+			// --- END ADDED ---
+
+			// Continue to the next role in the sequence if it wasn't a specific tool support error
 		}
 	}
 

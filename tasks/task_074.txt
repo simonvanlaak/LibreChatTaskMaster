@@ -1,0 +1,36 @@
+# Task ID: 74
+# Title: Task 74: Implement Local Kokoro TTS Support
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Integrate Text-to-Speech (TTS) functionality using a locally running Google Cloud Text-to-Speech (Kokoro) instance, enabling the application to synthesize speech from text.
+# Details:
+Implementation Details:
+1.  **Kokoro Setup:** Assume the user has a local Kokoro TTS instance running and accessible via a network address (e.g., http://localhost:port).
+2.  **Configuration:** Introduce new configuration options (e.g., in `.taskmasterconfig`) to enable/disable TTS, specify the provider ('kokoro_local'), and configure the Kokoro endpoint URL (`tts.kokoro.url`). Consider adding options for voice selection and language if the Kokoro API supports them.
+3.  **API Interaction:** Implement a client module to interact with the local Kokoro TTS API. This module should handle sending text input and receiving audio data (likely in formats like WAV or MP3).
+4.  **Audio Playback:** Integrate a cross-platform audio playback library (e.g., `playsound`, `simpleaudio`, or platform-specific APIs) to play the synthesized audio received from Kokoro.
+5.  **Integration Point:** Identify initial areas in the application where TTS will be used (e.g., a command to read out the current task's title and description). Design the integration to be extensible for future use cases.
+6.  **Error Handling:** Implement robust error handling for scenarios like: Kokoro instance unreachable, API errors during synthesis, invalid configuration, audio playback failures. Provide informative feedback to the user.
+7.  **Dependencies:** Add any necessary HTTP client or audio playback libraries as project dependencies.
+
+# Test Strategy:
+1.  **Unit Tests:** 
+    *   Mock the Kokoro API client. Verify that the TTS module correctly formats requests based on input text and configuration.
+    *   Test handling of successful API responses (parsing audio data placeholder).
+    *   Test handling of various API error responses (e.g., 404, 500).
+    *   Mock the audio playback library. Verify that the received audio data is passed correctly to the playback function.
+    *   Test configuration loading and validation logic.
+2.  **Integration Tests:**
+    *   Requires a running local Kokoro TTS instance (or a compatible mock server).
+    *   Send actual text snippets through the TTS module to the local Kokoro instance.
+    *   Verify that valid audio data is received (e.g., check format, non-zero size). Direct audio playback verification might be difficult in automated tests, focus on the data transfer.
+    *   Test the end-to-end flow by triggering TTS from an application command and ensuring no exceptions occur during synthesis and playback initiation.
+    *   Test error handling by attempting synthesis with the Kokoro instance stopped or misconfigured.
+3.  **Manual Testing:**
+    *   Configure the application to point to a running local Kokoro instance.
+    *   Trigger TTS for various text inputs (short, long, special characters).
+    *   Verify that the audio is played back clearly and accurately reflects the input text.
+    *   Test enabling/disabling TTS via configuration.
+    *   Test behavior when the Kokoro endpoint is incorrect or the server is down.
+    *   Verify performance and responsiveness.
