@@ -1976,6 +1976,18 @@ function registerCommands(programInstance) {
 			'--ollama',
 			'Allow setting a custom Ollama model ID (use with --set-*) '
 		)
+		.addHelpText(
+			'after',
+			`
+Examples:
+  $ task-master models                              # View current configuration
+  $ task-master models --set-main gpt-4o             # Set main model (provider inferred)
+  $ task-master models --set-research sonar-pro       # Set research model
+  $ task-master models --set-fallback claude-3-5-sonnet-20241022 # Set fallback
+  $ task-master models --set-main my-custom-model --ollama  # Set custom Ollama model for main role
+  $ task-master models --set-main some/other-model --openrouter # Set custom OpenRouter model for main role
+  $ task-master models --setup                            # Run interactive setup`
+		)
 		.action(async (options) => {
 			const projectRoot = findProjectRoot(); // Find project root for context
 

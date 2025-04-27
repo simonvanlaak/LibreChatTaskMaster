@@ -32,6 +32,18 @@ This rule guides AI assistants on how to view, configure, and interact with the 
         -   ❌ **DON'T:** `models(setMain='openai:gpt-4o')` or `task-master models --set-main=openai:gpt-4o`
     -   The tool/command will automatically determine the provider based on the model ID.
 
+-   **Setting Custom Models (Ollama/OpenRouter):**
+    -   To set a model ID not in the internal list for Ollama or OpenRouter:
+        -   **MCP Tool:** Use `models` with `set<Role>` and **also** `ollama: true` or `openrouter: true`.
+            -   Example: `models(setMain='my-custom-ollama-model', ollama=true)`
+            -   Example: `models(setMain='some-openrouter-model', openrouter=true)`
+        -   **CLI Command:** Use `task-master models` with `--set-<role>` and **also** `--ollama` or `--openrouter`.
+            -   Example: `task-master models --set-main=my-custom-ollama-model --ollama`
+            -   Example: `task-master models --set-main=some-openrouter-model --openrouter`
+        -   **Interactive Setup:** Use `task-master models --setup` and select the `Ollama (Enter Custom ID)` or `OpenRouter (Enter Custom ID)` options.
+    -   **OpenRouter Validation:** When setting a custom OpenRouter model, Taskmaster attempts to validate the ID against the live OpenRouter API.
+    -   **Ollama:** No live validation occurs for custom Ollama models; ensure the model is available on your Ollama server.
+
 -   **Supported Providers & Required API Keys:**
     -   Task Master integrates with various providers via the Vercel AI SDK.
     -   **API keys are essential** for most providers and must be configured correctly.

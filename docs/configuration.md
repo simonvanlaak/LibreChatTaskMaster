@@ -6,7 +6,7 @@ Taskmaster uses two primary methods for configuration:
 
     - This JSON file stores most configuration settings, including AI model selections, parameters, logging levels, and project defaults.
     - **Location:** Create this file in the root directory of your project.
-    - **Management:** Use the `task-master models --setup` command (or `models` MCP tool) to interactively create and manage this file. Manual editing is possible but not recommended unless you understand the structure.
+    - **Management:** Use the `task-master models --setup` command (or `models` MCP tool) to interactively create and manage this file. You can also set specific models directly using `task-master models --set-<role>=<model_id>`, adding `--ollama` or `--openrouter` flags for custom models. Manual editing is possible but not recommended unless you understand the structure.
     - **Example Structure:**
       ```json
       {
@@ -82,7 +82,7 @@ PERPLEXITY_API_KEY=pplx-your-key-here
 ### Configuration Errors
 
 - If Task Master reports errors about missing configuration or cannot find `.taskmasterconfig`, run `task-master models --setup` in your project root to create or repair the file.
-- Ensure API keys are correctly placed in your `.env` file (for CLI) or `.cursor/mcp.json` (for MCP) and are valid.
+- Ensure API keys are correctly placed in your `.env` file (for CLI) or `.cursor/mcp.json` (for MCP) and are valid for the providers selected in `.taskmasterconfig`.
 
 ### If `task-master init` doesn't respond:
 
