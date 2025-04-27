@@ -17,7 +17,8 @@ import {
 	getMcpApiKeyStatus,
 	getConfig,
 	writeConfig,
-	isConfigFilePresent
+	isConfigFilePresent,
+	getAllProviders
 } from '../config-manager.js';
 
 /**
@@ -382,4 +383,61 @@ async function setModel(role, modelId, options = {}) {
 	}
 }
 
-export { getModelConfiguration, getAvailableModelsList, setModel };
+/**
+ * Get API key status for all known providers.
+ * @param {Object} [options] - Options for the operation
+ * @param {Object} [options.session] - Session object containing environment variables (for MCP)
+ * @param {Function} [options.mcpLog] - MCP logger object (for MCP)
+ * @param {string} [options.projectRoot] - Project root directory
+ * @returns {Object} RESTful response with API key status report
+ */
+async function getApiKeyStatusReport(options = {}) {
+	const { mcpLog, projectRoot, session } = options;
+	const report = (level, ...args) => {
+		if (mcpLog && typeof mcpLog[level] === 'function') {
+			mcpLog[level](...args);
+		}
+	};
+
+	try {
+		const providers = getAllProviders();
+		const providersToCheck = providers.filter(
+			(p) => p.toLowerCase() !== 'ollama'
+		); // Ollama is not a provider, it's a service, doesn't need an api key usually
+		const statusReport = providersToCheck.map((provider) => {
+			// Use provided projectRoot for MCP status check
+			const cliOk = isApiKeySet(provider, session); // Pass session for CLI check too
+			const mcpOk = getMcpApiKeyStatus(provider, projectRoot);
+			return {
+				provider,
+				cli: cliOk,
+				mcp: mcpOk
+			};
+		});
+
+		report('info', 'Successfully generated API key status report.');
+		return {
+			success: true,
+			data: {
+				report: statusReport,
+				message: 'API key status report generated.'
+			}
+		};
+	} catch (error) {
+		report('error', `Error generating API key status report: ${error.message}`);
+		return {
+			success: false,
+			error: {
+				code: 'API_KEY_STATUS_ERROR',
+				message: error.message
+			}
+		};
+	}
+}
+
+export {
+	getModelConfiguration,
+	getAvailableModelsList,
+	setModel,
+	getApiKeyStatusReport
+};

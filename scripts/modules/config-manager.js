@@ -255,8 +255,6 @@ function getModelConfigForRole(role, explicitRoot = null) {
 	const config = getConfig(explicitRoot);
 	const roleConfig = config?.models?.[role];
 	if (!roleConfig) {
-		// This shouldn't happen if _loadAndValidateConfig ensures defaults
-		// But as a safety net, log and return defaults
 		log(
 			'warn',
 			`No model configuration found for role: ${role}. Returning default.`
@@ -363,16 +361,64 @@ function getOllamaBaseUrl(explicitRoot = null) {
 }
 
 /**
- * Gets model parameters (maxTokens, temperature) for a specific role.
+ * Gets model parameters (maxTokens, temperature) for a specific role,
+ * considering model-specific overrides from supported-models.json.
  * @param {string} role - The role ('main', 'research', 'fallback').
  * @param {string|null} explicitRoot - Optional explicit path to the project root.
  * @returns {{maxTokens: number, temperature: number}}
  */
 function getParametersForRole(role, explicitRoot = null) {
 	const roleConfig = getModelConfigForRole(role, explicitRoot);
+	const roleMaxTokens = roleConfig.maxTokens;
+	const roleTemperature = roleConfig.temperature;
+	const modelId = roleConfig.modelId;
+	const providerName = roleConfig.provider;
+
+	let effectiveMaxTokens = roleMaxTokens; // Start with the role's default
+
+	try {
+		// Find the model definition in MODEL_MAP
+		const providerModels = MODEL_MAP[providerName];
+		if (providerModels && Array.isArray(providerModels)) {
+			const modelDefinition = providerModels.find((m) => m.id === modelId);
+
+			// Check if a model-specific max_tokens is defined and valid
+			if (
+				modelDefinition &&
+				typeof modelDefinition.max_tokens === 'number' &&
+				modelDefinition.max_tokens > 0
+			) {
+				const modelSpecificMaxTokens = modelDefinition.max_tokens;
+				// Use the minimum of the role default and the model specific limit
+				effectiveMaxTokens = Math.min(roleMaxTokens, modelSpecificMaxTokens);
+				log(
+					'debug',
+					`Applying model-specific max_tokens (${modelSpecificMaxTokens}) for ${modelId}. Effective limit: ${effectiveMaxTokens}`
+				);
+			} else {
+				log(
+					'debug',
+					`No valid model-specific max_tokens override found for ${modelId}. Using role default: ${roleMaxTokens}`
+				);
+			}
+		} else {
+			log(
+				'debug',
+				`No model definitions found for provider ${providerName} in MODEL_MAP. Using role default maxTokens: ${roleMaxTokens}`
+			);
+		}
+	} catch (lookupError) {
+		log(
+			'warn',
+			`Error looking up model-specific max_tokens for ${modelId}: ${lookupError.message}. Using role default: ${roleMaxTokens}`
+		);
+		// Fallback to role default on error
+		effectiveMaxTokens = roleMaxTokens;
+	}
+
 	return {
-		maxTokens: roleConfig.maxTokens,
-		temperature: roleConfig.temperature
+		maxTokens: effectiveMaxTokens,
+		temperature: roleTemperature
 	};
 }
 
@@ -385,16 +431,19 @@ function getParametersForRole(role, explicitRoot = null) {
  */
 function isApiKeySet(providerName, session = null) {
 	// Define the expected environment variable name for each provider
+	if (providerName?.toLowerCase() === 'ollama') {
+		return true; // Indicate key status is effectively "OK"
+	}
+
 	const keyMap = {
 		openai: 'OPENAI_API_KEY',
 		anthropic: 'ANTHROPIC_API_KEY',
 		google: 'GOOGLE_API_KEY',
 		perplexity: 'PERPLEXITY_API_KEY',
 		mistral: 'MISTRAL_API_KEY',
-		azure: 'AZURE_OPENAI_API_KEY', // Azure needs endpoint too, but key presence is a start
+		azure: 'AZURE_OPENAI_API_KEY',
 		openrouter: 'OPENROUTER_API_KEY',
-		xai: 'XAI_API_KEY',
-		ollama: 'OLLAMA_API_KEY'
+		xai: 'XAI_API_KEY'
 		// Add other providers as needed
 	};
 
@@ -405,8 +454,15 @@ function isApiKeySet(providerName, session = null) {
 	}
 
 	const envVarName = keyMap[providerKey];
-	// Use resolveEnvVariable to check both process.env and session.env
-	return !!resolveEnvVariable(envVarName, session);
+	const apiKeyValue = resolveEnvVariable(envVarName, session);
+
+	// Check if the key exists, is not empty, and is not a placeholder
+	return (
+		apiKeyValue &&
+		apiKeyValue.trim() !== '' &&
+		!/YOUR_.*_API_KEY_HERE/.test(apiKeyValue) && // General placeholder check
+		!apiKeyValue.includes('KEY_HERE')
+	); // Another common placeholder pattern
 }
 
 /**
@@ -482,7 +538,7 @@ function getMcpApiKeyStatus(providerName, projectRoot = null) {
 				return false; // Unknown provider
 		}
 
-		return !!apiKeyToCheck && apiKeyToCheck !== placeholderValue;
+		return !!apiKeyToCheck && !/KEY_HERE$/.test(apiKeyToCheck);
 	} catch (error) {
 		console.error(
 			chalk.red(`Error reading or parsing .cursor/mcp.json: ${error.message}`)
@@ -589,6 +645,14 @@ function isConfigFilePresent(explicitRoot = null) {
 	return fs.existsSync(configPath);
 }
 
+/**
+ * Gets a list of all provider names defined in the MODEL_MAP.
+ * @returns {string[]} An array of provider names.
+ */
+function getAllProviders() {
+	return Object.keys(MODEL_MAP || {});
+}
+
 export {
 	// Core config access
 	getConfig,
@@ -628,5 +692,8 @@ export {
 
 	// API Key Checkers (still relevant)
 	isApiKeySet,
-	getMcpApiKeyStatus
+	getMcpApiKeyStatus,
+
+	// ADD: Function to get all provider names
+	getAllProviders
 };

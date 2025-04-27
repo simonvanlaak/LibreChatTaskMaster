@@ -4,25 +4,29 @@
 			"id": "claude-3-7-sonnet-20250219",
 			"swe_score": 0.623,
 			"cost_per_1m_tokens": { "input": 3.0, "output": 15.0 },
-			"allowed_roles": ["main", "fallback"]
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 120000
 		},
 		{
 			"id": "claude-3-5-sonnet-20241022",
 			"swe_score": 0.49,
 			"cost_per_1m_tokens": { "input": 3.0, "output": 15.0 },
-			"allowed_roles": ["main", "fallback"]
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 64000
 		},
 		{
 			"id": "claude-3-5-haiku-20241022",
 			"swe_score": 0.406,
 			"cost_per_1m_tokens": { "input": 0.8, "output": 4.0 },
-			"allowed_roles": ["main", "fallback"]
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 64000
 		},
 		{
 			"id": "claude-3-opus-20240229",
 			"swe_score": 0,
 			"cost_per_1m_tokens": { "input": 15, "output": 75 },
-			"allowed_roles": ["main", "fallback"]
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 64000
 		}
 	],
 	"openai": [
@@ -48,7 +52,8 @@
 			"id": "o3-mini",
 			"swe_score": 0.493,
 			"cost_per_1m_tokens": { "input": 1.1, "output": 4.4 },
-			"allowed_roles": ["main", "fallback"]
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 100000
 		},
 		{
 			"id": "o4-mini",
@@ -66,12 +71,6 @@
 			"id": "o1-pro",
 			"swe_score": 0,
 			"cost_per_1m_tokens": { "input": 150.0, "output": 600.0 },
-			"allowed_roles": ["main", "fallback"]
-		},
-		{
-			"id": "gpt-4-1",
-			"swe_score": 0.55,
-			"cost_per_1m_tokens": { "input": 2.0, "output": 8.0 },
 			"allowed_roles": ["main", "fallback"]
 		},
 		{
@@ -148,31 +147,36 @@
 			"id": "sonar-pro",
 			"swe_score": 0,
 			"cost_per_1m_tokens": { "input": 3, "output": 15 },
-			"allowed_roles": ["research"]
+			"allowed_roles": ["research"],
+			"max_tokens": 8700
 		},
 		{
 			"id": "sonar",
 			"swe_score": 0,
 			"cost_per_1m_tokens": { "input": 1, "output": 1 },
-			"allowed_roles": ["research"]
+			"allowed_roles": ["research"],
+			"max_tokens": 8700
 		},
 		{
 			"id": "deep-research",
 			"swe_score": 0.211,
 			"cost_per_1m_tokens": { "input": 2, "output": 8 },
-			"allowed_roles": ["research"]
+			"allowed_roles": ["research"],
+			"max_tokens": 8700
 		},
 		{
 			"id": "sonar-reasoning-pro",
 			"swe_score": 0.211,
 			"cost_per_1m_tokens": { "input": 2, "output": 8 },
-			"allowed_roles": ["main", "fallback"]
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 8700
 		},
 		{
 			"id": "sonar-reasoning",
 			"swe_score": 0.211,
 			"cost_per_1m_tokens": { "input": 1, "output": 5 },
-			"allowed_roles": ["main", "fallback"]
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 8700
 		}
 	],
 	"ollama": [

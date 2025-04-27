@@ -48,7 +48,7 @@ This rule guides AI assistants on how to view, configure, and interact with the 
         -   **`mistral`**: Requires `MISTRAL_API_KEY`.
         -   **`azure`**: Requires `AZURE_OPENAI_API_KEY` and `AZURE_OPENAI_ENDPOINT`.
         -   **`openrouter`**: Requires `OPENROUTER_API_KEY`.
-        -   **`ollama`**: Typically requires `OLLAMA_API_KEY` *and* `OLLAMA_BASE_URL` (default: `http://localhost:11434/api`). *Check specific setup.*
+        -   **`ollama`**: Might require `OLLAMA_API_KEY` (not currently supported) *and* `OLLAMA_BASE_URL` (default: `http://localhost:11434/api`). *Check specific setup.*
 
 -   **Troubleshooting:**
     -   If AI commands fail (especially in MCP context):

@@ -1336,11 +1336,256 @@ When testing the non-streaming `generateTextService` call in `updateSubtaskById`
 ### Details:
 
 
-## 22. Implement `openai.js` Provider Module using Vercel AI SDK [deferred]
+## 22. Implement `openai.js` Provider Module using Vercel AI SDK [in-progress]
 ### Dependencies: None
 ### Description: Create and implement the `openai.js` module within `src/ai-providers/`. This module should contain functions to interact with the OpenAI API (streaming and non-streaming) using the **Vercel AI SDK**, adhering to the standardized input/output format defined for `ai-services-unified.js`. (Optional, implement if OpenAI models are needed).
 ### Details:
 
+
+<info added on 2025-04-27T05:33:49.977Z>
+```javascript
+// Implementation details for openai.js provider module
+
+import { createOpenAI } from 'ai';
+
+/**
+ * Generates text using OpenAI models via Vercel AI SDK
+ * 
+ * @param {Object} params - Configuration parameters
+ * @param {string} params.apiKey - OpenAI API key
+ * @param {string} params.modelId - Model ID (e.g., 'gpt-4', 'gpt-3.5-turbo')
+ * @param {Array} params.messages - Array of message objects with role and content
+ * @param {number} [params.maxTokens] - Maximum tokens to generate
+ * @param {number} [params.temperature=0.7] - Sampling temperature (0-1)
+ * @returns {Promise<string>} The generated text response
+ */
+export async function generateOpenAIText(params) {
+  try {
+    const { apiKey, modelId, messages, maxTokens, temperature = 0.7 } = params;
+    
+    if (!apiKey) throw new Error('OpenAI API key is required');
+    if (!modelId) throw new Error('Model ID is required');
+    if (!messages || !Array.isArray(messages)) throw new Error('Messages array is required');
+    
+    const openai = createOpenAI({ apiKey });
+    
+    const response = await openai.chat.completions.create({
+      model: modelId,
+      messages,
+      max_tokens: maxTokens,
+      temperature,
+    });
+    
+    return response.choices[0].message.content;
+  } catch (error) {
+    console.error('OpenAI text generation error:', error);
+    throw new Error(`OpenAI API error: ${error.message}`);
+  }
+}
+
+/**
+ * Streams text using OpenAI models via Vercel AI SDK
+ * 
+ * @param {Object} params - Configuration parameters (same as generateOpenAIText)
+ * @returns {ReadableStream} A stream of text chunks
+ */
+export async function streamOpenAIText(params) {
+  try {
+    const { apiKey, modelId, messages, maxTokens, temperature = 0.7 } = params;
+    
+    if (!apiKey) throw new Error('OpenAI API key is required');
+    if (!modelId) throw new Error('Model ID is required');
+    if (!messages || !Array.isArray(messages)) throw new Error('Messages array is required');
+    
+    const openai = createOpenAI({ apiKey });
+    
+    const stream = await openai.chat.completions.create({
+      model: modelId,
+      messages,
+      max_tokens: maxTokens,
+      temperature,
+      stream: true,
+    });
+    
+    return stream;
+  } catch (error) {
+    console.error('OpenAI streaming error:', error);
+    throw new Error(`OpenAI streaming error: ${error.message}`);
+  }
+}
+
+/**
+ * Generates a structured object using OpenAI models via Vercel AI SDK
+ * 
+ * @param {Object} params - Configuration parameters
+ * @param {string} params.apiKey - OpenAI API key
+ * @param {string} params.modelId - Model ID (e.g., 'gpt-4', 'gpt-3.5-turbo')
+ * @param {Array} params.messages - Array of message objects
+ * @param {Object} params.schema - JSON schema for the response object
+ * @param {string} params.objectName - Name of the object to generate
+ * @returns {Promise<Object>} The generated structured object
+ */
+export async function generateOpenAIObject(params) {
+  try {
+    const { apiKey, modelId, messages, schema, objectName } = params;
+    
+    if (!apiKey) throw new Error('OpenAI API key is required');
+    if (!modelId) throw new Error('Model ID is required');
+    if (!messages || !Array.isArray(messages)) throw new Error('Messages array is required');
+    if (!schema) throw new Error('Schema is required');
+    if (!objectName) throw new Error('Object name is required');
+    
+    const openai = createOpenAI({ apiKey });
+    
+    // Using the Vercel AI SDK's function calling capabilities
+    const response = await openai.chat.completions.create({
+      model: modelId,
+      messages,
+      functions: [
+        {
+          name: objectName,
+          description: `Generate a ${objectName} object`,
+          parameters: schema,
+        },
+      ],
+      function_call: { name: objectName },
+    });
+    
+    const functionCall = response.choices[0].message.function_call;
+    return JSON.parse(functionCall.arguments);
+  } catch (error) {
+    console.error('OpenAI object generation error:', error);
+    throw new Error(`OpenAI object generation error: ${error.message}`);
+  }
+}
+```
+</info added on 2025-04-27T05:33:49.977Z>
+
+<info added on 2025-04-27T05:35:03.679Z>
+<info added on 2025-04-28T10:15:22.123Z>
+```javascript
+// Additional implementation notes for openai.js
+
+/**
+ * Export a provider info object for OpenAI
+ */
+export const providerInfo = {
+  id: 'openai',
+  name: 'OpenAI',
+  description: 'OpenAI API integration using Vercel AI SDK',
+  models: {
+    'gpt-4': {
+      id: 'gpt-4',
+      name: 'GPT-4',
+      contextWindow: 8192,
+      supportsFunctions: true,
+    },
+    'gpt-4-turbo': {
+      id: 'gpt-4-turbo',
+      name: 'GPT-4 Turbo',
+      contextWindow: 128000,
+      supportsFunctions: true,
+    },
+    'gpt-3.5-turbo': {
+      id: 'gpt-3.5-turbo',
+      name: 'GPT-3.5 Turbo',
+      contextWindow: 16385,
+      supportsFunctions: true,
+    }
+  }
+};
+
+/**
+ * Helper function to format error responses consistently
+ * 
+ * @param {Error} error - The caught error
+ * @param {string} operation - The operation being performed
+ * @returns {Error} A formatted error
+ */
+function formatError(error, operation) {
+  // Extract OpenAI specific error details if available
+  const statusCode = error.status || error.statusCode;
+  const errorType = error.type || error.code || 'unknown_error';
+  
+  // Create a more detailed error message
+  const message = `OpenAI ${operation} error (${errorType}): ${error.message}`;
+  
+  // Create a new error with the formatted message
+  const formattedError = new Error(message);
+  
+  // Add additional properties for debugging
+  formattedError.originalError = error;
+  formattedError.provider = 'openai';
+  formattedError.statusCode = statusCode;
+  formattedError.errorType = errorType;
+  
+  return formattedError;
+}
+
+/**
+ * Example usage with the unified AI services interface:
+ * 
+ * // In ai-services-unified.js
+ * import * as openaiProvider from './ai-providers/openai.js';
+ * 
+ * export async function generateText(params) {
+ *   switch(params.provider) {
+ *     case 'openai':
+ *       return openaiProvider.generateOpenAIText(params);
+ *     // other providers...
+ *   }
+ * }
+ */
+
+// Note: For proper error handling with the Vercel AI SDK, you may need to:
+// 1. Check for rate limiting errors (429)
+// 2. Handle token context window exceeded errors
+// 3. Implement exponential backoff for retries on 5xx errors
+// 4. Parse streaming errors properly from the ReadableStream
+```
+</info added on 2025-04-28T10:15:22.123Z>
+</info added on 2025-04-27T05:35:03.679Z>
+
+<info added on 2025-04-27T05:39:31.942Z>
+```javascript
+// Correction for openai.js provider module
+
+// IMPORTANT: Use the correct import from Vercel AI SDK
+import { createOpenAI, openai } from '@ai-sdk/openai';
+
+// Note: Before using this module, install the required dependency:
+// npm install @ai-sdk/openai
+
+// The rest of the implementation remains the same, but uses the correct imports.
+// When implementing this module, ensure your package.json includes this dependency.
+
+// For streaming implementations with the Vercel AI SDK, you can also use the 
+// streamText and experimental streamUI methods:
+
+/**
+ * Example of using streamText for simpler streaming implementation
+ */
+export async function streamOpenAITextSimplified(params) {
+  try {
+    const { apiKey, modelId, messages, maxTokens, temperature = 0.7 } = params;
+    
+    if (!apiKey) throw new Error('OpenAI API key is required');
+    
+    const openaiClient = createOpenAI({ apiKey });
+    
+    return openaiClient.streamText({
+      model: modelId,
+      messages,
+      temperature,
+      maxTokens,
+    });
+  } catch (error) {
+    console.error('OpenAI streaming error:', error);
+    throw new Error(`OpenAI streaming error: ${error.message}`);
+  }
+}
+```
+</info added on 2025-04-27T05:39:31.942Z>
 
 ## 23. Implement Conditional Provider Logic in `ai-services-unified.js` [done]
 ### Dependencies: 61.20,61.21,61.22,61.24,61.25,61.26,61.27,61.28,61.29,61.30,61.34
@@ -1425,7 +1670,7 @@ function checkProviderCapability(provider, capability) {
 ```
 </info added on 2025-04-20T03:52:13.065Z>
 
-## 24. Implement `google.js` Provider Module using Vercel AI SDK [pending]
+## 24. Implement `google.js` Provider Module using Vercel AI SDK [done]
 ### Dependencies: None
 ### Description: Create and implement the `google.js` module within `src/ai-providers/`. This module should contain functions to interact with Google AI models (e.g., Gemini) using the **Vercel AI SDK (`@ai-sdk/google`)**, adhering to the standardized input/output format defined for `ai-services-unified.js`.
 ### Details:

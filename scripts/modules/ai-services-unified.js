@@ -25,7 +25,8 @@ import { log, resolveEnvVariable } from './utils.js';
 import * as anthropic from '../../src/ai-providers/anthropic.js';
 import * as perplexity from '../../src/ai-providers/perplexity.js';
 import * as google from '../../src/ai-providers/google.js'; // Import Google provider
-// TODO: Import other provider modules when implemented (openai, ollama, etc.)
+import * as openai from '../../src/ai-providers/openai.js'; // ADD: Import OpenAI provider
+// TODO: Import other provider modules when implemented (ollama, etc.)
 
 // --- Provider Function Map ---
 // Maps provider names (lowercase) to their respective service functions
@@ -47,8 +48,14 @@ const PROVIDER_FUNCTIONS = {
 		generateText: google.generateGoogleText,
 		streamText: google.streamGoogleText,
 		generateObject: google.generateGoogleObject
+	},
+	openai: {
+		// ADD: OpenAI entry
+		generateText: openai.generateOpenAIText,
+		streamText: openai.streamOpenAIText,
+		generateObject: openai.generateOpenAIObject
 	}
-	// TODO: Add entries for openai, ollama, etc. when implemented
+	// TODO: Add entries for ollama, etc. when implemented
 };
 
 // --- Configuration for Retries ---
@@ -72,6 +79,54 @@ function isRetryableError(error) {
 }
 
 /**
+ * Extracts a user-friendly error message from a potentially complex AI error object.
+ * Prioritizes nested messages and falls back to the top-level message.
+ * @param {Error | object | any} error - The error object.
+ * @returns {string} A concise error message.
+ */
+function _extractErrorMessage(error) {
+	try {
+		// Attempt 1: Look for Vercel SDK specific nested structure (common)
+		if (error?.data?.error?.message) {
+			return error.data.error.message;
+		}
+
+		// Attempt 2: Look for nested error message directly in the error object
+		if (error?.error?.message) {
+			return error.error.message;
+		}
+
+		// Attempt 3: Look for nested error message in response body if it's JSON string
+		if (typeof error?.responseBody === 'string') {
+			try {
+				const body = JSON.parse(error.responseBody);
+				if (body?.error?.message) {
+					return body.error.message;
+				}
+			} catch (parseError) {
+				// Ignore if responseBody is not valid JSON
+			}
+		}
+
+		// Attempt 4: Use the top-level message if it exists
+		if (typeof error?.message === 'string' && error.message) {
+			return error.message;
+		}
+
+		// Attempt 5: Handle simple string errors
+		if (typeof error === 'string') {
+			return error;
+		}
+
+		// Fallback
+		return 'An unknown AI service error occurred.';
+	} catch (e) {
+		// Safety net
+		return 'Failed to extract error message.';
+	}
+}
+
+/**
  * Internal helper to resolve the API key for a given provider.
  * @param {string} providerName - The name of the provider (lowercase).
  * @param {object|null} session - Optional MCP session object.
@@ -87,8 +142,7 @@ function _resolveApiKey(providerName, session) {
 		mistral: 'MISTRAL_API_KEY',
 		azure: 'AZURE_OPENAI_API_KEY',
 		openrouter: 'OPENROUTER_API_KEY',
-		xai: 'XAI_API_KEY',
-		ollama: 'OLLAMA_API_KEY'
+		xai: 'XAI_API_KEY'
 	};
 
 	// Double check this -- I have had to use an api key for ollama in the past
@@ -211,6 +265,8 @@ async function _unifiedServiceRunner(serviceType, params) {
 	}
 
 	let lastError = null;
+	let lastCleanErrorMessage =
+		'AI service call failed for all configured roles.';
 
 	for (const currentRole of sequence) {
 		let providerName, modelId, apiKey, roleParams, providerFnSet, providerApiFn;
@@ -344,23 +400,21 @@ async function _unifiedServiceRunner(serviceType, params) {
 
 			return result; // Return original result for other cases
 		} catch (error) {
+			const cleanMessage = _extractErrorMessage(error); // Extract clean message
 			log(
 				'error', // Log as error since this role attempt failed
-				`Service call failed for role ${currentRole} (Provider: ${providerName || 'unknown'}): ${error.message}`
+				`Service call failed for role ${currentRole} (Provider: ${providerName || 'unknown'}): ${cleanMessage}` // Log the clean message
 			);
-			lastError = error; // Store the error to throw if all roles fail
-			// Log reason and continue (handled within the loop now)
+			lastError = error; // Store the original error for potential debugging
+			lastCleanErrorMessage = cleanMessage; // Store the clean message for final throw
+			// Continue to the next role in the sequence
 		}
 	}
 
 	// If loop completes, all roles failed
 	log('error', `All roles in the sequence [${sequence.join(', ')}] failed.`);
-	throw (
-		lastError ||
-		new Error(
-			`AI service call (${serviceType}) failed for all configured roles in the sequence.`
-		)
-	);
+	// Throw a new error with the cleaner message from the last failure
+	throw new Error(lastCleanErrorMessage);
 }
 
 /**

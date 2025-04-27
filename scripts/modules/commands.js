@@ -45,7 +45,9 @@ import {
 	getDebugFlag,
 	getConfig,
 	writeConfig,
-	ConfigurationError // Import the custom error
+	ConfigurationError, // Import the custom error
+	getAllProviders,
+	isConfigFilePresent
 } from './config-manager.js';
 
 import {
@@ -57,16 +59,299 @@ import {
 	getStatusWithColor,
 	confirmTaskOverwrite,
 	startLoadingIndicator,
-	stopLoadingIndicator
+	stopLoadingIndicator,
+	displayModelConfiguration,
+	displayAvailableModels,
+	displayApiKeyStatus
 } from './ui.js';
 
 import { initializeProject } from '../init.js';
 import {
 	getModelConfiguration,
 	getAvailableModelsList,
-	setModel
+	setModel,
+	getApiKeyStatusReport
 } from './task-manager/models.js'; // Import new core functions
 import { findProjectRoot } from './utils.js'; // Import findProjectRoot
+
+/**
+ * Runs the interactive setup process for model configuration.
+ * @param {string|null} projectRoot - The resolved project root directory.
+ */
+async function runInteractiveSetup(projectRoot) {
+	if (!projectRoot) {
+		console.error(
+			chalk.red(
+				'Error: Could not determine project root for interactive setup.'
+			)
+		);
+		process.exit(1);
+	}
+	// Get available models - pass projectRoot
+	const availableModelsResult = await getAvailableModelsList({ projectRoot });
+	if (!availableModelsResult.success) {
+		console.error(
+			chalk.red(
+				`Error fetching available models: ${availableModelsResult.error?.message || 'Unknown error'}`
+			)
+		);
+		process.exit(1);
+	}
+	const availableModelsForSetup = availableModelsResult.data.models;
+
+	// Get current config - pass projectRoot
+	const currentConfigResult = await getModelConfiguration({ projectRoot });
+	// Allow setup even if current config fails (might be first time run)
+	const currentModels = currentConfigResult.success
+		? currentConfigResult.data?.activeModels
+		: { main: {}, research: {}, fallback: {} };
+	if (
+		!currentConfigResult.success &&
+		currentConfigResult.error?.code !== 'CONFIG_MISSING'
+	) {
+		// Log error if it's not just a missing file
+		console.error(
+			chalk.red(
+				`Warning: Could not fetch current configuration: ${currentConfigResult.error?.message || 'Unknown error'}`
+			)
+		);
+	}
+
+	console.log(chalk.cyan.bold('\nInteractive Model Setup:'));
+
+	// Find all available models for setup options
+	const allModelsForSetup = availableModelsForSetup
+		.filter((model) => !model.modelId.startsWith('[')) // Filter out placeholders like [ollama-any]
+		.map((model) => ({
+			name: `${model.provider} / ${model.modelId}`,
+			value: { provider: model.provider, id: model.modelId }
+		}));
+
+	if (allModelsForSetup.length === 0) {
+		console.error(
+			chalk.red('Error: No selectable models found in configuration.')
+		);
+		process.exit(1);
+	}
+
+	// Helper to get choices and default index for a role
+	const getPromptData = (role, allowNone = false) => {
+		const roleChoices = allModelsForSetup.filter((modelChoice) =>
+			availableModelsForSetup
+				.find((m) => m.modelId === modelChoice.value.id)
+				?.allowedRoles?.includes(role)
+		);
+
+		let choices = [...roleChoices];
+		let defaultIndex = -1;
+		const currentModelId = currentModels[role]?.modelId;
+
+		if (allowNone) {
+			choices = [
+				{ name: 'None (disable)', value: null },
+				new inquirer.Separator(),
+				...roleChoices
+			];
+			if (currentModelId) {
+				const foundIndex = roleChoices.findIndex(
+					(m) => m.value.id === currentModelId
+				);
+				defaultIndex = foundIndex !== -1 ? foundIndex + 2 : 0; // +2 for None and Separator
+			} else {
+				defaultIndex = 0; // Default to 'None'
+			}
+		} else {
+			if (currentModelId) {
+				defaultIndex = roleChoices.findIndex(
+					(m) => m.value.id === currentModelId
+				);
+			}
+			// Ensure defaultIndex is valid, otherwise default to 0
+			if (defaultIndex < 0 || defaultIndex >= roleChoices.length) {
+				defaultIndex = 0;
+			}
+		}
+
+		// Add Cancel option
+		const cancelOption = { name: 'Cancel setup', value: '__CANCEL__' };
+		choices = [cancelOption, new inquirer.Separator(), ...choices];
+		// Adjust default index accounting for Cancel and Separator
+		defaultIndex = defaultIndex !== -1 ? defaultIndex + 2 : 0;
+
+		return { choices, default: defaultIndex };
+	};
+
+	// --- Generate choices using the helper ---
+	const mainPromptData = getPromptData('main');
+	const researchPromptData = getPromptData('research');
+	const fallbackPromptData = getPromptData('fallback', true); // Allow 'None' for fallback
+
+	const answers = await inquirer.prompt([
+		{
+			type: 'list',
+			name: 'mainModel',
+			message: 'Select the main model for generation/updates:',
+			choices: mainPromptData.choices,
+			default: mainPromptData.default
+		},
+		{
+			type: 'list',
+			name: 'researchModel',
+			message: 'Select the research model:',
+			choices: researchPromptData.choices,
+			default: researchPromptData.default,
+			when: (ans) => ans.mainModel !== '__CANCEL__'
+		},
+		{
+			type: 'list',
+			name: 'fallbackModel',
+			message: 'Select the fallback model (optional):',
+			choices: fallbackPromptData.choices,
+			default: fallbackPromptData.default,
+			when: (ans) =>
+				ans.mainModel !== '__CANCEL__' && ans.researchModel !== '__CANCEL__'
+		}
+	]);
+
+	// Check if user canceled at any point
+	if (
+		answers.mainModel === '__CANCEL__' ||
+		answers.researchModel === '__CANCEL__' ||
+		answers.fallbackModel === '__CANCEL__'
+	) {
+		console.log(chalk.yellow('\nSetup canceled. No changes made.'));
+		return; // Return instead of exit to allow display logic to run maybe? Or exit? Let's return for now.
+	}
+
+	// Apply changes using setModel
+	let setupSuccess = true;
+	let setupConfigModified = false;
+	const coreOptionsSetup = { projectRoot }; // Pass root for setup actions
+
+	// Set Main Model
+	if (
+		answers.mainModel?.id &&
+		answers.mainModel.id !== currentModels.main?.modelId
+	) {
+		const result = await setModel(
+			'main',
+			answers.mainModel.id,
+			coreOptionsSetup
+		);
+		if (result.success) {
+			console.log(
+				chalk.blue(
+					`Selected main model: ${result.data.provider} / ${result.data.modelId}`
+				)
+			);
+			setupConfigModified = true;
+		} else {
+			console.error(
+				chalk.red(
+					`Error setting main model: ${result.error?.message || 'Unknown'}`
+				)
+			);
+			setupSuccess = false;
+		}
+	}
+
+	// Set Research Model
+	if (
+		answers.researchModel?.id &&
+		answers.researchModel.id !== currentModels.research?.modelId
+	) {
+		const result = await setModel(
+			'research',
+			answers.researchModel.id,
+			coreOptionsSetup
+		);
+		if (result.success) {
+			console.log(
+				chalk.blue(
+					`Selected research model: ${result.data.provider} / ${result.data.modelId}`
+				)
+			);
+			setupConfigModified = true;
+		} else {
+			console.error(
+				chalk.red(
+					`Error setting research model: ${result.error?.message || 'Unknown'}`
+				)
+			);
+			setupSuccess = false;
+		}
+	}
+
+	// Set Fallback Model - Handle 'None' selection
+	const currentFallbackId = currentModels.fallback?.modelId;
+	const selectedFallbackValue = answers.fallbackModel; // Could be null or model object
+	const selectedFallbackId = selectedFallbackValue?.id; // Undefined if null
+
+	if (selectedFallbackId !== currentFallbackId) {
+		// Compare IDs
+		if (selectedFallbackId) {
+			// User selected a specific fallback model
+			const result = await setModel(
+				'fallback',
+				selectedFallbackId,
+				coreOptionsSetup
+			);
+			if (result.success) {
+				console.log(
+					chalk.blue(
+						`Selected fallback model: ${result.data.provider} / ${result.data.modelId}`
+					)
+				);
+				setupConfigModified = true;
+			} else {
+				console.error(
+					chalk.red(
+						`Error setting fallback model: ${result.error?.message || 'Unknown'}`
+					)
+				);
+				setupSuccess = false;
+			}
+		} else if (currentFallbackId) {
+			// User selected 'None' but a fallback was previously set
+			// Need to explicitly clear it in the config file
+			const currentCfg = getConfig(projectRoot); // Pass root
+			if (currentCfg?.models?.fallback) {
+				// Check if fallback exists before clearing
+				currentCfg.models.fallback = {
+					...currentCfg.models.fallback, // Keep params like tokens/temp
+					provider: undefined,
+					modelId: undefined
+				};
+				if (writeConfig(currentCfg, projectRoot)) {
+					// Pass root
+					console.log(chalk.blue('Fallback model disabled.'));
+					setupConfigModified = true;
+				} else {
+					console.error(
+						chalk.red('Failed to disable fallback model in config file.')
+					);
+					setupSuccess = false;
+				}
+			} else {
+				console.log(chalk.blue('Fallback model was already disabled.'));
+			}
+		}
+		// No action needed if fallback was already null/undefined and user selected None
+	}
+
+	if (setupSuccess && setupConfigModified) {
+		console.log(chalk.green.bold('\nModel setup complete!'));
+	} else if (setupSuccess && !setupConfigModified) {
+		console.log(chalk.yellow('\nNo changes made to model configuration.'));
+	} else if (!setupSuccess) {
+		console.error(
+			chalk.red(
+				'\nErrors occurred during model selection. Please review and try again.'
+			)
+		);
+	}
+	// Let the main command flow continue to display results
+}
 
 /**
  * Configure and register CLI commands
@@ -1596,609 +1881,126 @@ function registerCommands(programInstance) {
 		)
 		.option('--setup', 'Run interactive setup to configure models')
 		.action(async (options) => {
-			try {
-				// ---> Explicitly find project root for CLI execution <---
-				const projectRoot = findProjectRoot();
-				if (!projectRoot && !options.setup) {
-					// Allow setup even if root isn't found immediately
+			const projectRoot = findProjectRoot(); // Find project root for context
+
+			// --- Handle Interactive Setup ---
+			if (options.setup) {
+				// Assume runInteractiveSetup is defined elsewhere in this file
+				await runInteractiveSetup(projectRoot);
+				// No return here, flow continues to display results below
+			}
+			// --- Handle Direct Set Operations (only if not running setup) ---
+			else {
+				let modelUpdated = false;
+				if (options.setMain) {
+					const result = await setModel('main', options.setMain, {
+						projectRoot
+					});
+					if (result.success) {
+						console.log(chalk.green(`✅ ${result.data.message}`));
+						modelUpdated = true;
+					} else {
+						console.error(chalk.red(`❌ Error: ${result.error.message}`));
+						// Optionally exit or provide more specific feedback
+					}
+				}
+				if (options.setResearch) {
+					const result = await setModel('research', options.setResearch, {
+						projectRoot
+					});
+					if (result.success) {
+						console.log(chalk.green(`✅ ${result.data.message}`));
+						modelUpdated = true;
+					} else {
+						console.error(chalk.red(`❌ Error: ${result.error.message}`));
+					}
+				}
+				if (options.setFallback) {
+					const result = await setModel('fallback', options.setFallback, {
+						projectRoot
+					});
+					if (result.success) {
+						console.log(chalk.green(`✅ ${result.data.message}`));
+						modelUpdated = true;
+					} else {
+						console.error(chalk.red(`❌ Error: ${result.error.message}`));
+					}
+				}
+				// If only set flags were used, we still proceed to display the results
+			}
+			// --- Always Display Status After Setup or Set ---
+
+			const configResult = await getModelConfiguration({ projectRoot });
+			// Fetch available models *before* displaying config to use for formatting
+			const availableResult = await getAvailableModelsList({ projectRoot });
+			const apiKeyStatusResult = await getApiKeyStatusReport({ projectRoot }); // Fetch API key status
+
+			// 1. Display Active Models
+			if (!configResult.success) {
+				// If config is missing AFTER setup attempt, it might indicate an issue saving.
+				if (options.setup && configResult.error?.code === 'CONFIG_MISSING') {
 					console.error(
 						chalk.red(
-							"Error: Could not determine the project root. Ensure you're running this command within a Task Master project directory."
+							`❌ Error: Configuration file still missing after setup attempt. Check file permissions.`
 						)
-					);
-					process.exit(1);
-				}
-				// ---> End find project root <---
-
-				// --- Set Operations ---
-				if (options.setMain || options.setResearch || options.setFallback) {
-					let resultSet = null;
-					const coreOptions = { projectRoot }; // Pass root to setModel
-					if (options.setMain) {
-						resultSet = await setModel('main', options.setMain, coreOptions);
-					} else if (options.setResearch) {
-						resultSet = await setModel(
-							'research',
-							options.setResearch,
-							coreOptions
-						);
-					} else if (options.setFallback) {
-						resultSet = await setModel(
-							'fallback',
-							options.setFallback,
-							coreOptions
-						);
-					}
-
-					if (resultSet?.success) {
-						console.log(chalk.green(resultSet.data.message));
-					} else {
-						console.error(
-							chalk.red(
-								`Error setting model: ${resultSet?.error?.message || 'Unknown error'}`
-							)
-						);
-						if (resultSet?.error?.code === 'MODEL_NOT_FOUND') {
-							console.log(
-								chalk.yellow(
-									'\\nRun `task-master models` to see available models.'
-								)
-							);
-						}
-						process.exit(1);
-					}
-					return; // Exit after successful set operation
-				}
-
-				// --- Interactive Setup ---
-				if (options.setup) {
-					// Get available models for interactive setup - pass projectRoot
-					const availableModelsResult = await getAvailableModelsList({
-						projectRoot
-					});
-					if (!availableModelsResult.success) {
-						console.error(
-							chalk.red(
-								`Error fetching available models: ${availableModelsResult.error?.message || 'Unknown error'}`
-							)
-						);
-						process.exit(1);
-					}
-					const availableModelsForSetup = availableModelsResult.data.models;
-
-					// Get current config - pass projectRoot
-					const currentConfigResult = await getModelConfiguration({
-						projectRoot
-					});
-					if (!currentConfigResult.success) {
-						console.error(
-							chalk.red(
-								`Error fetching current configuration: ${currentConfigResult.error?.message || 'Unknown error'}`
-							)
-						);
-						// Allow setup even if current config fails (might be first time run)
-					}
-					const currentModels = currentConfigResult.data?.activeModels || {
-						main: {},
-						research: {},
-						fallback: {}
-					};
-
-					console.log(chalk.cyan.bold('\\nInteractive Model Setup:'));
-
-					// Find all available models for setup options
-					const allModelsForSetup = availableModelsForSetup.map((model) => ({
-						name: `${model.provider} / ${model.modelId}`,
-						value: { provider: model.provider, id: model.modelId }
-					}));
-
-					if (allModelsForSetup.length === 0) {
-						console.error(
-							chalk.red('Error: No selectable models found in configuration.')
-						);
-						process.exit(1);
-					}
-
-					// Helper to get choices and default index for a role
-					const getPromptData = (role, allowNone = false) => {
-						const roleChoices = allModelsForSetup.filter((modelChoice) =>
-							availableModelsForSetup
-								.find((m) => m.modelId === modelChoice.value.id)
-								?.allowedRoles?.includes(role)
-						);
-
-						let choices = [...roleChoices];
-						let defaultIndex = -1;
-						const currentModelId = currentModels[role]?.modelId;
-
-						if (allowNone) {
-							choices = [
-								{ name: 'None (disable)', value: null },
-								new inquirer.Separator(),
-								...roleChoices
-							];
-							if (currentModelId) {
-								const foundIndex = roleChoices.findIndex(
-									(m) => m.value.id === currentModelId
-								);
-								defaultIndex = foundIndex !== -1 ? foundIndex + 2 : 0; // +2 for None and Separator
-							} else {
-								defaultIndex = 0; // Default to 'None'
-							}
-						} else {
-							if (currentModelId) {
-								defaultIndex = roleChoices.findIndex(
-									(m) => m.value.id === currentModelId
-								);
-							}
-						}
-
-						// Add Cancel option
-						const cancelOption = {
-							name: 'Cancel setup (q)',
-							value: '__CANCEL__'
-						};
-						choices = [cancelOption, new inquirer.Separator(), ...choices];
-						defaultIndex = defaultIndex !== -1 ? defaultIndex + 2 : 0; // +2 for Cancel and Separator
-
-						return { choices, default: defaultIndex };
-					};
-
-					// Add key press handler for 'q' to cancel
-					// Ensure stdin is available and resume it if needed
-					if (process.stdin.isTTY) {
-						process.stdin.setRawMode(true);
-						process.stdin.resume();
-						process.stdin.setEncoding('utf8');
-						process.stdin.on('data', (key) => {
-							if (key === 'q' || key === '\\u0003') {
-								// 'q' or Ctrl+C
-								console.log(
-									chalk.yellow('\\nSetup canceled. No changes made.')
-								);
-								process.exit(0);
-							}
-						});
-						console.log(
-							chalk.gray('Press "q" at any time to cancel the setup.')
-						);
-					}
-
-					// --- Generate choices using the helper ---
-					const mainPromptData = getPromptData('main');
-					const researchPromptData = getPromptData('research');
-					const fallbackPromptData = getPromptData('fallback', true); // Allow 'None' for fallback
-
-					const answers = await inquirer.prompt([
-						{
-							type: 'list',
-							name: 'mainModel',
-							message: 'Select the main model for generation/updates:',
-							choices: mainPromptData.choices,
-							default: mainPromptData.default
-						},
-						{
-							type: 'list',
-							name: 'researchModel',
-							message: 'Select the research model:',
-							choices: researchPromptData.choices,
-							default: researchPromptData.default,
-							when: (ans) => ans.mainModel !== '__CANCEL__'
-						},
-						{
-							type: 'list',
-							name: 'fallbackModel',
-							message: 'Select the fallback model (optional):',
-							choices: fallbackPromptData.choices,
-							default: fallbackPromptData.default,
-							when: (ans) =>
-								ans.mainModel !== '__CANCEL__' &&
-								ans.researchModel !== '__CANCEL__'
-						}
-					]);
-
-					// Clean up the keypress handler
-					if (process.stdin.isTTY) {
-						process.stdin.pause();
-						process.stdin.removeAllListeners('data');
-						process.stdin.setRawMode(false);
-					}
-
-					// Check if user canceled at any point
-					if (
-						answers.mainModel === '__CANCEL__' ||
-						answers.researchModel === '__CANCEL__' ||
-						answers.fallbackModel === '__CANCEL__'
-					) {
-						console.log(chalk.yellow('\\nSetup canceled. No changes made.'));
-						return;
-					}
-
-					// Apply changes using setModel
-					let setupSuccess = true;
-					let setupConfigModified = false;
-					const coreOptionsSetup = { projectRoot }; // Pass root for setup actions
-
-					if (
-						answers.mainModel &&
-						answers.mainModel?.id &&
-						answers.mainModel.id !== currentModels.main?.modelId
-					) {
-						const result = await setModel(
-							'main',
-							answers.mainModel.id,
-							coreOptionsSetup
-						);
-						if (result.success) {
-							console.log(
-								chalk.blue(
-									`Selected main model: ${result.data.provider} / ${result.data.modelId}`
-								)
-							);
-							setupConfigModified = true;
-						} else {
-							console.error(
-								chalk.red(
-									`Error setting main model: ${result.error?.message || 'Unknown'}`
-								)
-							);
-							setupSuccess = false;
-						}
-					}
-
-					if (
-						answers.researchModel &&
-						answers.researchModel?.id &&
-						answers.researchModel.id !== currentModels.research?.modelId
-					) {
-						const result = await setModel(
-							'research',
-							answers.researchModel.id,
-							coreOptionsSetup
-						);
-						if (result.success) {
-							console.log(
-								chalk.blue(
-									`Selected research model: ${result.data.provider} / ${result.data.modelId}`
-								)
-							);
-							setupConfigModified = true;
-						} else {
-							console.error(
-								chalk.red(
-									`Error setting research model: ${result.error?.message || 'Unknown'}`
-								)
-							);
-							setupSuccess = false;
-						}
-					}
-
-					// Set Fallback Model - Handle 'None' selection
-					const currentFallbackId = currentModels.fallback?.modelId;
-					const selectedFallbackValue = answers.fallbackModel; // Could be null or model object
-					const selectedFallbackId = selectedFallbackValue?.id; // Undefined if null
-
-					if (selectedFallbackId !== currentFallbackId) {
-						// Compare IDs
-						if (selectedFallbackId) {
-							// User selected a specific fallback model
-							const result = await setModel(
-								'fallback',
-								selectedFallbackId,
-								coreOptionsSetup
-							);
-							if (result.success) {
-								console.log(
-									chalk.blue(
-										`Selected fallback model: ${result.data.provider} / ${result.data.modelId}`
-									)
-								);
-								setupConfigModified = true;
-							} else {
-								console.error(
-									chalk.red(
-										`Error setting fallback model: ${result.error?.message || 'Unknown'}`
-									)
-								);
-								setupSuccess = false;
-							}
-						} else if (currentFallbackId) {
-							// User selected 'None' but a fallback was previously set
-							// Need to explicitly clear it in the config file
-							const currentCfg = getConfig(projectRoot); // Pass root
-							if (currentCfg?.models?.fallback) {
-								// Check if fallback exists before clearing
-								currentCfg.models.fallback = {
-									...currentCfg.models.fallback,
-									provider: undefined,
-									modelId: undefined
-								};
-								if (writeConfig(currentCfg, projectRoot)) {
-									// Pass root
-									console.log(chalk.blue('Fallback model disabled.'));
-									setupConfigModified = true;
-								} else {
-									console.error(
-										chalk.red(
-											'Failed to disable fallback model in config file.'
-										)
-									);
-									setupSuccess = false;
-								}
-							} else {
-								console.log(chalk.blue('Fallback model was already disabled.'));
-							}
-						}
-						// No action needed if fallback was already null/undefined and user selected None
-					}
-
-					if (setupSuccess && setupConfigModified) {
-						console.log(chalk.green.bold('\\nModel setup complete!'));
-					} else if (setupSuccess && !setupConfigModified) {
-						console.log(
-							chalk.yellow('\\nNo changes made to model configuration.')
-						);
-					} else if (!setupSuccess) {
-						console.error(
-							chalk.red(
-								'\\nErrors occurred during model selection. Please review and try again.'
-							)
-						);
-					}
-					return; // Exit after setup attempt
-				}
-
-				// --- Default: Display Current Configuration ---
-				// Fetch configuration using the core function - PASS projectRoot
-				const result = await getModelConfiguration({ projectRoot });
-
-				if (!result.success) {
-					// Handle specific CONFIG_MISSING error gracefully
-					if (result.error?.code === 'CONFIG_MISSING') {
-						console.error(
-							boxen(
-								chalk.red.bold('Configuration File Missing!') +
-									'\n\n' +
-									chalk.white(
-										'The .taskmasterconfig file was not found in your project root.\n\n' +
-											'Run the interactive setup to create and configure it:'
-									) +
-									'\n' +
-									chalk.green('   task-master models --setup'),
-								{
-									padding: 1,
-									margin: { top: 1 },
-									borderColor: 'red',
-									borderStyle: 'round'
-								}
-							)
-						);
-						process.exit(0); // Exit gracefully, user needs to run setup
-					} else {
-						console.error(
-							chalk.red(
-								`Error fetching model configuration: ${result.error?.message || 'Unknown error'}`
-							)
-						);
-						process.exit(1);
-					}
-				}
-
-				const configData = result.data;
-				const active = configData.activeModels;
-				const warnings = configData.warnings || []; // Warnings now come from core function
-
-				// --- Display Warning Banner (if any) ---
-				if (warnings.length > 0) {
-					console.log(
-						boxen(
-							chalk.red.bold('API Key Warnings:') +
-								'\n\n' +
-								warnings.join('\n'),
-							{
-								padding: 1,
-								margin: { top: 1, bottom: 1 },
-								borderColor: 'red',
-								borderStyle: 'round'
-							}
-						)
-					);
-				}
-
-				// --- Active Configuration Section ---
-				console.log(chalk.cyan.bold('\nActive Model Configuration:'));
-				const activeTable = new Table({
-					head: [
-						'Role',
-						'Provider',
-						'Model ID',
-						'SWE Score',
-						'Cost ($/1M tkns)',
-						'API Key Status'
-					].map((h) => chalk.cyan.bold(h)),
-					colWidths: [10, 14, 30, 18, 20, 28],
-					style: { head: ['cyan', 'bold'] }
-				});
-
-				// --- Helper functions for formatting (can be moved to ui.js if complex) ---
-				const formatSweScoreWithTertileStars = (score, allModels) => {
-					if (score === null || score === undefined || score <= 0) return 'N/A';
-					const formattedPercentage = `${(score * 100).toFixed(1)}%`;
-
-					const validScores = allModels
-						.map((m) => m.sweScore)
-						.filter((s) => s !== null && s !== undefined && s > 0);
-					const sortedScores = [...validScores].sort((a, b) => b - a);
-					const n = sortedScores.length;
-					let stars = chalk.gray('☆☆☆');
-
-					if (n > 0) {
-						const topThirdIndex = Math.max(0, Math.floor(n / 3) - 1);
-						const midThirdIndex = Math.max(0, Math.floor((2 * n) / 3) - 1);
-						if (score >= sortedScores[topThirdIndex])
-							stars = chalk.yellow('★★★');
-						else if (score >= sortedScores[midThirdIndex])
-							stars = chalk.yellow('★★') + chalk.gray('☆');
-						else stars = chalk.yellow('★') + chalk.gray('☆☆');
-					}
-					return `${formattedPercentage} ${stars}`;
-				};
-
-				const formatCost = (costObj) => {
-					if (!costObj) return 'N/A';
-
-					// Check if both input and output costs are 0 and return "Free"
-					if (costObj.input === 0 && costObj.output === 0) {
-						return chalk.green('Free');
-					}
-
-					const formatSingleCost = (costValue) => {
-						if (costValue === null || costValue === undefined) return 'N/A';
-						const isInteger = Number.isInteger(costValue);
-						return `$${costValue.toFixed(isInteger ? 0 : 2)}`;
-					};
-					return `${formatSingleCost(costObj.input)} in, ${formatSingleCost(
-						costObj.output
-					)} out`;
-				};
-
-				const getCombinedStatus = (keyStatus) => {
-					const cliOk = keyStatus?.cli;
-					const mcpOk = keyStatus?.mcp;
-					const cliSymbol = cliOk ? chalk.green('✓') : chalk.red('✗');
-					const mcpSymbol = mcpOk ? chalk.green('✓') : chalk.red('✗');
-
-					if (cliOk && mcpOk) return `${cliSymbol} CLI & ${mcpSymbol} MCP OK`;
-					if (cliOk && !mcpOk)
-						return `${cliSymbol} CLI OK / ${mcpSymbol} MCP Missing`;
-					if (!cliOk && mcpOk)
-						return `${cliSymbol} CLI Missing / ${mcpSymbol} MCP OK`;
-					return chalk.gray(`${cliSymbol} CLI & MCP Both Missing`);
-				};
-
-				// Get all available models data once for SWE Score calculation
-				const availableModelsResultForScore = await getAvailableModelsList();
-				const allAvailModelsForScore =
-					availableModelsResultForScore.data?.models || [];
-
-				// Populate Active Table
-				activeTable.push([
-					chalk.white('Main'),
-					active.main.provider,
-					active.main.modelId,
-					formatSweScoreWithTertileStars(
-						active.main.sweScore,
-						allAvailModelsForScore
-					),
-					formatCost(active.main.cost),
-					getCombinedStatus(active.main.keyStatus)
-				]);
-				activeTable.push([
-					chalk.white('Research'),
-					active.research.provider,
-					active.research.modelId,
-					formatSweScoreWithTertileStars(
-						active.research.sweScore,
-						allAvailModelsForScore
-					),
-					formatCost(active.research.cost),
-					getCombinedStatus(active.research.keyStatus)
-				]);
-				if (active.fallback) {
-					activeTable.push([
-						chalk.white('Fallback'),
-						active.fallback.provider,
-						active.fallback.modelId,
-						formatSweScoreWithTertileStars(
-							active.fallback.sweScore,
-							allAvailModelsForScore
-						),
-						formatCost(active.fallback.cost),
-						getCombinedStatus(active.fallback.keyStatus)
-					]);
-				}
-				console.log(activeTable.toString());
-
-				// --- Available Models Section ---
-				const availableResult = await getAvailableModelsList();
-				if (availableResult.success && availableResult.data.models.length > 0) {
-					console.log(chalk.cyan.bold('\nOther Available Models:'));
-					const availableTable = new Table({
-						head: ['Provider', 'Model ID', 'SWE Score', 'Cost ($/1M tkns)'].map(
-							(h) => chalk.cyan.bold(h)
-						),
-						colWidths: [15, 40, 18, 25],
-						style: { head: ['cyan', 'bold'] }
-					});
-					availableResult.data.models.forEach((model) => {
-						availableTable.push([
-							model.provider,
-							model.modelId,
-							formatSweScoreWithTertileStars(
-								model.sweScore,
-								allAvailModelsForScore
-							),
-							formatCost(model.cost)
-						]);
-					});
-					console.log(availableTable.toString());
-				} else if (availableResult.success) {
-					console.log(
-						chalk.gray('\n(All available models are currently configured)')
 					);
 				} else {
-					console.warn(
-						chalk.yellow(
-							`Could not fetch available models list: ${availableResult.error?.message}`
+					console.error(
+						chalk.red(
+							`❌ Error fetching configuration: ${configResult.error.message}`
 						)
 					);
 				}
+				// Attempt to display other info even if config fails
+			} else {
+				// Pass available models list for SWE score formatting
+				displayModelConfiguration(
+					configResult.data,
+					availableResult.data?.models || []
+				);
+			}
 
-				// --- Suggested Actions Section ---
-				console.log(
-					boxen(
-						chalk.white.bold('Next Steps:') +
-							'\n' +
-							chalk.cyan(
-								`1. Set main model: ${chalk.yellow('task-master models --set-main <model_id>')}`
-							) +
-							'\n' +
-							chalk.cyan(
-								`2. Set research model: ${chalk.yellow('task-master models --set-research <model_id>')}`
-							) +
-							'\n' +
-							chalk.cyan(
-								`3. Set fallback model: ${chalk.yellow('task-master models --set-fallback <model_id>')}`
-							) +
-							'\n' +
-							chalk.cyan(
-								`4. Run interactive setup: ${chalk.yellow('task-master models --setup')}`
-							),
-						{
-							padding: 1,
-							borderColor: 'yellow',
-							borderStyle: 'round',
-							margin: { top: 1 }
-						}
+			// 2. Display API Key Status
+			if (apiKeyStatusResult.success) {
+				displayApiKeyStatus(apiKeyStatusResult.data.report);
+			} else {
+				console.error(
+					chalk.yellow(
+						`⚠️ Warning: Could not display API Key status: ${apiKeyStatusResult.error.message}`
 					)
 				);
-			} catch (error) {
-				// Catch errors specifically from the core model functions
-				console.error(
-					chalk.red(`Error processing models command: ${error.message}`)
+			}
+
+			// 3. Display Other Available Models (Filtered)
+			if (availableResult.success) {
+				// Filter out models that are already actively configured and placeholders
+				const activeIds = configResult.success
+					? [
+							configResult.data.activeModels.main.modelId,
+							configResult.data.activeModels.research.modelId,
+							configResult.data.activeModels.fallback?.modelId
+						].filter(Boolean)
+					: [];
+				const displayableAvailable = availableResult.data.models.filter(
+					(m) => !activeIds.includes(m.modelId) && !m.modelId.startsWith('[') // Exclude placeholders like [ollama-any]
 				);
-				if (error instanceof ConfigurationError) {
-					// Provide specific guidance if it's a config error
-					console.error(
-						chalk.yellow(
-							'This might be a configuration file issue. Try running `task-master models --setup`.'
-						)
-					);
-				}
-				if (getDebugFlag()) {
-					console.error(error.stack);
-				}
-				process.exit(1);
+				displayAvailableModels(displayableAvailable); // This function now includes the "Next Steps" box
+			} else {
+				console.error(
+					chalk.yellow(
+						`⚠️ Warning: Could not display available models: ${availableResult.error.message}`
+					)
+				);
+			}
+
+			// 4. Conditional Hint if Config File is Missing
+			const configExists = isConfigFilePresent(projectRoot); // Re-check after potential setup/writes
+			if (!configExists) {
+				console.log(
+					chalk.yellow(
+						"\\nHint: Run 'task-master models --setup' to create or update your configuration."
+					)
+				);
 			}
 		});
 
