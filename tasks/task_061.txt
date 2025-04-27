@@ -1336,7 +1336,7 @@ When testing the non-streaming `generateTextService` call in `updateSubtaskById`
 ### Details:
 
 
-## 22. Implement `openai.js` Provider Module using Vercel AI SDK [in-progress]
+## 22. Implement `openai.js` Provider Module using Vercel AI SDK [done]
 ### Dependencies: None
 ### Description: Create and implement the `openai.js` module within `src/ai-providers/`. This module should contain functions to interact with the OpenAI API (streaming and non-streaming) using the **Vercel AI SDK**, adhering to the standardized input/output format defined for `ai-services-unified.js`. (Optional, implement if OpenAI models are needed).
 ### Details:
@@ -1785,7 +1785,7 @@ export async function generateGoogleObject({
 ### Details:
 
 
-## 29. Implement `xai.js` Provider Module using Vercel AI SDK [pending]
+## 29. Implement `xai.js` Provider Module using Vercel AI SDK [in-progress]
 ### Dependencies: None
 ### Description: Create and implement the `xai.js` module within `src/ai-providers/`. This module should contain functions to interact with xAI models (e.g., Grok) using the **Vercel AI SDK (`@ai-sdk/xai`)**, adhering to the standardized input/output format defined for `ai-services-unified.js`.
 ### Details:

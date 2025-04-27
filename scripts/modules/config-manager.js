@@ -30,7 +30,7 @@ try {
 const CONFIG_FILE_NAME = '.taskmasterconfig';
 
 // Define valid providers dynamically from the loaded MODEL_MAP
-const VALID_PROVIDERS = Object.keys(MODEL_MAP);
+const VALID_PROVIDERS = Object.keys(MODEL_MAP || {});
 
 // Default configuration values (used if .taskmasterconfig is missing or incomplete)
 const DEFAULTS = {
@@ -534,6 +534,7 @@ function getMcpApiKeyStatus(providerName, projectRoot = null) {
 			case 'azure':
 				apiKeyToCheck = mcpEnv.AZURE_OPENAI_API_KEY;
 				placeholderValue = 'YOUR_AZURE_OPENAI_API_KEY_HERE';
+				break;
 			default:
 				return false; // Unknown provider
 		}

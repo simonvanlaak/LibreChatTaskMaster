@@ -263,28 +263,35 @@
 	],
 	"xai": [
 		{
-			"id": "grok3",
-			"swe_score": 0,
+			"id": "grok-3",
+			"name": "Grok 3",
+			"swe_score": null,
 			"cost_per_1m_tokens": { "input": 3, "output": 15 },
-			"allowed_roles": ["main", "fallback", "research"]
+			"allowed_roles": ["main", "fallback", "research"],
+			"max_tokens": 131072
 		},
 		{
 			"id": "grok-3-mini",
+			"name": "Grok 3 Mini",
 			"swe_score": 0,
 			"cost_per_1m_tokens": { "input": 0.3, "output": 0.5 },
-			"allowed_roles": ["main", "fallback", "research"]
+			"allowed_roles": ["main", "fallback", "research"],
+			"max_tokens": 131072
 		},
 		{
 			"id": "grok3-fast",
+			"name": "Grok 3 Fast",
 			"swe_score": 0,
 			"cost_per_1m_tokens": { "input": 5, "output": 25 },
-			"allowed_roles": ["main", "fallback", "research"]
+			"allowed_roles": ["main", "fallback", "research"],
+			"max_tokens": 131072
 		},
 		{
 			"id": "grok-3-mini-fast",
 			"swe_score": 0,
 			"cost_per_1m_tokens": { "input": 0.6, "output": 4 },
-			"allowed_roles": ["main", "fallback", "research"]
+			"allowed_roles": ["main", "fallback", "research"],
+			"max_tokens": 131072
 		}
 	]
 }

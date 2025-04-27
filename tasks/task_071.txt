@@ -1,6 +1,6 @@
 # Task ID: 71
 # Title: Add Model-Specific maxTokens Override Configuration
-# Status: pending
+# Status: done
 # Dependencies: None
 # Priority: high
 # Description: Implement functionality to allow specifying a maximum token limit for individual AI models within .taskmasterconfig, overriding the role-based maxTokens if the model-specific limit is lower.

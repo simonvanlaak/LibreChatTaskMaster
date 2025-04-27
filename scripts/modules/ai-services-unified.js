@@ -26,6 +26,7 @@ import * as anthropic from '../../src/ai-providers/anthropic.js';
 import * as perplexity from '../../src/ai-providers/perplexity.js';
 import * as google from '../../src/ai-providers/google.js'; // Import Google provider
 import * as openai from '../../src/ai-providers/openai.js'; // ADD: Import OpenAI provider
+import * as xai from '../../src/ai-providers/xai.js'; // ADD: Import xAI provider
 // TODO: Import other provider modules when implemented (ollama, etc.)
 
 // --- Provider Function Map ---
@@ -54,6 +55,12 @@ const PROVIDER_FUNCTIONS = {
 		generateText: openai.generateOpenAIText,
 		streamText: openai.streamOpenAIText,
 		generateObject: openai.generateOpenAIObject
+	},
+	xai: {
+		// ADD: xAI entry
+		generateText: xai.generateXaiText,
+		streamText: xai.streamXaiText,
+		generateObject: xai.generateXaiObject // Note: Object generation might be unsupported
 	}
 	// TODO: Add entries for ollama, etc. when implemented
 };
