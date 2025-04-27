@@ -2007,6 +2007,10 @@ function displayAvailableModels(availableModels) {
 				'\n' +
 				chalk.cyan(
 					`4. Run interactive setup: ${chalk.yellow('task-master models --setup')}`
+				) +
+				'\n' +
+				chalk.cyan(
+					`5. Use custom models: ${chalk.yellow('task-master models --custom --set-main|research|fallback <model_id>')}`
 				),
 			{
 				padding: 1,

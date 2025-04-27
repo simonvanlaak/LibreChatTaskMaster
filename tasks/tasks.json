@@ -3288,7 +3288,7 @@
           "title": "Implement `openrouter.js` Provider Module",
           "description": "Create and implement the `openrouter.js` module within `src/ai-providers/`. This module should contain functions to interact with various models via OpenRouter using the **`@openrouter/ai-sdk-provider` library**, adhering to the standardized input/output format defined for `ai-services-unified.js`. Note the specific library used.",
           "details": "",
-          "status": "pending",
+          "status": "in-progress",
           "dependencies": [],
           "parentTaskId": 61
         },
@@ -3297,7 +3297,7 @@
           "title": "Implement `xai.js` Provider Module using Vercel AI SDK",
           "description": "Create and implement the `xai.js` module within `src/ai-providers/`. This module should contain functions to interact with xAI models (e.g., Grok) using the **Vercel AI SDK (`@ai-sdk/xai`)**, adhering to the standardized input/output format defined for `ai-services-unified.js`.",
           "details": "",
-          "status": "in-progress",
+          "status": "done",
           "dependencies": [],
           "parentTaskId": 61
         },
@@ -3906,6 +3906,17 @@
       "details": "This task involves creating a new CLI command named 'progress-pdf' within the existing project framework to generate a PDF document. The PDF should include: 1) A summary of project progress, detailing completed, in-progress, and pending tasks with their respective statuses and completion percentages if applicable. 2) A visual representation of the task dependency chain, leveraging the output format from the 'diagram' command (Task 70) to include Mermaid diagrams or similar visualizations converted to image format for PDF embedding. Use a suitable PDF generation library (e.g., jsPDF for JavaScript environments or ReportLab for Python) compatible with the project’s tech stack. Ensure the command accepts optional parameters to filter tasks by status or ID for customized reports. Handle large dependency chains by implementing pagination or zoomable image sections in the PDF. Provide error handling for cases where diagram generation or PDF creation fails, logging detailed error messages for debugging. Consider accessibility by ensuring text in the PDF is selectable and images have alt text descriptions. Integrate this feature with the existing CLI structure, ensuring it aligns with the project’s configuration settings (e.g., output directory for generated files). Document the command usage and parameters in the project’s help or README file.",
       "testStrategy": "Verify the completion of this task through a multi-step testing approach: 1) Unit Tests: Create tests for the PDF generation logic to ensure data (task statuses and dependencies) is correctly fetched and formatted. Mock the PDF library to test edge cases like empty task lists or broken dependency links. 2) Integration Tests: Run the 'progress-pdf' command via CLI to confirm it generates a PDF file without errors under normal conditions, with filtered task IDs, and with various status filters. Validate that the output file exists in the specified directory and can be opened. 3) Content Validation: Manually or via automated script, check the generated PDF content to ensure it accurately reflects the current project state (compare task counts and statuses against a known project state) and includes dependency diagrams as images. 4) Error Handling Tests: Simulate failures in diagram generation or PDF creation (e.g., invalid output path, library errors) and verify that appropriate error messages are logged and the command exits gracefully. 5) Accessibility Checks: Use a PDF accessibility tool or manual inspection to confirm that text is selectable and images have alt text. Run these tests across different project sizes (small with few tasks, large with complex dependencies) to ensure scalability. Document test results and include a sample PDF output in the project repository for reference.",
       "status": "pending",
+      "dependencies": [],
+      "priority": "medium",
+      "subtasks": []
+    },
+    {
+      "id": 73,
+      "title": "Implement Custom Model ID Support for Ollama/OpenRouter",
+      "description": "Allow users to specify custom model IDs for Ollama and OpenRouter providers via CLI flag and interactive setup, with appropriate validation and warnings.",
+      "details": "**CLI (`task-master models --set-<role> <id> --custom`):**\n- Modify `scripts/modules/task-manager/models.js`: `setModel` function.\n- Check internal `available_models.json` first.\n- If not found and `--custom` is provided:\n    - Fetch `https://openrouter.ai/api/v1/models`. (Need to add `https` import).\n    - If ID found in OpenRouter list: Set `provider: 'openrouter'`, `modelId: <id>`. Warn user about lack of official validation.\n    - If ID not found in OpenRouter: Assume Ollama. Set `provider: 'ollama'`, `modelId: <id>`. Warn user strongly (model must be pulled, compatibility not guaranteed).\n- If not found and `--custom` is *not* provided: Fail with error message guiding user to use `--custom`.\n\n**Interactive Setup (`task-master models --setup`):**\n- Modify `scripts/modules/commands.js`: `runInteractiveSetup` function.\n- Add options to `inquirer` choices for each role: `OpenRouter (Enter Custom ID)` and `Ollama (Enter Custom ID)`.\n- If `__CUSTOM_OPENROUTER__` selected:\n    - Prompt for custom ID.\n    - Fetch OpenRouter list and validate ID exists. Fail setup for that role if not found.\n    - Update config and show warning if found.\n- If `__CUSTOM_OLLAMA__` selected:\n    - Prompt for custom ID.\n    - Update config directly (no live validation).\n    - Show strong Ollama warning.",
+      "testStrategy": "**Unit Tests:**\n- Test `setModel` logic for internal models, custom OpenRouter (valid/invalid), custom Ollama, missing `--custom` flag.\n- Test `runInteractiveSetup` for new custom options flow, including OpenRouter validation success/failure.\n\n**Integration Tests:**\n- Test the `task-master models` command with `--custom` flag variations.\n- Test the `task-master models --setup` interactive flow for custom options.\n\n**Manual Testing:**\n- Run `task-master models --setup` and select custom options.\n- Run `task-master models --set-main <valid_openrouter_id> --custom`. Verify config and warning.\n- Run `task-master models --set-main <invalid_openrouter_id> --custom`. Verify error.\n- Run `task-master models --set-main <ollama_model_id> --custom`. Verify config and warning.\n- Run `task-master models --set-main <custom_id>` (without `--custom`). Verify error.\n- Check `getModelConfiguration` output reflects custom models correctly.",
+      "status": "in-progress",
       "dependencies": [],
       "priority": "medium",
       "subtasks": []

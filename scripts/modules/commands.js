@@ -87,6 +87,50 @@ async function runInteractiveSetup(projectRoot) {
 		);
 		process.exit(1);
 	}
+
+	// Helper function to fetch OpenRouter models (duplicated for CLI context)
+	function fetchOpenRouterModelsCLI() {
+		return new Promise((resolve) => {
+			const options = {
+				hostname: 'openrouter.ai',
+				path: '/api/v1/models',
+				method: 'GET',
+				headers: {
+					Accept: 'application/json'
+				}
+			};
+
+			const req = https.request(options, (res) => {
+				let data = '';
+				res.on('data', (chunk) => {
+					data += chunk;
+				});
+				res.on('end', () => {
+					if (res.statusCode === 200) {
+						try {
+							const parsedData = JSON.parse(data);
+							resolve(parsedData.data || []); // Return the array of models
+						} catch (e) {
+							console.error('Error parsing OpenRouter response:', e);
+							resolve(null); // Indicate failure
+						}
+					} else {
+						console.error(
+							`OpenRouter API request failed with status code: ${res.statusCode}`
+						);
+						resolve(null); // Indicate failure
+					}
+				});
+			});
+
+			req.on('error', (e) => {
+				console.error('Error fetching OpenRouter models:', e);
+				resolve(null); // Indicate failure
+			});
+			req.end();
+		});
+	}
+
 	// Get available models - pass projectRoot
 	const availableModelsResult = await getAvailableModelsList({ projectRoot });
 	if (!availableModelsResult.success) {
@@ -119,64 +163,71 @@ async function runInteractiveSetup(projectRoot) {
 
 	console.log(chalk.cyan.bold('\nInteractive Model Setup:'));
 
-	// Find all available models for setup options
-	const allModelsForSetup = availableModelsForSetup
-		.filter((model) => !model.modelId.startsWith('[')) // Filter out placeholders like [ollama-any]
-		.map((model) => ({
+	// Helper to get choices and default index for a role
+	const getPromptData = (role, allowNone = false) => {
+		// Filter models FIRST based on allowed roles
+		const filteredModels = availableModelsForSetup
+			.filter((model) => !model.modelId.startsWith('[')) // Filter out placeholders
+			.filter((model) => model.allowedRoles?.includes(role)); // Filter by allowed role
+
+		// THEN map the filtered models to the choice format
+		const roleChoices = filteredModels.map((model) => ({
 			name: `${model.provider} / ${model.modelId}`,
 			value: { provider: model.provider, id: model.modelId }
 		}));
 
-	if (allModelsForSetup.length === 0) {
-		console.error(
-			chalk.red('Error: No selectable models found in configuration.')
-		);
-		process.exit(1);
-	}
-
-	// Helper to get choices and default index for a role
-	const getPromptData = (role, allowNone = false) => {
-		const roleChoices = allModelsForSetup.filter((modelChoice) =>
-			availableModelsForSetup
-				.find((m) => m.modelId === modelChoice.value.id)
-				?.allowedRoles?.includes(role)
-		);
-
-		let choices = [...roleChoices];
+		let choices = []; // Initialize choices array
 		let defaultIndex = -1;
 		const currentModelId = currentModels[role]?.modelId;
 
+		// --- Add Custom/Cancel Options --- //
+		const customOpenRouterOption = {
+			name: 'OpenRouter (Enter Custom ID)',
+			value: '__CUSTOM_OPENROUTER__'
+		};
+		const customOllamaOption = {
+			name: 'Ollama (Enter Custom ID)',
+			value: '__CUSTOM_OLLAMA__'
+		};
+		const cancelOption = { name: 'Cancel setup', value: '__CANCEL__' };
+
+		// Find the index of the current model within the role-specific choices *before* adding custom options
+		const currentChoiceIndex = roleChoices.findIndex(
+			(c) => c.value.id === currentModelId
+		);
+
 		if (allowNone) {
 			choices = [
+				cancelOption,
+				customOpenRouterOption,
+				customOllamaOption,
+				new inquirer.Separator(),
 				{ name: 'None (disable)', value: null },
 				new inquirer.Separator(),
 				...roleChoices
 			];
-			if (currentModelId) {
-				const foundIndex = roleChoices.findIndex(
-					(m) => m.value.id === currentModelId
-				);
-				defaultIndex = foundIndex !== -1 ? foundIndex + 2 : 0; // +2 for None and Separator
-			} else {
-				defaultIndex = 0; // Default to 'None'
-			}
+			// Adjust default index for extra options (Cancel, CustomOR, CustomOllama, Sep1, None, Sep2)
+			defaultIndex = currentChoiceIndex !== -1 ? currentChoiceIndex + 6 : 4; // Default to 'None' if no current model matched
 		} else {
-			if (currentModelId) {
-				defaultIndex = roleChoices.findIndex(
-					(m) => m.value.id === currentModelId
-				);
-			}
-			// Ensure defaultIndex is valid, otherwise default to 0
-			if (defaultIndex < 0 || defaultIndex >= roleChoices.length) {
-				defaultIndex = 0;
-			}
+			choices = [
+				cancelOption,
+				customOpenRouterOption,
+				customOllamaOption,
+				new inquirer.Separator(),
+				...roleChoices
+			];
+			// Adjust default index for extra options (Cancel, CustomOR, CustomOllama, Sep)
+			defaultIndex = currentChoiceIndex !== -1 ? currentChoiceIndex + 4 : 0; // Default to 'Cancel' if no current model matched
 		}
 
-		// Add Cancel option
-		const cancelOption = { name: 'Cancel setup', value: '__CANCEL__' };
-		choices = [cancelOption, new inquirer.Separator(), ...choices];
-		// Adjust default index accounting for Cancel and Separator
-		defaultIndex = defaultIndex !== -1 ? defaultIndex + 2 : 0;
+		// Ensure defaultIndex is valid within the final choices array length
+		if (defaultIndex < 0 || defaultIndex >= choices.length) {
+			// If default calculation failed or pointed outside bounds, reset intelligently
+			defaultIndex = 0; // Default to 'Cancel'
+			console.warn(
+				`Warning: Could not determine default model for role '${role}'. Defaulting to 'Cancel'.`
+			); // Add warning
+		}
 
 		return { choices, default: defaultIndex };
 	};
@@ -213,131 +264,168 @@ async function runInteractiveSetup(projectRoot) {
 		}
 	]);
 
-	// Check if user canceled at any point
-	if (
-		answers.mainModel === '__CANCEL__' ||
-		answers.researchModel === '__CANCEL__' ||
-		answers.fallbackModel === '__CANCEL__'
-	) {
-		console.log(chalk.yellow('\nSetup canceled. No changes made.'));
-		return; // Return instead of exit to allow display logic to run maybe? Or exit? Let's return for now.
-	}
-
-	// Apply changes using setModel
 	let setupSuccess = true;
 	let setupConfigModified = false;
 	const coreOptionsSetup = { projectRoot }; // Pass root for setup actions
 
-	// Set Main Model
-	if (
-		answers.mainModel?.id &&
-		answers.mainModel.id !== currentModels.main?.modelId
-	) {
-		const result = await setModel(
-			'main',
-			answers.mainModel.id,
-			coreOptionsSetup
-		);
-		if (result.success) {
+	// Helper to handle setting a model (including custom)
+	async function handleSetModel(role, selectedValue, currentModelId) {
+		if (selectedValue === '__CANCEL__') {
 			console.log(
-				chalk.blue(
-					`Selected main model: ${result.data.provider} / ${result.data.modelId}`
-				)
+				chalk.yellow(`\nSetup canceled during ${role} model selection.`)
 			);
-			setupConfigModified = true;
-		} else {
-			console.error(
-				chalk.red(
-					`Error setting main model: ${result.error?.message || 'Unknown'}`
-				)
-			);
-			setupSuccess = false;
+			return false; // Indicate cancellation
 		}
-	}
 
-	// Set Research Model
-	if (
-		answers.researchModel?.id &&
-		answers.researchModel.id !== currentModels.research?.modelId
-	) {
-		const result = await setModel(
-			'research',
-			answers.researchModel.id,
-			coreOptionsSetup
-		);
-		if (result.success) {
-			console.log(
-				chalk.blue(
-					`Selected research model: ${result.data.provider} / ${result.data.modelId}`
-				)
-			);
-			setupConfigModified = true;
-		} else {
-			console.error(
-				chalk.red(
-					`Error setting research model: ${result.error?.message || 'Unknown'}`
-				)
-			);
-			setupSuccess = false;
-		}
-	}
+		let modelIdToSet = null;
+		let providerHint = null;
+		let isCustomSelection = false;
 
-	// Set Fallback Model - Handle 'None' selection
-	const currentFallbackId = currentModels.fallback?.modelId;
-	const selectedFallbackValue = answers.fallbackModel; // Could be null or model object
-	const selectedFallbackId = selectedFallbackValue?.id; // Undefined if null
-
-	if (selectedFallbackId !== currentFallbackId) {
-		// Compare IDs
-		if (selectedFallbackId) {
-			// User selected a specific fallback model
-			const result = await setModel(
-				'fallback',
-				selectedFallbackId,
-				coreOptionsSetup
-			);
-			if (result.success) {
-				console.log(
-					chalk.blue(
-						`Selected fallback model: ${result.data.provider} / ${result.data.modelId}`
-					)
-				);
-				setupConfigModified = true;
-			} else {
+		if (selectedValue === '__CUSTOM_OPENROUTER__') {
+			isCustomSelection = true;
+			const { customId } = await inquirer.prompt([
+				{
+					type: 'input',
+					name: 'customId',
+					message: `Enter the custom OpenRouter Model ID for the ${role} role:`
+				}
+			]);
+			if (!customId) {
+				console.log(chalk.yellow('No custom ID entered. Skipping role.'));
+				return true; // Continue setup, but don't set this role
+			}
+			modelIdToSet = customId;
+			providerHint = 'openrouter';
+			// Validate against live OpenRouter list
+			const openRouterModels = await fetchOpenRouterModelsCLI();
+			if (
+				!openRouterModels ||
+				!openRouterModels.some((m) => m.id === modelIdToSet)
+			) {
 				console.error(
 					chalk.red(
-						`Error setting fallback model: ${result.error?.message || 'Unknown'}`
+						`Error: Model ID "${modelIdToSet}" not found in the live OpenRouter model list. Please check the ID.`
 					)
 				);
 				setupSuccess = false;
+				return true; // Continue setup, but mark as failed
 			}
-		} else if (currentFallbackId) {
-			// User selected 'None' but a fallback was previously set
-			// Need to explicitly clear it in the config file
-			const currentCfg = getConfig(projectRoot); // Pass root
-			if (currentCfg?.models?.fallback) {
-				// Check if fallback exists before clearing
-				currentCfg.models.fallback = {
-					...currentCfg.models.fallback, // Keep params like tokens/temp
-					provider: undefined,
-					modelId: undefined
-				};
-				if (writeConfig(currentCfg, projectRoot)) {
-					// Pass root
-					console.log(chalk.blue('Fallback model disabled.'));
+		} else if (selectedValue === '__CUSTOM_OLLAMA__') {
+			isCustomSelection = true;
+			const { customId } = await inquirer.prompt([
+				{
+					type: 'input',
+					name: 'customId',
+					message: `Enter the custom Ollama Model ID for the ${role} role:`
+				}
+			]);
+			if (!customId) {
+				console.log(chalk.yellow('No custom ID entered. Skipping role.'));
+				return true;
+			}
+			modelIdToSet = customId;
+			providerHint = 'ollama';
+		} else if (
+			selectedValue &&
+			typeof selectedValue === 'object' &&
+			selectedValue.id
+		) {
+			// Standard model selected from list
+			modelIdToSet = selectedValue.id;
+			providerHint = selectedValue.provider; // Provider is known
+		} else if (selectedValue === null && role === 'fallback') {
+			// Handle disabling fallback
+			modelIdToSet = null;
+			providerHint = null;
+		} else if (selectedValue) {
+			console.error(
+				chalk.red(
+					`Internal Error: Unexpected selection value for ${role}: ${JSON.stringify(selectedValue)}`
+				)
+			);
+			setupSuccess = false;
+			return true;
+		}
+
+		// Only proceed if there's a change to be made
+		if (modelIdToSet !== currentModelId) {
+			if (modelIdToSet) {
+				// Set a specific model (standard or custom)
+				const result = await setModel(role, modelIdToSet, {
+					...coreOptionsSetup,
+					providerHint // Pass the hint
+				});
+				if (result.success) {
+					console.log(
+						chalk.blue(
+							`Set ${role} model: ${result.data.provider} / ${result.data.modelId}`
+						)
+					);
+					if (result.data.warning) {
+						// Display warning if returned by setModel
+						console.log(chalk.yellow(result.data.warning));
+					}
 					setupConfigModified = true;
 				} else {
 					console.error(
-						chalk.red('Failed to disable fallback model in config file.')
+						chalk.red(
+							`Error setting ${role} model: ${result.error?.message || 'Unknown'}`
+						)
 					);
 					setupSuccess = false;
 				}
-			} else {
-				console.log(chalk.blue('Fallback model was already disabled.'));
+			} else if (role === 'fallback') {
+				// Disable fallback model
+				const currentCfg = getConfig(projectRoot);
+				if (currentCfg?.models?.fallback?.modelId) {
+					// Check if it was actually set before clearing
+					currentCfg.models.fallback = {
+						...currentCfg.models.fallback,
+						provider: undefined,
+						modelId: undefined
+					};
+					if (writeConfig(currentCfg, projectRoot)) {
+						console.log(chalk.blue('Fallback model disabled.'));
+						setupConfigModified = true;
+					} else {
+						console.error(
+							chalk.red('Failed to disable fallback model in config file.')
+						);
+						setupSuccess = false;
+					}
+				} else {
+					console.log(chalk.blue('Fallback model was already disabled.'));
+				}
 			}
 		}
-		// No action needed if fallback was already null/undefined and user selected None
+		return true; // Indicate setup should continue
 	}
+
+	// Process answers using the handler
+	if (
+		!(await handleSetModel(
+			'main',
+			answers.mainModel,
+			currentModels.main?.modelId
+		))
+	)
+		return;
+	if (
+		!(await handleSetModel(
+			'research',
+			answers.researchModel,
+			currentModels.research?.modelId
+		))
+	)
+		return;
+	if (
+		!(await handleSetModel(
+			'fallback',
+			answers.fallbackModel,
+			currentModels.fallback?.modelId
+		))
+	)
+		return;
 
 	if (setupSuccess && setupConfigModified) {
 		console.log(chalk.green.bold('\nModel setup complete!'));
@@ -1880,8 +1968,26 @@ function registerCommands(programInstance) {
 			'Set the model to use if the primary fails'
 		)
 		.option('--setup', 'Run interactive setup to configure models')
+		.option(
+			'--openrouter',
+			'Allow setting a custom OpenRouter model ID (use with --set-*) '
+		)
+		.option(
+			'--ollama',
+			'Allow setting a custom Ollama model ID (use with --set-*) '
+		)
 		.action(async (options) => {
 			const projectRoot = findProjectRoot(); // Find project root for context
+
+			// Validate flags: cannot use both --openrouter and --ollama simultaneously
+			if (options.openrouter && options.ollama) {
+				console.error(
+					chalk.red(
+						'Error: Cannot use both --openrouter and --ollama flags simultaneously.'
+					)
+				);
+				process.exit(1);
+			}
 
 			// --- Handle Interactive Setup ---
 			if (options.setup) {
@@ -1894,10 +2000,18 @@ function registerCommands(programInstance) {
 				let modelUpdated = false;
 				if (options.setMain) {
 					const result = await setModel('main', options.setMain, {
-						projectRoot
+						projectRoot,
+						providerHint: options.openrouter
+							? 'openrouter'
+							: options.ollama
+								? 'ollama'
+								: undefined
 					});
 					if (result.success) {
 						console.log(chalk.green(`✅ ${result.data.message}`));
+						if (result.data.warning) {
+							console.log(chalk.yellow(result.data.warning));
+						}
 						modelUpdated = true;
 					} else {
 						console.error(chalk.red(`❌ Error: ${result.error.message}`));
@@ -1906,10 +2020,18 @@ function registerCommands(programInstance) {
 				}
 				if (options.setResearch) {
 					const result = await setModel('research', options.setResearch, {
-						projectRoot
+						projectRoot,
+						providerHint: options.openrouter
+							? 'openrouter'
+							: options.ollama
+								? 'ollama'
+								: undefined
 					});
 					if (result.success) {
 						console.log(chalk.green(`✅ ${result.data.message}`));
+						if (result.data.warning) {
+							console.log(chalk.yellow(result.data.warning));
+						}
 						modelUpdated = true;
 					} else {
 						console.error(chalk.red(`❌ Error: ${result.error.message}`));
@@ -1917,10 +2039,18 @@ function registerCommands(programInstance) {
 				}
 				if (options.setFallback) {
 					const result = await setModel('fallback', options.setFallback, {
-						projectRoot
+						projectRoot,
+						providerHint: options.openrouter
+							? 'openrouter'
+							: options.ollama
+								? 'ollama'
+								: undefined
 					});
 					if (result.success) {
 						console.log(chalk.green(`✅ ${result.data.message}`));
+						if (result.data.warning) {
+							console.log(chalk.yellow(result.data.warning));
+						}
 						modelUpdated = true;
 					} else {
 						console.error(chalk.red(`❌ Error: ${result.error.message}`));

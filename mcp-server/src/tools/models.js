@@ -46,7 +46,15 @@ export function registerModelsTool(server) {
 			projectRoot: z
 				.string()
 				.optional()
-				.describe('The directory of the project. Must be an absolute path.')
+				.describe('The directory of the project. Must be an absolute path.'),
+			openrouter: z
+				.boolean()
+				.optional()
+				.describe('Indicates the set model ID is a custom OpenRouter model.'),
+			ollama: z
+				.boolean()
+				.optional()
+				.describe('Indicates the set model ID is a custom Ollama model.')
 		}),
 		execute: async (args, { log, session }) => {
 			try {

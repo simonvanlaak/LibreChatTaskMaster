@@ -37,6 +37,20 @@ export async function modelsDirect(args, log, context = {}) {
 	log.info(`Executing models_direct with args: ${JSON.stringify(args)}`);
 	log.info(`Using project root: ${projectRoot}`);
 
+	// Validate flags: cannot use both openrouter and ollama simultaneously
+	if (args.openrouter && args.ollama) {
+		log.error(
+			'Error: Cannot use both openrouter and ollama flags simultaneously.'
+		);
+		return {
+			success: false,
+			error: {
+				code: 'INVALID_ARGS',
+				message: 'Cannot use both openrouter and ollama flags simultaneously.'
+			}
+		};
+	}
+
 	try {
 		enableSilentMode();
 
@@ -55,7 +69,12 @@ export async function modelsDirect(args, log, context = {}) {
 				return await setModel('main', args.setMain, {
 					session,
 					mcpLog: logWrapper,
-					projectRoot // Pass projectRoot to function
+					projectRoot, // Pass projectRoot to function
+					providerHint: args.openrouter
+						? 'openrouter'
+						: args.ollama
+							? 'ollama'
+							: undefined // Pass hint
 				});
 			}
 
@@ -63,7 +82,12 @@ export async function modelsDirect(args, log, context = {}) {
 				return await setModel('research', args.setResearch, {
 					session,
 					mcpLog: logWrapper,
-					projectRoot // Pass projectRoot to function
+					projectRoot, // Pass projectRoot to function
+					providerHint: args.openrouter
+						? 'openrouter'
+						: args.ollama
+							? 'ollama'
+							: undefined // Pass hint
 				});
 			}
 
@@ -71,7 +95,12 @@ export async function modelsDirect(args, log, context = {}) {
 				return await setModel('fallback', args.setFallback, {
 					session,
 					mcpLog: logWrapper,
-					projectRoot // Pass projectRoot to function
+					projectRoot, // Pass projectRoot to function
+					providerHint: args.openrouter
+						? 'openrouter'
+						: args.ollama
+							? 'ollama'
+							: undefined // Pass hint
 				});
 			}
 

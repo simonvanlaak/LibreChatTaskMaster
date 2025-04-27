@@ -179,6 +179,39 @@
 			"max_tokens": 8700
 		}
 	],
+	"xai": [
+		{
+			"id": "grok-3",
+			"name": "Grok 3",
+			"swe_score": null,
+			"cost_per_1m_tokens": { "input": 3, "output": 15 },
+			"allowed_roles": ["main", "fallback", "research"],
+			"max_tokens": 131072
+		},
+		{
+			"id": "grok-3-mini",
+			"name": "Grok 3 Mini",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 0.3, "output": 0.5 },
+			"allowed_roles": ["main", "fallback", "research"],
+			"max_tokens": 131072
+		},
+		{
+			"id": "grok-3-fast",
+			"name": "Grok 3 Fast",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 5, "output": 25 },
+			"allowed_roles": ["main", "fallback", "research"],
+			"max_tokens": 131072
+		},
+		{
+			"id": "grok-3-mini-fast",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 0.6, "output": 4 },
+			"allowed_roles": ["main", "fallback", "research"],
+			"max_tokens": 131072
+		}
+	],
 	"ollama": [
 		{
 			"id": "gemma3:27b",
@@ -228,70 +261,205 @@
 			"id": "google/gemini-2.0-flash-001",
 			"swe_score": 0,
 			"cost_per_1m_tokens": { "input": 0.1, "output": 0.4 },
-			"allowed_roles": ["main", "fallback"]
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 1048576
 		},
 		{
 			"id": "google/gemini-2.5-pro-exp-03-25:free",
 			"swe_score": 0,
 			"cost_per_1m_tokens": { "input": 0, "output": 0 },
-			"allowed_roles": ["main", "fallback"]
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 1000000
 		},
 		{
 			"id": "deepseek/deepseek-chat-v3-0324:free",
 			"swe_score": 0,
 			"cost_per_1m_tokens": { "input": 0, "output": 0 },
-			"allowed_roles": ["main", "fallback"]
-		},
-		{
-			"id": "google/gemini-2.5-pro-preview-03-25",
-			"swe_score": 0,
-			"cost_per_1m_tokens": { "input": 1.25, "output": 10 },
-			"allowed_roles": ["main", "fallback"]
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 163840
 		},
 		{
 			"id": "deepseek/deepseek-chat-v3-0324",
 			"swe_score": 0,
 			"cost_per_1m_tokens": { "input": 0.27, "output": 1.1 },
-			"allowed_roles": ["main", "fallback"]
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 64000
 		},
 		{
 			"id": "deepseek/deepseek-r1:free",
 			"swe_score": 0,
 			"cost_per_1m_tokens": { "input": 0, "output": 0 },
-			"allowed_roles": ["main", "fallback"]
-		}
-	],
-	"xai": [
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 163840
+		},
+
 		{
-			"id": "grok-3",
-			"name": "Grok 3",
-			"swe_score": null,
-			"cost_per_1m_tokens": { "input": 3, "output": 15 },
-			"allowed_roles": ["main", "fallback", "research"],
+			"id": "microsoft/mai-ds-r1:free",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 163840
+		},
+		{
+			"id": "google/gemini-2.5-pro-preview-03-25",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 1.25, "output": 10 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 65535
+		},
+		{
+			"id": "google/gemini-2.5-flash-preview",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 0.15, "output": 0.6 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 65535
+		},
+		{
+			"id": "google/gemini-2.5-flash-preview:thinking",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 0.15, "output": 3.5 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 65535
+		},
+		{
+			"id": "openai/o3",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 10, "output": 40 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 200000
+		},
+		{
+			"id": "openai/o4-mini",
+			"swe_score": 0.45,
+			"cost_per_1m_tokens": { "input": 1.1, "output": 4.4 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 100000
+		},
+		{
+			"id": "openai/o4-mini-high",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 1.1, "output": 4.4 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 100000
+		},
+		{
+			"id": "openai/o1-pro",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 150, "output": 600 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 100000
+		},
+		{
+			"id": "meta-llama/llama-3.3-70b-instruct",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 120, "output": 600 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 1048576
+		},
+		{
+			"id": "meta-llama/llama-4-maverick:free",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 256000
+		},
+		{
+			"id": "meta-llama/llama-4-maverick",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 0.17, "output": 0.6 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 1048576
+		},
+		{
+			"id": "meta-llama/llama-4-scout:free",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 512000
+		},
+		{
+			"id": "meta-llama/llama-4-scout",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 0.08, "output": 0.3 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 1048576
+		},
+		{
+			"id": "google/gemma-3-12b-it:free",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
+			"allowed_roles": ["main", "fallback"],
 			"max_tokens": 131072
 		},
 		{
-			"id": "grok-3-mini",
-			"name": "Grok 3 Mini",
+			"id": "google/gemma-3-12b-it",
 			"swe_score": 0,
-			"cost_per_1m_tokens": { "input": 0.3, "output": 0.5 },
-			"allowed_roles": ["main", "fallback", "research"],
+			"cost_per_1m_tokens": { "input": 50, "output": 100 },
+			"allowed_roles": ["main", "fallback"],
 			"max_tokens": 131072
 		},
 		{
-			"id": "grok3-fast",
-			"name": "Grok 3 Fast",
+			"id": "google/gemma-3-27b-it:free",
 			"swe_score": 0,
-			"cost_per_1m_tokens": { "input": 5, "output": 25 },
-			"allowed_roles": ["main", "fallback", "research"],
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 96000
+		},
+		{
+			"id": "google/gemma-3-27b-it",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 100, "output": 200 },
+			"allowed_roles": ["main", "fallback"],
 			"max_tokens": 131072
 		},
 		{
-			"id": "grok-3-mini-fast",
+			"id": "qwen/qwq-32b:free",
 			"swe_score": 0,
-			"cost_per_1m_tokens": { "input": 0.6, "output": 4 },
-			"allowed_roles": ["main", "fallback", "research"],
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 40000
+		},
+		{
+			"id": "qwen/qwq-32b",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 150, "output": 200 },
+			"allowed_roles": ["main", "fallback"],
 			"max_tokens": 131072
+		},
+		{
+			"id": "qwen/qwen-max",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 1.6, "output": 6.4 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 32768
+		},
+		{
+			"id": "qwen/qwen-turbo",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 0.05, "output": 0.2 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 1000000
+		},
+		{
+			"id": "mistralai/mistral-small-3.1-24b-instruct:free",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 96000
+		},
+		{
+			"id": "mistralai/mistral-small-3.1-24b-instruct",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 0.1, "output": 0.3 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 128000
+		},
+		{
+			"id": "thudm/glm-4-32b:free",
+			"swe_score": 0,
+			"cost_per_1m_tokens": { "input": 0, "output": 0 },
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 32768
 		}
 	]
 }

@@ -5,6 +5,7 @@
 
 import path from 'path';
 import fs from 'fs';
+import https from 'https';
 import {
 	getMainModelId,
 	getResearchModelId,
@@ -20,6 +21,52 @@ import {
 	isConfigFilePresent,
 	getAllProviders
 } from '../config-manager.js';
+
+/**
+ * Fetches the list of models from OpenRouter API.
+ * @returns {Promise<Array|null>} A promise that resolves with the list of model IDs or null if fetch fails.
+ */
+function fetchOpenRouterModels() {
+	return new Promise((resolve) => {
+		const options = {
+			hostname: 'openrouter.ai',
+			path: '/api/v1/models',
+			method: 'GET',
+			headers: {
+				Accept: 'application/json'
+			}
+		};
+
+		const req = https.request(options, (res) => {
+			let data = '';
+			res.on('data', (chunk) => {
+				data += chunk;
+			});
+			res.on('end', () => {
+				if (res.statusCode === 200) {
+					try {
+						const parsedData = JSON.parse(data);
+						resolve(parsedData.data || []); // Return the array of models
+					} catch (e) {
+						console.error('Error parsing OpenRouter response:', e);
+						resolve(null); // Indicate failure
+					}
+				} else {
+					console.error(
+						`OpenRouter API request failed with status code: ${res.statusCode}`
+					);
+					resolve(null); // Indicate failure
+				}
+			});
+		});
+
+		req.on('error', (e) => {
+			console.error('Error fetching OpenRouter models:', e);
+			resolve(null); // Indicate failure
+		});
+		req.end();
+	});
+}
 
 /**
  * Get the current model configuration
@@ -256,13 +303,14 @@ async function getAvailableModelsList(options = {}) {
  * @param {string} role - The model role to update ('main', 'research', 'fallback')
  * @param {string} modelId - The model ID to set for the role
  * @param {Object} [options] - Options for the operation
+ * @param {string} [options.providerHint] - Provider hint if already determined ('openrouter' or 'ollama')
  * @param {Object} [options.session] - Session object containing environment variables (for MCP)
  * @param {Function} [options.mcpLog] - MCP logger object (for MCP)
  * @param {string} [options.projectRoot] - Project root directory
  * @returns {Object} RESTful response with result of update operation
  */
 async function setModel(role, modelId, options = {}) {
-	const { mcpLog, projectRoot } = options;
+	const { mcpLog, projectRoot, providerHint } = options;
 
 	const report = (level, ...args) => {
 		if (mcpLog && typeof mcpLog[level] === 'function') {
@@ -325,15 +373,85 @@ async function setModel(role, modelId, options = {}) {
 	try {
 		const availableModels = getAvailableModels(projectRoot);
 		const currentConfig = getConfig(projectRoot);
+		let determinedProvider = null; // Initialize provider
+		let warningMessage = null;
 
-		// Find the model data
-		const modelData = availableModels.find((m) => m.id === modelId);
-		if (!modelData || !modelData.provider) {
+		// Find the model data in internal list initially to see if it exists at all
+		let modelData = availableModels.find((m) => m.id === modelId);
+
+		// --- Revised Logic: Prioritize providerHint --- //
+
+		if (providerHint) {
+			// Hint provided (--ollama or --openrouter flag used)
+			if (modelData && modelData.provider === providerHint) {
+				// Found internally AND provider matches the hint
+				determinedProvider = providerHint;
+				report(
+					'info',
+					`Model ${modelId} found internally with matching provider hint ${determinedProvider}.`
+				);
+			} else {
+				// Either not found internally, OR found but under a DIFFERENT provider than hinted.
+				// Proceed with custom logic based ONLY on the hint.
+				if (providerHint === 'openrouter') {
+					// Check OpenRouter ONLY because hint was openrouter
+					report('info', `Checking OpenRouter for ${modelId} (as hinted)...`);
+					const openRouterModels = await fetchOpenRouterModels();
+
+					if (
+						openRouterModels &&
+						openRouterModels.some((m) => m.id === modelId)
+					) {
+						determinedProvider = 'openrouter';
+						warningMessage = `Warning: Custom OpenRouter model '${modelId}' set. This model is not officially validated by Taskmaster and may not function as expected.`;
+						report('warn', warningMessage);
+					} else {
+						// Hinted as OpenRouter but not found in live check
+						throw new Error(
+							`Model ID "${modelId}" not found in the live OpenRouter model list. Please verify the ID and ensure it's available on OpenRouter.`
+						);
+					}
+				} else if (providerHint === 'ollama') {
+					// Hinted as Ollama - set provider directly WITHOUT checking OpenRouter
+					determinedProvider = 'ollama';
+					warningMessage = `Warning: Custom Ollama model '${modelId}' set. Ensure your Ollama server is running and has pulled this model. Taskmaster cannot guarantee compatibility.`;
+					report('warn', warningMessage);
+				} else {
+					// Invalid provider hint - should not happen
+					throw new Error(`Invalid provider hint received: ${providerHint}`);
+				}
+			}
+		} else {
+			// No hint provided (flags not used)
+			if (modelData) {
+				// Found internally, use the provider from the internal list
+				determinedProvider = modelData.provider;
+				report(
+					'info',
+					`Model ${modelId} found internally with provider ${determinedProvider}.`
+				);
+			} else {
+				// Model not found and no provider hint was given
+				return {
+					success: false,
+					error: {
+						code: 'MODEL_NOT_FOUND_NO_HINT',
+						message: `Model ID "${modelId}" not found in Taskmaster's supported models. If this is a custom model, please specify the provider using --openrouter or --ollama.`
+					}
+				};
+			}
+		}
+
+		// --- End of Revised Logic --- //
+
+		// At this point, we should have a determinedProvider if the model is valid (internally or custom)
+		if (!determinedProvider) {
+			// This case acts as a safeguard
 			return {
 				success: false,
 				error: {
-					code: 'MODEL_NOT_FOUND',
-					message: `Model ID "${modelId}" not found or invalid in available models.`
+					code: 'PROVIDER_UNDETERMINED',
+					message: `Could not determine the provider for model ID "${modelId}".`
 				}
 			};
 		}
@@ -341,7 +459,7 @@ async function setModel(role, modelId, options = {}) {
 		// Update configuration
 		currentConfig.models[role] = {
 			...currentConfig.models[role], // Keep existing params like maxTokens
-			provider: modelData.provider,
+			provider: determinedProvider,
 			modelId: modelId
 		};
 
@@ -357,18 +475,17 @@ async function setModel(role, modelId, options = {}) {
 			};
 		}
 
-		report(
-			'info',
-			`Set ${role} model to: ${modelId} (Provider: ${modelData.provider})`
-		);
+		const successMessage = `Successfully set ${role} model to ${modelId} (Provider: ${determinedProvider})`;
+		report('info', successMessage);
 
 		return {
 			success: true,
 			data: {
 				role,
-				provider: modelData.provider,
+				provider: determinedProvider,
 				modelId,
-				message: `Successfully set ${role} model to ${modelId} (Provider: ${modelData.provider})`
+				message: successMessage,
+				warning: warningMessage // Include warning in the response data
 			}
 		};
 	} catch (error) {

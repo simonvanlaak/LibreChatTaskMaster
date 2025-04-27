@@ -1779,13 +1779,13 @@ export async function generateGoogleObject({
 ### Details:
 
 
-## 28. Implement `openrouter.js` Provider Module [pending]
+## 28. Implement `openrouter.js` Provider Module [in-progress]
 ### Dependencies: None
 ### Description: Create and implement the `openrouter.js` module within `src/ai-providers/`. This module should contain functions to interact with various models via OpenRouter using the **`@openrouter/ai-sdk-provider` library**, adhering to the standardized input/output format defined for `ai-services-unified.js`. Note the specific library used.
 ### Details:
 
 
-## 29. Implement `xai.js` Provider Module using Vercel AI SDK [in-progress]
+## 29. Implement `xai.js` Provider Module using Vercel AI SDK [done]
 ### Dependencies: None
 ### Description: Create and implement the `xai.js` module within `src/ai-providers/`. This module should contain functions to interact with xAI models (e.g., Grok) using the **Vercel AI SDK (`@ai-sdk/xai`)**, adhering to the standardized input/output format defined for `ai-services-unified.js`.
 ### Details:
