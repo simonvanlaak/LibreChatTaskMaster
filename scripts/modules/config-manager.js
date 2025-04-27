@@ -79,15 +79,25 @@ class ConfigurationError extends Error {
 
 function _loadAndValidateConfig(explicitRoot = null) {
 	const defaults = DEFAULTS; // Use the defined defaults
+	let rootToUse = explicitRoot;
+	let configSource = explicitRoot
+		? `explicit root (${explicitRoot})`
+		: 'defaults (no root provided yet)';
 
-	// If no explicit root is provided (e.g., during initial server load),
-	// return defaults immediately and silently.
-	if (!explicitRoot) {
-		return defaults;
+	// ---> If no explicit root, TRY to find it <---
+	if (!rootToUse) {
+		rootToUse = findProjectRoot();
+		if (rootToUse) {
+			configSource = `found root (${rootToUse})`;
+		} else {
+			// No root found, return defaults immediately
+			return defaults;
+		}
 	}
+	// ---> End find project root logic <---
 
-	// --- Proceed with loading from the provided explicitRoot ---
-	const configPath = path.join(explicitRoot, CONFIG_FILE_NAME);
+	// --- Proceed with loading from the determined rootToUse ---
+	const configPath = path.join(rootToUse, CONFIG_FILE_NAME);
 	let config = { ...defaults }; // Start with a deep copy of defaults
 	let configExists = false;
 
@@ -113,9 +123,10 @@ function _loadAndValidateConfig(explicitRoot = null) {
 				},
 				global: { ...defaults.global, ...parsedConfig?.global }
 			};
+			configSource = `file (${configPath})`; // Update source info
 
 			// --- Validation (Warn if file content is invalid) ---
-			// Only use console.warn here, as this part runs only when an explicitRoot *is* provided
+			// Use log.warn for consistency
 			if (!validateProvider(config.models.main.provider)) {
 				console.warn(
 					chalk.yellow(
@@ -152,17 +163,27 @@ function _loadAndValidateConfig(explicitRoot = null) {
 				)
 			);
 			config = { ...defaults }; // Reset to defaults on parse error
+			configSource = `defaults (parse error at ${configPath})`;
 		}
 	} else {
-		// Config file doesn't exist at the provided explicitRoot.
-		// Use console.warn because an explicit root *was* given.
-		console.warn(
-			chalk.yellow(
-				`Warning: ${CONFIG_FILE_NAME} not found at provided project root (${explicitRoot}). Using default configuration. Run 'task-master models --setup' to configure.`
-			)
-		);
+		// Config file doesn't exist at the determined rootToUse.
+		if (explicitRoot) {
+			// Only warn if an explicit root was *expected*.
+			console.warn(
+				chalk.yellow(
+					`Warning: ${CONFIG_FILE_NAME} not found at provided project root (${explicitRoot}). Using default configuration. Run 'task-master models --setup' to configure.`
+				)
+			);
+		} else {
+			console.warn(
+				chalk.yellow(
+					`Warning: ${CONFIG_FILE_NAME} not found at derived root (${rootToUse}). Using defaults.`
+				)
+			);
+		}
 		// Keep config as defaults
 		config = { ...defaults };
+		configSource = `defaults (file not found at ${configPath})`;
 	}
 
 	return config;
@@ -392,10 +413,11 @@ function isApiKeySet(providerName, session = null) {
  * Checks the API key status within .cursor/mcp.json for a given provider.
  * Reads the mcp.json file, finds the taskmaster-ai server config, and checks the relevant env var.
  * @param {string} providerName The name of the provider.
+ * @param {string|null} projectRoot - Optional explicit path to the project root.
  * @returns {boolean} True if the key exists and is not a placeholder, false otherwise.
  */
-function getMcpApiKeyStatus(providerName) {
-	const rootDir = findProjectRoot(); // Use existing root finding
+function getMcpApiKeyStatus(providerName, projectRoot = null) {
+	const rootDir = projectRoot || findProjectRoot(); // Use existing root finding
 	if (!rootDir) {
 		console.warn(
 			chalk.yellow('Warning: Could not find project root to check mcp.json.')

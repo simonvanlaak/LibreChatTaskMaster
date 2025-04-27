@@ -1431,6 +1431,91 @@ function checkProviderCapability(provider, capability) {
 ### Details:
 
 
+<info added on 2025-04-27T00:00:46.675Z>
+```javascript
+// Implementation details for google.js provider module
+
+// 1. Required imports
+import { GoogleGenerativeAI } from "@ai-sdk/google";
+import { streamText, generateText, generateObject } from "@ai-sdk/core";
+
+// 2. Model configuration
+const DEFAULT_MODEL = "gemini-1.5-pro"; // Default model, can be overridden
+const TEMPERATURE_DEFAULT = 0.7;
+
+// 3. Function implementations
+export async function generateGoogleText({ 
+  prompt, 
+  model = DEFAULT_MODEL, 
+  temperature = TEMPERATURE_DEFAULT,
+  apiKey 
+}) {
+  if (!apiKey) throw new Error("Google API key is required");
+  
+  const googleAI = new GoogleGenerativeAI(apiKey);
+  const googleModel = googleAI.getGenerativeModel({ model });
+  
+  const result = await generateText({
+    model: googleModel,
+    prompt,
+    temperature
+  });
+  
+  return result;
+}
+
+export async function streamGoogleText({ 
+  prompt, 
+  model = DEFAULT_MODEL, 
+  temperature = TEMPERATURE_DEFAULT,
+  apiKey 
+}) {
+  if (!apiKey) throw new Error("Google API key is required");
+  
+  const googleAI = new GoogleGenerativeAI(apiKey);
+  const googleModel = googleAI.getGenerativeModel({ model });
+  
+  const stream = await streamText({
+    model: googleModel,
+    prompt,
+    temperature
+  });
+  
+  return stream;
+}
+
+export async function generateGoogleObject({ 
+  prompt, 
+  schema,
+  model = DEFAULT_MODEL, 
+  temperature = TEMPERATURE_DEFAULT,
+  apiKey 
+}) {
+  if (!apiKey) throw new Error("Google API key is required");
+  
+  const googleAI = new GoogleGenerativeAI(apiKey);
+  const googleModel = googleAI.getGenerativeModel({ model });
+  
+  const result = await generateObject({
+    model: googleModel,
+    prompt,
+    schema,
+    temperature
+  });
+  
+  return result;
+}
+
+// 4. Environment variable setup in .env.local
+// GOOGLE_API_KEY=your_google_api_key_here
+
+// 5. Error handling considerations
+// - Implement proper error handling for API rate limits
+// - Add retries for transient failures
+// - Consider adding logging for debugging purposes
+```
+</info added on 2025-04-27T00:00:46.675Z>
+
 ## 25. Implement `ollama.js` Provider Module [pending]
 ### Dependencies: None
 ### Description: Create and implement the `ollama.js` module within `src/ai-providers/`. This module should contain functions to interact with local Ollama models using the **`ollama-ai-provider` library**, adhering to the standardized input/output format defined for `ai-services-unified.js`. Note the specific library used.

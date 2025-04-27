@@ -2308,7 +2308,7 @@
       "id": 37,
       "title": "Add Gemini Support for Main AI Services as Claude Alternative",
       "description": "Implement Google's Gemini API integration as an alternative to Claude for all main AI services, allowing users to switch between different LLM providers.",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "priority": "medium",
       "details": "This task involves integrating Google's Gemini API across all main AI services that currently use Claude:\n\n1. Create a new GeminiService class that implements the same interface as the existing ClaudeService\n2. Implement authentication and API key management for Gemini API\n3. Map our internal prompt formats to Gemini's expected input format\n4. Handle Gemini-specific parameters (temperature, top_p, etc.) and response parsing\n5. Update the AI service factory/provider to support selecting Gemini as an alternative\n6. Add configuration options in settings to allow users to select Gemini as their preferred provider\n7. Implement proper error handling for Gemini-specific API errors\n8. Ensure streaming responses are properly supported if Gemini offers this capability\n9. Update documentation to reflect the new Gemini option\n10. Consider implementing model selection if Gemini offers multiple models (e.g., Gemini Pro, Gemini Ultra)\n11. Ensure all existing AI capabilities (summarization, code generation, etc.) maintain feature parity when using Gemini\n\nThe implementation should follow the same pattern as the recent Ollama integration (Task #36) to maintain consistency in how alternative AI providers are supported.",
@@ -3251,7 +3251,7 @@
           "id": 24,
           "title": "Implement `google.js` Provider Module using Vercel AI SDK",
           "description": "Create and implement the `google.js` module within `src/ai-providers/`. This module should contain functions to interact with Google AI models (e.g., Gemini) using the **Vercel AI SDK (`@ai-sdk/google`)**, adhering to the standardized input/output format defined for `ai-services-unified.js`.",
-          "details": "",
+          "details": "\n\n<info added on 2025-04-27T00:00:46.675Z>\n```javascript\n// Implementation details for google.js provider module\n\n// 1. Required imports\nimport { GoogleGenerativeAI } from \"@ai-sdk/google\";\nimport { streamText, generateText, generateObject } from \"@ai-sdk/core\";\n\n// 2. Model configuration\nconst DEFAULT_MODEL = \"gemini-1.5-pro\"; // Default model, can be overridden\nconst TEMPERATURE_DEFAULT = 0.7;\n\n// 3. Function implementations\nexport async function generateGoogleText({ \n  prompt, \n  model = DEFAULT_MODEL, \n  temperature = TEMPERATURE_DEFAULT,\n  apiKey \n}) {\n  if (!apiKey) throw new Error(\"Google API key is required\");\n  \n  const googleAI = new GoogleGenerativeAI(apiKey);\n  const googleModel = googleAI.getGenerativeModel({ model });\n  \n  const result = await generateText({\n    model: googleModel,\n    prompt,\n    temperature\n  });\n  \n  return result;\n}\n\nexport async function streamGoogleText({ \n  prompt, \n  model = DEFAULT_MODEL, \n  temperature = TEMPERATURE_DEFAULT,\n  apiKey \n}) {\n  if (!apiKey) throw new Error(\"Google API key is required\");\n  \n  const googleAI = new GoogleGenerativeAI(apiKey);\n  const googleModel = googleAI.getGenerativeModel({ model });\n  \n  const stream = await streamText({\n    model: googleModel,\n    prompt,\n    temperature\n  });\n  \n  return stream;\n}\n\nexport async function generateGoogleObject({ \n  prompt, \n  schema,\n  model = DEFAULT_MODEL, \n  temperature = TEMPERATURE_DEFAULT,\n  apiKey \n}) {\n  if (!apiKey) throw new Error(\"Google API key is required\");\n  \n  const googleAI = new GoogleGenerativeAI(apiKey);\n  const googleModel = googleAI.getGenerativeModel({ model });\n  \n  const result = await generateObject({\n    model: googleModel,\n    prompt,\n    schema,\n    temperature\n  });\n  \n  return result;\n}\n\n// 4. Environment variable setup in .env.local\n// GOOGLE_API_KEY=your_google_api_key_here\n\n// 5. Error handling considerations\n// - Implement proper error handling for API rate limits\n// - Add retries for transient failures\n// - Consider adding logging for debugging purposes\n```\n</info added on 2025-04-27T00:00:46.675Z>",
           "status": "pending",
           "dependencies": [],
           "parentTaskId": 61
@@ -3801,6 +3801,80 @@
       "status": "pending",
       "dependencies": [],
       "priority": "high",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Implement Core JSON Output Logic for `next` and `show` Commands",
+          "description": "Modify the command handlers for `task-master next` and `task-master show <id>` to recognize and handle a `--json` flag. When the flag is present, output the raw data received from MCP tools directly as JSON.",
+          "dependencies": [],
+          "details": "Use a CLI argument parsing library (e.g., argparse, click, commander) to add the `--json` boolean flag. In the command execution logic, check if the flag is set. If true, serialize the data object (before any human-readable formatting) into a JSON string and print it to stdout. If false, proceed with the existing formatting logic. Focus on these two commands first to establish the pattern.",
+          "status": "pending",
+          "testStrategy": "Run `task-master next --json` and `task-master show <some_id> --json`. Verify the output is valid JSON and contains the expected data fields. Compare with non-JSON output to ensure data consistency."
+        },
+        {
+          "id": 2,
+          "title": "Extend JSON Output to All Relevant Commands and Ensure Schema Consistency",
+          "description": "Apply the JSON output pattern established in subtask 1 to all other relevant Taskmaster CLI commands that display data (e.g., `list`, `status`, etc.). Ensure the JSON structure is consistent where applicable (e.g., task objects should have the same fields). Add help text mentioning the `--json` flag for each modified command.",
+          "dependencies": [
+            1
+          ],
+          "details": "Identify all commands that output structured data. Refactor the JSON output logic into a reusable utility function if possible. Define a standard schema for common data types like tasks. Update the help documentation for each command to include the `--json` flag description. Ensure error outputs are also handled appropriately (e.g., potentially outputting JSON error objects).",
+          "status": "pending",
+          "testStrategy": "Test the `--json` flag on all modified commands with various inputs. Validate the output against the defined JSON schemas. Check help text using `--help` flag for each command."
+        },
+        {
+          "id": 3,
+          "title": "Create `install-keybindings` Command Structure and OS Detection",
+          "description": "Set up the basic structure for the new `task-master install-keybindings` command. Implement logic to detect the user's operating system (Linux, macOS, Windows) and determine the default path to Cursor's `keybindings.json` file.",
+          "dependencies": [],
+          "details": "Add a new command entry point using the CLI framework. Use standard library functions (e.g., `os.platform()` in Node, `platform.system()` in Python) to detect the OS. Define constants or a configuration map for the default `keybindings.json` paths for each supported OS. Handle cases where the path might vary (e.g., different installation methods for Cursor). Add basic help text for the new command.",
+          "status": "pending",
+          "testStrategy": "Run the command stub on different OSes (or mock the OS detection) and verify it correctly identifies the expected default path. Test edge cases like unsupported OS."
+        },
+        {
+          "id": 4,
+          "title": "Implement Keybinding File Handling and Backup Logic",
+          "description": "Implement the core logic within the `install-keybindings` command to read the target `keybindings.json` file. If it exists, create a backup. If it doesn't exist, create a new file with an empty JSON array `[]`. Prepare the structure to add new keybindings.",
+          "dependencies": [
+            3
+          ],
+          "details": "Use file system modules to check for file existence, read, write, and copy files. Implement a backup mechanism (e.g., copy `keybindings.json` to `keybindings.json.bak`). Handle potential file I/O errors gracefully (e.g., permissions issues). Parse the existing JSON content; if parsing fails, report an error and potentially abort. Ensure the file is created with `[]` if it's missing.",
+          "status": "pending",
+          "testStrategy": "Test file handling scenarios: file exists, file doesn't exist, file exists but is invalid JSON, file exists but has no write permissions (if possible to simulate). Verify backup file creation."
+        },
+        {
+          "id": 5,
+          "title": "Add Taskmaster Keybindings, Prevent Duplicates, and Support Customization",
+          "description": "Define the specific Taskmaster keybindings (e.g., next task to clipboard, status update, open agent chat) and implement the logic to merge them into the user's `keybindings.json` data. Prevent adding duplicate keybindings (based on command ID or key combination). Add support for custom key combinations via command flags.",
+          "dependencies": [
+            4
+          ],
+          "details": "Define the desired keybindings as a list of JSON objects following Cursor's format. Before adding, iterate through the existing keybindings (parsed in subtask 4) to check if a Taskmaster keybinding with the same command or key combination already exists. If not, append the new keybinding to the list. Add command-line flags (e.g., `--next-key='ctrl+alt+n'`) to allow users to override default key combinations. Serialize the updated list back to JSON and write it to the `keybindings.json` file.",
+          "status": "pending",
+          "testStrategy": "Test adding keybindings to an empty file, a file with existing non-Taskmaster keybindings, and a file that already contains some Taskmaster keybindings (to test duplicate prevention). Test overriding default keys using flags. Manually inspect the resulting `keybindings.json` file and test the keybindings within Cursor if possible."
+        }
+      ]
+    },
+    {
+      "id": 68,
+      "title": "Ability to create tasks without parsing PRD",
+      "description": "Which just means that when we create a task, if there's no tasks.json, we should create it calling the same function that is done by parse-prd. this lets taskmaster be used without a prd as a starding point.",
+      "details": "",
+      "testStrategy": "",
+      "status": "pending",
+      "dependencies": [],
+      "priority": "medium",
+      "subtasks": []
+    },
+    {
+      "id": 69,
+      "title": "Enhance Analyze Complexity for Specific Task IDs",
+      "description": "Modify the analyze-complexity feature (CLI and MCP) to allow analyzing only specified task IDs and append/update results in the report.",
+      "details": "\nImplementation Plan:\n\n1.  **Core Logic (`scripts/modules/task-manager/analyze-task-complexity.js`):**\n    *   Modify the function signature to accept an optional `options.ids` parameter (string, comma-separated IDs).\n    *   If `options.ids` is present:\n        *   Parse the `ids` string into an array of target IDs.\n        *   Filter `tasksData.tasks` to *only* include tasks matching the target IDs. Use this filtered list for analysis.\n        *   Handle cases where provided IDs don't exist in `tasks.json`.\n    *   If `options.ids` is *not* present: Continue with existing logic (filtering by active status).\n    *   **Report Handling:**\n        *   Before generating the analysis, check if the `outputPath` report file exists.\n        *   If it exists, read the existing `complexityAnalysis` array.\n        *   Generate the new analysis *only* for the target tasks (filtered by ID or status).\n        *   Merge the results: Remove any entries from the *existing* array that match the IDs analyzed in the *current run*. Then, append the *new* analysis results to the array.\n        *   Update the `meta` section (`generatedAt`, `tasksAnalyzed` should reflect *this run*).\n        *   Write the *merged* `complexityAnalysis` array and updated `meta` back to the report file.\n        *   If the report file doesn't exist, create it as usual.\n    *   **Prompt Generation:** Ensure `generateInternalComplexityAnalysisPrompt` receives the correctly filtered list of tasks.\n\n2.  **CLI (`scripts/modules/commands.js`):**\n    *   Add a new option `--id <ids>` to the `analyze-complexity` command definition. Description: \"Comma-separated list of specific task IDs to analyze\".\n    *   In the `.action` handler:\n        *   Check if `options.id` is provided.\n        *   If yes, pass `options.id` (as the comma-separated string) to the `analyzeTaskComplexity` core function via the `options` object.\n        *   Update user feedback messages to indicate specific task analysis.\n\n3.  **MCP Tool (`mcp-server/src/tools/analyze.js`):**\n    *   Add a new optional parameter `ids: z.string().optional().describe(\"Comma-separated list of task IDs to analyze specifically\")` to the Zod schema for the `analyze_project_complexity` tool.\n    *   In the `execute` method, pass `args.ids` to the `analyzeTaskComplexityDirect` function within its `args` object.\n\n4.  **Direct Function (`mcp-server/src/core/direct-functions/analyze-task-complexity.js`):**\n    *   Update the function to receive the `ids` string within the `args` object.\n    *   Pass the `ids` string along to the core `analyzeTaskComplexity` function within its `options` object.\n\n5.  **Documentation:** Update relevant rule files (`commands.mdc`, `taskmaster.mdc`) to reflect the new `--id` option/parameter.\n",
+      "testStrategy": "\n1.  **CLI:**\n    *   Run `task-master analyze-complexity --id=<id1>` (where report doesn't exist). Verify report created with only task id1.\n    *   Run `task-master analyze-complexity --id=<id2>` (where report exists). Verify report updated, containing analysis for both id1 and id2 (id2 replaces any previous id2 analysis).\n    *   Run `task-master analyze-complexity --id=<id1>,<id3>`. Verify report updated, containing id1, id2, id3.\n    *   Run `task-master analyze-complexity` (no id). Verify it analyzes *all* active tasks and updates the report accordingly, merging with previous specific analyses.\n    *   Test with invalid/non-existent IDs.\n2.  **MCP:**\n    *   Call `analyze_project_complexity` tool with `ids: \"<id1>\"`. Verify report creation/update.\n    *   Call `analyze_project_complexity` tool with `ids: \"<id1>,<id2>\"`. Verify report merging.\n    *   Call `analyze_project_complexity` tool without `ids`. Verify full analysis and merging.\n3.  Verify report `meta` section is updated correctly on each run.\n",
+      "status": "pending",
+      "dependencies": [],
+      "priority": "medium",
       "subtasks": []
     }
   ]

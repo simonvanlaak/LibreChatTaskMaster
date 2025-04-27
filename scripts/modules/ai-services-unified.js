@@ -24,6 +24,7 @@ import { log, resolveEnvVariable } from './utils.js';
 // Corrected path from scripts/ai-providers/... to ../../src/ai-providers/...
 import * as anthropic from '../../src/ai-providers/anthropic.js';
 import * as perplexity from '../../src/ai-providers/perplexity.js';
+import * as google from '../../src/ai-providers/google.js'; // Import Google provider
 // TODO: Import other provider modules when implemented (openai, ollama, etc.)
 
 // --- Provider Function Map ---
@@ -40,6 +41,12 @@ const PROVIDER_FUNCTIONS = {
 		streamText: perplexity.streamPerplexityText,
 		generateObject: perplexity.generatePerplexityObject
 		// streamObject: perplexity.streamPerplexityObject, // Add when implemented
+	},
+	google: {
+		// Add Google entry
+		generateText: google.generateGoogleText,
+		streamText: google.streamGoogleText,
+		generateObject: google.generateGoogleObject
 	}
 	// TODO: Add entries for openai, ollama, etc. when implemented
 };
@@ -75,7 +82,7 @@ function _resolveApiKey(providerName, session) {
 	const keyMap = {
 		openai: 'OPENAI_API_KEY',
 		anthropic: 'ANTHROPIC_API_KEY',
-		google: 'GOOGLE_API_KEY',
+		google: 'GOOGLE_API_KEY', // Add Google API Key
 		perplexity: 'PERPLEXITY_API_KEY',
 		mistral: 'MISTRAL_API_KEY',
 		azure: 'AZURE_OPENAI_API_KEY',

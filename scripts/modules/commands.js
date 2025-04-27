@@ -66,7 +66,7 @@ import {
 	getAvailableModelsList,
 	setModel
 } from './task-manager/models.js'; // Import new core functions
-import { findProjectRoot } from './utils.js';
+import { findProjectRoot } from './utils.js'; // Import findProjectRoot
 
 /**
  * Configure and register CLI commands
@@ -1597,15 +1597,37 @@ function registerCommands(programInstance) {
 		.option('--setup', 'Run interactive setup to configure models')
 		.action(async (options) => {
 			try {
+				// ---> Explicitly find project root for CLI execution <---
+				const projectRoot = findProjectRoot();
+				if (!projectRoot && !options.setup) {
+					// Allow setup even if root isn't found immediately
+					console.error(
+						chalk.red(
+							"Error: Could not determine the project root. Ensure you're running this command within a Task Master project directory."
+						)
+					);
+					process.exit(1);
+				}
+				// ---> End find project root <---
+
 				// --- Set Operations ---
 				if (options.setMain || options.setResearch || options.setFallback) {
 					let resultSet = null;
+					const coreOptions = { projectRoot }; // Pass root to setModel
 					if (options.setMain) {
-						resultSet = await setModel('main', options.setMain);
+						resultSet = await setModel('main', options.setMain, coreOptions);
 					} else if (options.setResearch) {
-						resultSet = await setModel('research', options.setResearch);
+						resultSet = await setModel(
+							'research',
+							options.setResearch,
+							coreOptions
+						);
 					} else if (options.setFallback) {
-						resultSet = await setModel('fallback', options.setFallback);
+						resultSet = await setModel(
+							'fallback',
+							options.setFallback,
+							coreOptions
+						);
 					}
 
 					if (resultSet?.success) {
@@ -1619,7 +1641,7 @@ function registerCommands(programInstance) {
 						if (resultSet?.error?.code === 'MODEL_NOT_FOUND') {
 							console.log(
 								chalk.yellow(
-									'\nRun `task-master models` to see available models.'
+									'\\nRun `task-master models` to see available models.'
 								)
 							);
 						}
@@ -1630,8 +1652,10 @@ function registerCommands(programInstance) {
 
 				// --- Interactive Setup ---
 				if (options.setup) {
-					// Get available models for interactive setup
-					const availableModelsResult = await getAvailableModelsList();
+					// Get available models for interactive setup - pass projectRoot
+					const availableModelsResult = await getAvailableModelsList({
+						projectRoot
+					});
 					if (!availableModelsResult.success) {
 						console.error(
 							chalk.red(
@@ -1642,7 +1666,10 @@ function registerCommands(programInstance) {
 					}
 					const availableModelsForSetup = availableModelsResult.data.models;
 
-					const currentConfigResult = await getModelConfiguration();
+					// Get current config - pass projectRoot
+					const currentConfigResult = await getModelConfiguration({
+						projectRoot
+					});
 					if (!currentConfigResult.success) {
 						console.error(
 							chalk.red(
@@ -1657,24 +1684,12 @@ function registerCommands(programInstance) {
 						fallback: {}
 					};
 
-					console.log(chalk.cyan.bold('\nInteractive Model Setup:'));
+					console.log(chalk.cyan.bold('\\nInteractive Model Setup:'));
 
-					const getMainChoicesAndDefault = () => {
-						const mainChoices = allModelsForSetup.filter((modelChoice) =>
-							availableModelsForSetup
-								.find((m) => m.modelId === modelChoice.value.id)
-								?.allowedRoles?.includes('main')
-						);
-						const defaultIndex = mainChoices.findIndex(
-							(m) => m.value.id === currentModels.main?.modelId
-						);
-						return { choices: mainChoices, default: defaultIndex };
-					};
-
-					// Get all available models, including active ones
+					// Find all available models for setup options
 					const allModelsForSetup = availableModelsForSetup.map((model) => ({
 						name: `${model.provider} / ${model.modelId}`,
-						value: { provider: model.provider, id: model.modelId } // Use id here for comparison
+						value: { provider: model.provider, id: model.modelId }
 					}));
 
 					if (allModelsForSetup.length === 0) {
@@ -1684,118 +1699,110 @@ function registerCommands(programInstance) {
 						process.exit(1);
 					}
 
-					// Function to find the index of the currently selected model ID
-					// Ensure it correctly searches the unfiltered selectableModels list
-					const findDefaultIndex = (roleModelId) => {
-						if (!roleModelId) return -1; // Handle cases where a role isn't set
-						return allModelsForSetup.findIndex(
-							(m) => m.value.id === roleModelId // Compare using the 'id' from the value object
-						);
-					};
-
-					// Helper to get research choices and default index
-					const getResearchChoicesAndDefault = () => {
-						const researchChoices = allModelsForSetup.filter((modelChoice) =>
+					// Helper to get choices and default index for a role
+					const getPromptData = (role, allowNone = false) => {
+						const roleChoices = allModelsForSetup.filter((modelChoice) =>
 							availableModelsForSetup
 								.find((m) => m.modelId === modelChoice.value.id)
-								?.allowedRoles?.includes('research')
+								?.allowedRoles?.includes(role)
 						);
-						const defaultIndex = researchChoices.findIndex(
-							(m) => m.value.id === currentModels.research?.modelId
-						);
-						return { choices: researchChoices, default: defaultIndex };
-					};
 
-					// Helper to get fallback choices and default index
-					const getFallbackChoicesAndDefault = () => {
-						const choices = [
-							{ name: 'None (disable fallback)', value: null },
-							new inquirer.Separator(),
-							...allModelsForSetup
-						];
-						const currentFallbackId = currentModels.fallback?.modelId;
-						let defaultIndex = 0; // Default to 'None'
-						if (currentFallbackId) {
-							const foundIndex = allModelsForSetup.findIndex(
-								(m) => m.value.id === currentFallbackId
-							);
-							if (foundIndex !== -1) {
-								defaultIndex = foundIndex + 2; // +2 because of 'None' and Separator
+						let choices = [...roleChoices];
+						let defaultIndex = -1;
+						const currentModelId = currentModels[role]?.modelId;
+
+						if (allowNone) {
+							choices = [
+								{ name: 'None (disable)', value: null },
+								new inquirer.Separator(),
+								...roleChoices
+							];
+							if (currentModelId) {
+								const foundIndex = roleChoices.findIndex(
+									(m) => m.value.id === currentModelId
+								);
+								defaultIndex = foundIndex !== -1 ? foundIndex + 2 : 0; // +2 for None and Separator
+							} else {
+								defaultIndex = 0; // Default to 'None'
+							}
+						} else {
+							if (currentModelId) {
+								defaultIndex = roleChoices.findIndex(
+									(m) => m.value.id === currentModelId
+								);
 							}
 						}
+
+						// Add Cancel option
+						const cancelOption = {
+							name: 'Cancel setup (q)',
+							value: '__CANCEL__'
+						};
+						choices = [cancelOption, new inquirer.Separator(), ...choices];
+						defaultIndex = defaultIndex !== -1 ? defaultIndex + 2 : 0; // +2 for Cancel and Separator
+
 						return { choices, default: defaultIndex };
 					};
 
-					const researchPromptData = getResearchChoicesAndDefault();
-					const fallbackPromptData = getFallbackChoicesAndDefault();
-					// Call the helper function for main model choices
-					const mainPromptData = getMainChoicesAndDefault();
-
-					// Add cancel option for all prompts
-					const cancelOption = {
-						name: 'Cancel setup (q)',
-						value: '__CANCEL__'
-					};
-
-					const mainModelChoices = [
-						cancelOption,
-						new inquirer.Separator(),
-						...mainPromptData.choices
-					];
-
-					const researchModelChoices = [
-						cancelOption,
-						new inquirer.Separator(),
-						...researchPromptData.choices
-					];
-
-					const fallbackModelChoices = [
-						cancelOption,
-						new inquirer.Separator(),
-						...fallbackPromptData.choices
-					];
-
 					// Add key press handler for 'q' to cancel
-					process.stdin.on('keypress', (str, key) => {
-						if (key.name === 'q') {
-							process.stdin.pause();
-							console.log(chalk.yellow('\nSetup canceled. No changes made.'));
-							process.exit(0);
-						}
-					});
+					// Ensure stdin is available and resume it if needed
+					if (process.stdin.isTTY) {
+						process.stdin.setRawMode(true);
+						process.stdin.resume();
+						process.stdin.setEncoding('utf8');
+						process.stdin.on('data', (key) => {
+							if (key === 'q' || key === '\\u0003') {
+								// 'q' or Ctrl+C
+								console.log(
+									chalk.yellow('\\nSetup canceled. No changes made.')
+								);
+								process.exit(0);
+							}
+						});
+						console.log(
+							chalk.gray('Press "q" at any time to cancel the setup.')
+						);
+					}
 
-					console.log(chalk.gray('Press "q" at any time to cancel the setup.'));
+					// --- Generate choices using the helper ---
+					const mainPromptData = getPromptData('main');
+					const researchPromptData = getPromptData('research');
+					const fallbackPromptData = getPromptData('fallback', true); // Allow 'None' for fallback
 
 					const answers = await inquirer.prompt([
 						{
 							type: 'list',
 							name: 'mainModel',
 							message: 'Select the main model for generation/updates:',
-							choices: mainModelChoices,
-							default: mainPromptData.default + 2 // +2 for cancel option and separator
+							choices: mainPromptData.choices,
+							default: mainPromptData.default
 						},
 						{
 							type: 'list',
 							name: 'researchModel',
 							message: 'Select the research model:',
-							choices: researchModelChoices,
-							default: researchPromptData.default + 2, // +2 for cancel option and separator
-							when: (answers) => answers.mainModel !== '__CANCEL__'
+							choices: researchPromptData.choices,
+							default: researchPromptData.default,
+							when: (ans) => ans.mainModel !== '__CANCEL__'
 						},
 						{
 							type: 'list',
 							name: 'fallbackModel',
 							message: 'Select the fallback model (optional):',
-							choices: fallbackModelChoices,
-							default: fallbackPromptData.default + 2, // +2 for cancel option and separator
-							when: (answers) =>
-								answers.mainModel !== '__CANCEL__' &&
-								answers.researchModel !== '__CANCEL__'
+							choices: fallbackPromptData.choices,
+							default: fallbackPromptData.default,
+							when: (ans) =>
+								ans.mainModel !== '__CANCEL__' &&
+								ans.researchModel !== '__CANCEL__'
 						}
 					]);
 
 					// Clean up the keypress handler
-					process.stdin.removeAllListeners('keypress');
+					if (process.stdin.isTTY) {
+						process.stdin.pause();
+						process.stdin.removeAllListeners('data');
+						process.stdin.setRawMode(false);
+					}
 
 					// Check if user canceled at any point
 					if (
@@ -1803,19 +1810,25 @@ function registerCommands(programInstance) {
 						answers.researchModel === '__CANCEL__' ||
 						answers.fallbackModel === '__CANCEL__'
 					) {
-						console.log(chalk.yellow('\nSetup canceled. No changes made.'));
+						console.log(chalk.yellow('\\nSetup canceled. No changes made.'));
 						return;
 					}
 
 					// Apply changes using setModel
 					let setupSuccess = true;
 					let setupConfigModified = false;
+					const coreOptionsSetup = { projectRoot }; // Pass root for setup actions
 
 					if (
 						answers.mainModel &&
+						answers.mainModel?.id &&
 						answers.mainModel.id !== currentModels.main?.modelId
 					) {
-						const result = await setModel('main', answers.mainModel.id);
+						const result = await setModel(
+							'main',
+							answers.mainModel.id,
+							coreOptionsSetup
+						);
 						if (result.success) {
 							console.log(
 								chalk.blue(
@@ -1835,9 +1848,14 @@ function registerCommands(programInstance) {
 
 					if (
 						answers.researchModel &&
+						answers.researchModel?.id &&
 						answers.researchModel.id !== currentModels.research?.modelId
 					) {
-						const result = await setModel('research', answers.researchModel.id);
+						const result = await setModel(
+							'research',
+							answers.researchModel.id,
+							coreOptionsSetup
+						);
 						if (result.success) {
 							console.log(
 								chalk.blue(
@@ -1857,12 +1875,18 @@ function registerCommands(programInstance) {
 
 					// Set Fallback Model - Handle 'None' selection
 					const currentFallbackId = currentModels.fallback?.modelId;
-					const selectedFallbackId = answers.fallbackModel?.id; // Will be null if 'None' selected
+					const selectedFallbackValue = answers.fallbackModel; // Could be null or model object
+					const selectedFallbackId = selectedFallbackValue?.id; // Undefined if null
 
 					if (selectedFallbackId !== currentFallbackId) {
+						// Compare IDs
 						if (selectedFallbackId) {
 							// User selected a specific fallback model
-							const result = await setModel('fallback', selectedFallbackId);
+							const result = await setModel(
+								'fallback',
+								selectedFallbackId,
+								coreOptionsSetup
+							);
 							if (result.success) {
 								console.log(
 									chalk.blue(
@@ -1881,35 +1905,43 @@ function registerCommands(programInstance) {
 						} else if (currentFallbackId) {
 							// User selected 'None' but a fallback was previously set
 							// Need to explicitly clear it in the config file
-							const currentCfg = getConfig();
-							currentCfg.models.fallback = {
-								...currentCfg.models.fallback,
-								provider: undefined,
-								modelId: undefined
-							};
-							if (writeConfig(currentCfg)) {
-								console.log(chalk.blue('Fallback model disabled.'));
-								setupConfigModified = true;
+							const currentCfg = getConfig(projectRoot); // Pass root
+							if (currentCfg?.models?.fallback) {
+								// Check if fallback exists before clearing
+								currentCfg.models.fallback = {
+									...currentCfg.models.fallback,
+									provider: undefined,
+									modelId: undefined
+								};
+								if (writeConfig(currentCfg, projectRoot)) {
+									// Pass root
+									console.log(chalk.blue('Fallback model disabled.'));
+									setupConfigModified = true;
+								} else {
+									console.error(
+										chalk.red(
+											'Failed to disable fallback model in config file.'
+										)
+									);
+									setupSuccess = false;
+								}
 							} else {
-								console.error(
-									chalk.red('Failed to disable fallback model in config file.')
-								);
-								setupSuccess = false;
+								console.log(chalk.blue('Fallback model was already disabled.'));
 							}
 						}
 						// No action needed if fallback was already null/undefined and user selected None
 					}
 
 					if (setupSuccess && setupConfigModified) {
-						console.log(chalk.green.bold('\nModel setup complete!'));
+						console.log(chalk.green.bold('\\nModel setup complete!'));
 					} else if (setupSuccess && !setupConfigModified) {
 						console.log(
-							chalk.yellow('\nNo changes made to model configuration.')
+							chalk.yellow('\\nNo changes made to model configuration.')
 						);
 					} else if (!setupSuccess) {
 						console.error(
 							chalk.red(
-								'\nErrors occurred during model selection. Please review and try again.'
+								'\\nErrors occurred during model selection. Please review and try again.'
 							)
 						);
 					}
@@ -1917,9 +1949,8 @@ function registerCommands(programInstance) {
 				}
 
 				// --- Default: Display Current Configuration ---
-				// No longer need to check configModified here, as the set/setup logic returns early
-				// Fetch configuration using the core function
-				const result = await getModelConfiguration();
+				// Fetch configuration using the core function - PASS projectRoot
+				const result = await getModelConfiguration({ projectRoot });
 
 				if (!result.success) {
 					// Handle specific CONFIG_MISSING error gracefully
