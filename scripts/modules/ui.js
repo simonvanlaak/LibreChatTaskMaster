@@ -1000,8 +1000,9 @@ async function displayNextTask(tasksPath) {
  * Display a specific task by ID
  * @param {string} tasksPath - Path to the tasks.json file
  * @param {string|number} taskId - The ID of the task to display
+ * @param {string} [statusFilter] - Optional status to filter subtasks by
  */
-async function displayTaskById(tasksPath, taskId) {
+async function displayTaskById(tasksPath, taskId, statusFilter = null) {
 	displayBanner();
 
 	// Read the tasks file
@@ -1011,8 +1012,13 @@ async function displayTaskById(tasksPath, taskId) {
 		process.exit(1);
 	}
 
-	// Find the task by ID
-	const task = findTaskById(data.tasks, taskId);
+	// Find the task by ID, applying the status filter if provided
+	// Returns { task, originalSubtaskCount, originalSubtasks }
+	const { task, originalSubtaskCount, originalSubtasks } = findTaskById(
+		data.tasks,
+		taskId,
+		statusFilter
+	);
 
 	if (!task) {
 		console.log(
@@ -1026,7 +1032,7 @@ async function displayTaskById(tasksPath, taskId) {
 		return;
 	}
 
-	// Handle subtask display specially
+	// Handle subtask display specially (This logic remains the same)
 	if (task.isSubtask || task.parentTask) {
 		console.log(
 			boxen(
@@ -1042,8 +1048,7 @@ async function displayTaskById(tasksPath, taskId) {
 			)
 		);
 
-		// Create a table with subtask details
-		const taskTable = new Table({
+		const subtaskTable = new Table({
 			style: {
 				head: [],
 				border: [],
@@ -1051,18 +1056,11 @@ async function displayTaskById(tasksPath, taskId) {
 				'padding-bottom': 0,
 				compact: true
 			},
-			chars: {
-				mid: '',
-				'left-mid': '',
-				'mid-mid': '',
-				'right-mid': ''
-			},
+			chars: { mid: '', 'left-mid': '', 'mid-mid': '', 'right-mid': '' },
 			colWidths: [15, Math.min(75, process.stdout.columns - 20 || 60)],
 			wordWrap: true
 		});
-
-		// Add subtask details to table
-		taskTable.push(
+		subtaskTable.push(
 			[chalk.cyan.bold('ID:'), `${task.parentTask.id}.${task.id}`],
 			[
 				chalk.cyan.bold('Parent Task:'),
@@ -1078,10 +1076,8 @@ async function displayTaskById(tasksPath, taskId) {
 				task.description || 'No description provided.'
 			]
 		);
+		console.log(subtaskTable.toString());
 
-		console.log(taskTable.toString());
-
-		// Show details if they exist for subtasks
 		if (task.details && task.details.trim().length > 0) {
 			console.log(
 				boxen(
@@ -1096,7 +1092,6 @@ async function displayTaskById(tasksPath, taskId) {
 			);
 		}
 
-		// Show action suggestions for subtask
 		console.log(
 			boxen(
 				chalk.white.bold('Suggested Actions:') +
@@ -1112,85 +1107,10 @@ async function displayTaskById(tasksPath, taskId) {
 				}
 			)
 		);
-
-		// Calculate and display subtask completion progress
-		if (task.subtasks && task.subtasks.length > 0) {
-			const totalSubtasks = task.subtasks.length;
-			const completedSubtasks = task.subtasks.filter(
-				(st) => st.status === 'done' || st.status === 'completed'
-			).length;
-
-			// Count other statuses for the subtasks
-			const inProgressSubtasks = task.subtasks.filter(
-				(st) => st.status === 'in-progress'
-			).length;
-			const pendingSubtasks = task.subtasks.filter(
-				(st) => st.status === 'pending'
-			).length;
-			const blockedSubtasks = task.subtasks.filter(
-				(st) => st.status === 'blocked'
-			).length;
-			const deferredSubtasks = task.subtasks.filter(
-				(st) => st.status === 'deferred'
-			).length;
-			const cancelledSubtasks = task.subtasks.filter(
-				(st) => st.status === 'cancelled'
-			).length;
-
-			// Calculate status breakdown as percentages
-			const statusBreakdown = {
-				'in-progress': (inProgressSubtasks / totalSubtasks) * 100,
-				pending: (pendingSubtasks / totalSubtasks) * 100,
-				blocked: (blockedSubtasks / totalSubtasks) * 100,
-				deferred: (deferredSubtasks / totalSubtasks) * 100,
-				cancelled: (cancelledSubtasks / totalSubtasks) * 100
-			};
-
-			const completionPercentage = (completedSubtasks / totalSubtasks) * 100;
-
-			// Calculate appropriate progress bar length based on terminal width
-			// Subtract padding (2), borders (2), and the percentage text (~5)
-			const availableWidth = process.stdout.columns || 80; // Default to 80 if can't detect
-			const boxPadding = 2; // 1 on each side
-			const boxBorders = 2; // 1 on each side
-			const percentTextLength = 5; // ~5 chars for " 100%"
-			// Reduce the length by adjusting the subtraction value from 20 to 35
-			const progressBarLength = Math.max(
-				20,
-				Math.min(
-					60,
-					availableWidth - boxPadding - boxBorders - percentTextLength - 35
-				)
-			); // Min 20, Max 60
-
-			// Status counts for display
-			const statusCounts =
-				`${chalk.green('✓ Done:')} ${completedSubtasks}  ${chalk.hex('#FFA500')('► In Progress:')} ${inProgressSubtasks}  ${chalk.yellow('○ Pending:')} ${pendingSubtasks}\n` +
-				`${chalk.red('! Blocked:')} ${blockedSubtasks}  ${chalk.gray('⏱ Deferred:')} ${deferredSubtasks}  ${chalk.gray('✗ Cancelled:')} ${cancelledSubtasks}`;
-
-			console.log(
-				boxen(
-					chalk.white.bold('Subtask Progress:') +
-						'\n\n' +
-						`${chalk.cyan('Completed:')} ${completedSubtasks}/${totalSubtasks} (${completionPercentage.toFixed(1)}%)\n` +
-						`${statusCounts}\n` +
-						`${chalk.cyan('Progress:')} ${createProgressBar(completionPercentage, progressBarLength, statusBreakdown)}`,
-					{
-						padding: { top: 0, bottom: 0, left: 1, right: 1 },
-						borderColor: 'blue',
-						borderStyle: 'round',
-						margin: { top: 1, bottom: 0 },
-						width: Math.min(availableWidth - 10, 100), // Add width constraint to limit the box width
-						textAlignment: 'left'
-					}
-				)
-			);
-		}
-
-		return;
+		return; // Exit after displaying subtask details
 	}
 
-	// Display a regular task
+	// --- Display Regular Task Details ---
 	console.log(
 		boxen(chalk.white.bold(`Task: #${task.id} - ${task.title}`), {
 			padding: { top: 0, bottom: 0, left: 1, right: 1 },
@@ -1200,7 +1120,6 @@ async function displayTaskById(tasksPath, taskId) {
 		})
 	);
 
-	// Create a table with task details with improved handling
 	const taskTable = new Table({
 		style: {
 			head: [],
@@ -1209,17 +1128,10 @@ async function displayTaskById(tasksPath, taskId) {
 			'padding-bottom': 0,
 			compact: true
 		},
-		chars: {
-			mid: '',
-			'left-mid': '',
-			'mid-mid': '',
-			'right-mid': ''
-		},
+		chars: { mid: '', 'left-mid': '', 'mid-mid': '', 'right-mid': '' },
 		colWidths: [15, Math.min(75, process.stdout.columns - 20 || 60)],
 		wordWrap: true
 	});
-
-	// Priority with color
 	const priorityColors = {
 		high: chalk.red.bold,
 		medium: chalk.yellow,
@@ -1227,8 +1139,6 @@ async function displayTaskById(tasksPath, taskId) {
 	};
 	const priorityColor =
 		priorityColors[task.priority || 'medium'] || chalk.white;
-
-	// Add task details to table
 	taskTable.push(
 		[chalk.cyan.bold('ID:'), task.id.toString()],
 		[chalk.cyan.bold('Title:'), task.title],
@@ -1243,10 +1153,8 @@ async function displayTaskById(tasksPath, taskId) {
 		],
 		[chalk.cyan.bold('Description:'), task.description]
 	);
-
 	console.log(taskTable.toString());
 
-	// If task has details, show them in a separate box
 	if (task.details && task.details.trim().length > 0) {
 		console.log(
 			boxen(
@@ -1260,8 +1168,6 @@ async function displayTaskById(tasksPath, taskId) {
 			)
 		);
 	}
-
-	// Show test strategy if available
 	if (task.testStrategy && task.testStrategy.trim().length > 0) {
 		console.log(
 			boxen(chalk.white.bold('Test Strategy:') + '\n\n' + task.testStrategy, {
@@ -1273,7 +1179,7 @@ async function displayTaskById(tasksPath, taskId) {
 		);
 	}
 
-	// Show subtasks if they exist
+	// --- Subtask Table Display (uses filtered list: task.subtasks) ---
 	if (task.subtasks && task.subtasks.length > 0) {
 		console.log(
 			boxen(chalk.white.bold('Subtasks'), {
@@ -1284,22 +1190,16 @@ async function displayTaskById(tasksPath, taskId) {
 			})
 		);
 
-		// Calculate available width for the subtask table
-		const availableWidth = process.stdout.columns - 10 || 100; // Default to 100 if can't detect
-
-		// Define percentage-based column widths
+		const availableWidth = process.stdout.columns - 10 || 100;
 		const idWidthPct = 10;
 		const statusWidthPct = 15;
 		const depsWidthPct = 25;
 		const titleWidthPct = 100 - idWidthPct - statusWidthPct - depsWidthPct;
-
-		// Calculate actual column widths
 		const idWidth = Math.floor(availableWidth * (idWidthPct / 100));
 		const statusWidth = Math.floor(availableWidth * (statusWidthPct / 100));
 		const depsWidth = Math.floor(availableWidth * (depsWidthPct / 100));
 		const titleWidth = Math.floor(availableWidth * (titleWidthPct / 100));
 
-		// Create a table for subtasks with improved handling
 		const subtaskTable = new Table({
 			head: [
 				chalk.magenta.bold('ID'),
@@ -1315,59 +1215,50 @@ async function displayTaskById(tasksPath, taskId) {
 				'padding-bottom': 0,
 				compact: true
 			},
-			chars: {
-				mid: '',
-				'left-mid': '',
-				'mid-mid': '',
-				'right-mid': ''
-			},
+			chars: { mid: '', 'left-mid': '', 'mid-mid': '', 'right-mid': '' },
 			wordWrap: true
 		});
 
-		// Add subtasks to table
+		// Populate table with the potentially filtered subtasks
 		task.subtasks.forEach((st) => {
-			const statusColor =
-				{
-					done: chalk.green,
-					completed: chalk.green,
-					pending: chalk.yellow,
-					'in-progress': chalk.blue
-				}[st.status || 'pending'] || chalk.white;
-
-			// Format subtask dependencies
+			const statusColorMap = {
+				done: chalk.green,
+				completed: chalk.green,
+				pending: chalk.yellow,
+				'in-progress': chalk.blue
+			};
+			const statusColor = statusColorMap[st.status || 'pending'] || chalk.white;
 			let subtaskDeps = 'None';
 			if (st.dependencies && st.dependencies.length > 0) {
-				// Format dependencies with correct notation
 				const formattedDeps = st.dependencies.map((depId) => {
-					if (typeof depId === 'number' && depId < 100) {
-						const foundSubtask = task.subtasks.find((st) => st.id === depId);
-						if (foundSubtask) {
-							const isDone =
-								foundSubtask.status === 'done' ||
-								foundSubtask.status === 'completed';
-							const isInProgress = foundSubtask.status === 'in-progress';
+					// Use the original, unfiltered list for dependency status lookup
+					const sourceListForDeps = originalSubtasks || task.subtasks;
+					const foundDepSubtask =
+						typeof depId === 'number' && depId < 100
+							? sourceListForDeps.find((sub) => sub.id === depId)
+							: null;
 
-							// Use consistent color formatting instead of emojis
-							if (isDone) {
-								return chalk.green.bold(`${task.id}.${depId}`);
-							} else if (isInProgress) {
-								return chalk.hex('#FFA500').bold(`${task.id}.${depId}`);
-							} else {
-								return chalk.red.bold(`${task.id}.${depId}`);
-							}
-						}
+					if (foundDepSubtask) {
+						const isDone =
+							foundDepSubtask.status === 'done' ||
+							foundDepSubtask.status === 'completed';
+						const isInProgress = foundDepSubtask.status === 'in-progress';
+						const color = isDone
+							? chalk.green.bold
+							: isInProgress
+								? chalk.hex('#FFA500').bold
+								: chalk.red.bold;
+						return color(`${task.id}.${depId}`);
+					} else if (typeof depId === 'number' && depId < 100) {
 						return chalk.red(`${task.id}.${depId} (Not found)`);
 					}
-					return depId;
+					return depId; // Assume it's a top-level task ID if not a number < 100
 				});
-
-				// Join the formatted dependencies directly instead of passing to formatDependenciesWithStatus again
 				subtaskDeps =
 					formattedDeps.length === 1
 						? formattedDeps[0]
 						: formattedDeps.join(chalk.white(', '));
 			}
-
 			subtaskTable.push([
 				`${task.id}.${st.id}`,
 				statusColor(st.status || 'pending'),
@@ -1375,110 +1266,162 @@ async function displayTaskById(tasksPath, taskId) {
 				subtaskDeps
 			]);
 		});
-
 		console.log(subtaskTable.toString());
 
-		// Calculate and display subtask completion progress
-		if (task.subtasks && task.subtasks.length > 0) {
-			const totalSubtasks = task.subtasks.length;
-			const completedSubtasks = task.subtasks.filter(
-				(st) => st.status === 'done' || st.status === 'completed'
-			).length;
-
-			// Count other statuses for the subtasks
-			const inProgressSubtasks = task.subtasks.filter(
-				(st) => st.status === 'in-progress'
-			).length;
-			const pendingSubtasks = task.subtasks.filter(
-				(st) => st.status === 'pending'
-			).length;
-			const blockedSubtasks = task.subtasks.filter(
-				(st) => st.status === 'blocked'
-			).length;
-			const deferredSubtasks = task.subtasks.filter(
-				(st) => st.status === 'deferred'
-			).length;
-			const cancelledSubtasks = task.subtasks.filter(
-				(st) => st.status === 'cancelled'
-			).length;
-
-			// Calculate status breakdown as percentages
-			const statusBreakdown = {
-				'in-progress': (inProgressSubtasks / totalSubtasks) * 100,
-				pending: (pendingSubtasks / totalSubtasks) * 100,
-				blocked: (blockedSubtasks / totalSubtasks) * 100,
-				deferred: (deferredSubtasks / totalSubtasks) * 100,
-				cancelled: (cancelledSubtasks / totalSubtasks) * 100
-			};
-
-			const completionPercentage = (completedSubtasks / totalSubtasks) * 100;
-
-			// Calculate appropriate progress bar length based on terminal width
-			// Subtract padding (2), borders (2), and the percentage text (~5)
-			const availableWidth = process.stdout.columns || 80; // Default to 80 if can't detect
-			const boxPadding = 2; // 1 on each side
-			const boxBorders = 2; // 1 on each side
-			const percentTextLength = 5; // ~5 chars for " 100%"
-			// Reduce the length by adjusting the subtraction value from 20 to 35
-			const progressBarLength = Math.max(
-				20,
-				Math.min(
-					60,
-					availableWidth - boxPadding - boxBorders - percentTextLength - 35
+		// Display filter summary line *immediately after the table* if a filter was applied
+		if (statusFilter && originalSubtaskCount !== null) {
+			console.log(
+				chalk.cyan(
+					`  Filtered by status: ${chalk.bold(statusFilter)}. Showing ${chalk.bold(task.subtasks.length)} of ${chalk.bold(originalSubtaskCount)} subtasks.`
 				)
-			); // Min 20, Max 60
-
-			// Status counts for display
-			const statusCounts =
-				`${chalk.green('✓ Done:')} ${completedSubtasks}  ${chalk.hex('#FFA500')('► In Progress:')} ${inProgressSubtasks}  ${chalk.yellow('○ Pending:')} ${pendingSubtasks}\n` +
-				`${chalk.red('! Blocked:')} ${blockedSubtasks}  ${chalk.gray('⏱ Deferred:')} ${deferredSubtasks}  ${chalk.gray('✗ Cancelled:')} ${cancelledSubtasks}`;
-
+			);
+			// Add a newline for spacing before the progress bar if the filter line was shown
+			console.log();
+		}
+		// --- Conditional Messages for No Subtasks Shown ---
+	} else if (statusFilter && originalSubtaskCount === 0) {
+		// Case where filter applied, but the parent task had 0 subtasks originally
+		console.log(
+			boxen(
+				chalk.yellow(
+					`No subtasks found matching status: ${statusFilter} (Task has no subtasks)`
+				),
+				{
+					padding: { top: 0, bottom: 0, left: 1, right: 1 },
+					margin: { top: 1, bottom: 0 },
+					borderColor: 'yellow',
+					borderStyle: 'round'
+				}
+			)
+		);
+	} else if (
+		statusFilter &&
+		originalSubtaskCount > 0 &&
+		task.subtasks.length === 0
+	) {
+		// Case where filter applied, original subtasks existed, but none matched
+		console.log(
+			boxen(
+				chalk.yellow(
+					`No subtasks found matching status: ${statusFilter} (out of ${originalSubtaskCount} total)`
+				),
+				{
+					padding: { top: 0, bottom: 0, left: 1, right: 1 },
+					margin: { top: 1, bottom: 0 },
+					borderColor: 'yellow',
+					borderStyle: 'round'
+				}
+			)
+		);
+	} else if (
+		!statusFilter &&
+		(!originalSubtasks || originalSubtasks.length === 0)
+	) {
+		// Case where NO filter applied AND the task genuinely has no subtasks
+		// Use the authoritative originalSubtasks if it exists (from filtering), else check task.subtasks
+		const actualSubtasks = originalSubtasks || task.subtasks;
+		if (!actualSubtasks || actualSubtasks.length === 0) {
 			console.log(
 				boxen(
-					chalk.white.bold('Subtask Progress:') +
-						'\n\n' +
-						`${chalk.cyan('Completed:')} ${completedSubtasks}/${totalSubtasks} (${completionPercentage.toFixed(1)}%)\n` +
-						`${statusCounts}\n` +
-						`${chalk.cyan('Progress:')} ${createProgressBar(completionPercentage, progressBarLength, statusBreakdown)}`,
+					chalk.yellow('No subtasks found. Consider breaking down this task:') +
+						'\n' +
+						chalk.white(
+							`Run: ${chalk.cyan(`task-master expand --id=${task.id}`)}`
+						),
 					{
 						padding: { top: 0, bottom: 0, left: 1, right: 1 },
-						borderColor: 'blue',
+						borderColor: 'yellow',
 						borderStyle: 'round',
-						margin: { top: 1, bottom: 0 },
-						width: Math.min(availableWidth - 10, 100), // Add width constraint to limit the box width
-						textAlignment: 'left'
+						margin: { top: 1, bottom: 0 }
 					}
 				)
 			);
 		}
-	} else {
-		// Suggest expanding if no subtasks
+	}
+
+	// --- Subtask Progress Bar Display (uses originalSubtasks or task.subtasks) ---
+	// Determine the list to use for progress calculation (always the original if available and filtering happened)
+	const subtasksForProgress = originalSubtasks || task.subtasks; // Use original if filtering occurred, else the potentially empty task.subtasks
+
+	// Only show progress if there are actually subtasks
+	if (subtasksForProgress && subtasksForProgress.length > 0) {
+		const totalSubtasks = subtasksForProgress.length;
+		const completedSubtasks = subtasksForProgress.filter(
+			(st) => st.status === 'done' || st.status === 'completed'
+		).length;
+
+		// Count other statuses from the original/complete list
+		const inProgressSubtasks = subtasksForProgress.filter(
+			(st) => st.status === 'in-progress'
+		).length;
+		const pendingSubtasks = subtasksForProgress.filter(
+			(st) => st.status === 'pending'
+		).length;
+		const blockedSubtasks = subtasksForProgress.filter(
+			(st) => st.status === 'blocked'
+		).length;
+		const deferredSubtasks = subtasksForProgress.filter(
+			(st) => st.status === 'deferred'
+		).length;
+		const cancelledSubtasks = subtasksForProgress.filter(
+			(st) => st.status === 'cancelled'
+		).length;
+
+		const statusBreakdown = {
+			// Calculate breakdown based on the complete list
+			'in-progress': (inProgressSubtasks / totalSubtasks) * 100,
+			pending: (pendingSubtasks / totalSubtasks) * 100,
+			blocked: (blockedSubtasks / totalSubtasks) * 100,
+			deferred: (deferredSubtasks / totalSubtasks) * 100,
+			cancelled: (cancelledSubtasks / totalSubtasks) * 100
+		};
+		const completionPercentage = (completedSubtasks / totalSubtasks) * 100;
+
+		const availableWidth = process.stdout.columns || 80;
+		const boxPadding = 2;
+		const boxBorders = 2;
+		const percentTextLength = 5;
+		const progressBarLength = Math.max(
+			20,
+			Math.min(
+				60,
+				availableWidth - boxPadding - boxBorders - percentTextLength - 35
+			)
+		);
+
+		const statusCounts =
+			`${chalk.green('✓ Done:')} ${completedSubtasks}  ${chalk.hex('#FFA500')('► In Progress:')} ${inProgressSubtasks}  ${chalk.yellow('○ Pending:')} ${pendingSubtasks}\n` +
+			`${chalk.red('! Blocked:')} ${blockedSubtasks}  ${chalk.gray('⏱ Deferred:')} ${deferredSubtasks}  ${chalk.gray('✗ Cancelled:')} ${cancelledSubtasks}`;
+
 		console.log(
 			boxen(
-				chalk.yellow('No subtasks found. Consider breaking down this task:') +
-					'\n' +
-					chalk.white(
-						`Run: ${chalk.cyan(`task-master expand --id=${task.id}`)}`
-					),
+				chalk.white.bold('Subtask Progress:') +
+					'\n\n' +
+					`${chalk.cyan('Completed:')} ${completedSubtasks}/${totalSubtasks} (${completionPercentage.toFixed(1)}%)\n` +
+					`${statusCounts}\n` +
+					`${chalk.cyan('Progress:')} ${createProgressBar(completionPercentage, progressBarLength, statusBreakdown)}`,
 				{
 					padding: { top: 0, bottom: 0, left: 1, right: 1 },
-					borderColor: 'yellow',
+					borderColor: 'blue',
 					borderStyle: 'round',
-					margin: { top: 1, bottom: 0 }
+					margin: { top: 1, bottom: 0 },
+					width: Math.min(availableWidth - 10, 100),
+					textAlignment: 'left'
 				}
 			)
 		);
 	}
 
-	// Show action suggestions
+	// --- Suggested Actions ---
 	console.log(
 		boxen(
 			chalk.white.bold('Suggested Actions:') +
 				'\n' +
 				`${chalk.cyan('1.')} Mark as in-progress: ${chalk.yellow(`task-master set-status --id=${task.id} --status=in-progress`)}\n` +
 				`${chalk.cyan('2.')} Mark as done when completed: ${chalk.yellow(`task-master set-status --id=${task.id} --status=done`)}\n` +
-				(task.subtasks && task.subtasks.length > 0
-					? `${chalk.cyan('3.')} Update subtask status: ${chalk.yellow(`task-master set-status --id=${task.id}.1 --status=done`)}`
+				// Determine action 3 based on whether subtasks *exist* (use the source list for progress)
+				(subtasksForProgress && subtasksForProgress.length > 0
+					? `${chalk.cyan('3.')} Update subtask status: ${chalk.yellow(`task-master set-status --id=${task.id}.1 --status=done`)}` // Example uses .1
 					: `${chalk.cyan('3.')} Break down into subtasks: ${chalk.yellow(`task-master expand --id=${task.id}`)}`),
 			{
 				padding: { top: 0, bottom: 0, left: 1, right: 1 },

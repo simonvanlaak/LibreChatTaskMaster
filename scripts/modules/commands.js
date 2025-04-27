@@ -1330,9 +1330,11 @@ function registerCommands(programInstance) {
 		)
 		.argument('[id]', 'Task ID to show')
 		.option('-i, --id <id>', 'Task ID to show')
+		.option('-s, --status <status>', 'Filter subtasks by status') // ADDED status option
 		.option('-f, --file <file>', 'Path to the tasks file', 'tasks/tasks.json')
 		.action(async (taskId, options) => {
 			const idArg = taskId || options.id;
+			const statusFilter = options.status; // ADDED: Capture status filter
 
 			if (!idArg) {
 				console.error(chalk.red('Error: Please provide a task ID'));
@@ -1340,7 +1342,8 @@ function registerCommands(programInstance) {
 			}
 
 			const tasksPath = options.file;
-			await displayTaskById(tasksPath, idArg);
+			// PASS statusFilter to the display function
+			await displayTaskById(tasksPath, idArg, statusFilter);
 		});
 
 	// add-dependency command

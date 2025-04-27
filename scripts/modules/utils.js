@@ -290,25 +290,27 @@ function formatTaskId(id) {
 }
 
 /**
- * Finds a task by ID in the tasks array
+ * Finds a task by ID in the tasks array. Optionally filters subtasks by status.
  * @param {Array} tasks - The tasks array
  * @param {string|number} taskId - The task ID to find
- * @returns {Object|null} The task object or null if not found
+ * @param {string} [statusFilter] - Optional status to filter subtasks by
+ * @returns {{task: Object|null, originalSubtaskCount: number|null}} The task object (potentially with filtered subtasks) and the original subtask count if filtered, or nulls if not found.
  */
-function findTaskById(tasks, taskId) {
+function findTaskById(tasks, taskId, statusFilter = null) {
 	if (!taskId || !tasks || !Array.isArray(tasks)) {
-		return null;
+		return { task: null, originalSubtaskCount: null };
 	}
 
 	// Check if it's a subtask ID (e.g., "1.2")
 	if (typeof taskId === 'string' && taskId.includes('.')) {
+		// If looking for a subtask, statusFilter doesn't apply directly here.
 		const [parentId, subtaskId] = taskId
 			.split('.')
 			.map((id) => parseInt(id, 10));
 		const parentTask = tasks.find((t) => t.id === parentId);
 
 		if (!parentTask || !parentTask.subtasks) {
-			return null;
+			return { task: null, originalSubtaskCount: null };
 		}
 
 		const subtask = parentTask.subtasks.find((st) => st.id === subtaskId);
@@ -322,11 +324,35 @@ function findTaskById(tasks, taskId) {
 			subtask.isSubtask = true;
 		}
 
-		return subtask || null;
+		// Return the found subtask (or null) and null for originalSubtaskCount
+		return { task: subtask || null, originalSubtaskCount: null };
 	}
 
+	// Find the main task
 	const id = parseInt(taskId, 10);
-	return tasks.find((t) => t.id === id) || null;
+	const task = tasks.find((t) => t.id === id) || null;
+
+	// If task not found, return nulls
+	if (!task) {
+		return { task: null, originalSubtaskCount: null };
+	}
+
+	// If task found and statusFilter provided, filter its subtasks
+	if (statusFilter && task.subtasks && Array.isArray(task.subtasks)) {
+		const originalSubtaskCount = task.subtasks.length;
+		// Clone the task to avoid modifying the original array
+		const filteredTask = { ...task };
+		filteredTask.subtasks = task.subtasks.filter(
+			(subtask) =>
+				subtask.status &&
+				subtask.status.toLowerCase() === statusFilter.toLowerCase()
+		);
+		// Return the filtered task and the original count
+		return { task: filteredTask, originalSubtaskCount: originalSubtaskCount };
+	}
+
+	// Return original task and null count if no filter or no subtasks
+	return { task: task, originalSubtaskCount: null };
 }
 
 /**
