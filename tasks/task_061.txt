@@ -1009,7 +1009,7 @@ When refactoring `sendChatWithContext` and related functions, ensure they align 
 </info added on 2025-04-20T03:53:03.709Z>
 
 ## 18. Refactor Callers of AI Parsing Utilities [deferred]
-### Dependencies: 61.11,61.12,61.13,61.14,61.15,61.16,61.17,61.19
+### Dependencies: None
 ### Description: Update the code that calls `parseSubtasksFromText`, `parseTaskJsonResponse`, and `parseTasksFromCompletion` to instead directly handle the structured JSON output provided by `generateObjectService` (as the refactored AI calls will now use it).
 ### Details:
 
@@ -1588,7 +1588,7 @@ export async function streamOpenAITextSimplified(params) {
 </info added on 2025-04-27T05:39:31.942Z>
 
 ## 23. Implement Conditional Provider Logic in `ai-services-unified.js` [done]
-### Dependencies: 61.20,61.21,61.22,61.24,61.25,61.26,61.27,61.28,61.29,61.30,61.34
+### Dependencies: None
 ### Description: Implement logic within the functions of `ai-services-unified.js` (e.g., `generateTextService`, `generateObjectService`, `streamChatService`) to dynamically select and call the appropriate provider module (`anthropic.js`, `perplexity.js`, etc.) based on configuration (e.g., environment variables like `AI_PROVIDER` and `AI_MODEL` from `process.env` or `session.env`).
 ### Details:
 
