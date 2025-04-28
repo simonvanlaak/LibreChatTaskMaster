@@ -367,10 +367,7 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 		}
 
 		// For other files, warn and prompt before overwriting
-		log(
-			'warn',
-			`${targetPath} already exists. Skipping file creation to avoid overwriting existing content.`
-		);
+		log('warn', `${targetPath} already exists, skipping.`);
 		return;
 	}
 
@@ -379,7 +376,7 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 	log('info', `Created file: ${targetPath}`);
 }
 
-// Main function to initialize a new project (Now relies solely on passed options)
+// Main function to initialize a new project (No longer needs isInteractive logic)
 async function initializeProject(options = {}) {
 	// Receives options as argument
 	// Only display banner if not in silent mode
@@ -396,8 +393,8 @@ async function initializeProject(options = {}) {
 		console.log('==================================================');
 	}
 
-	// Determine if we should skip prompts based on the passed options
 	const skipPrompts = options.yes || (options.name && options.description);
+
 	if (!isSilentMode()) {
 		console.log('Skip prompts determined:', skipPrompts);
 	}
@@ -411,8 +408,8 @@ async function initializeProject(options = {}) {
 		const projectName = options.name || 'task-master-project';
 		const projectDescription =
 			options.description || 'A project managed with Task Master AI';
-		const projectVersion = options.version || '0.1.0'; // Default from commands.js or here
-		const authorName = options.author || 'Vibe coder'; // Default if not provided
+		const projectVersion = options.version || '0.1.0';
+		const authorName = options.author || 'Vibe coder';
 		const dryRun = options.dryRun || false;
 		const skipInstall = options.skipInstall || false;
 		const addAliases = options.aliases || false;
@@ -441,17 +438,18 @@ async function initializeProject(options = {}) {
 			};
 		}
 
-		// Create structure using determined values
+		// Call createProjectStructure (no need for isInteractive flag)
 		createProjectStructure(
 			projectName,
 			projectDescription,
 			projectVersion,
 			authorName,
 			skipInstall,
-			addAliases
+			addAliases,
+			dryRun // Pass dryRun
 		);
 	} else {
-		// Prompting logic (only runs if skipPrompts is false)
+		// Interactive logic
 		log('info', 'Required options not provided, proceeding with prompts.');
 		const rl = readline.createInterface({
 			input: process.stdin,
@@ -471,7 +469,7 @@ async function initializeProject(options = {}) {
 			const projectVersionInput = await promptQuestion(
 				rl,
 				chalk.cyan('Enter project version (default: 1.0.0): ')
-			); // Use a default for prompt
+			);
 			const authorName = await promptQuestion(
 				rl,
 				chalk.cyan('Enter your name: ')
@@ -510,11 +508,10 @@ async function initializeProject(options = {}) {
 
 			if (!shouldContinue) {
 				log('info', 'Project initialization cancelled by user');
-				process.exit(0); // Exit if cancelled
-				return; // Added return for clarity
+				process.exit(0);
+				return;
 			}
 
-			// Still respect dryRun/skipInstall if passed initially even when prompting
 			const dryRun = options.dryRun || false;
 			const skipInstall = options.skipInstall || false;
 
@@ -542,19 +539,20 @@ async function initializeProject(options = {}) {
 				};
 			}
 
-			// Create structure using prompted values, respecting initial options where relevant
+			// Call createProjectStructure (no need for isInteractive flag)
 			createProjectStructure(
 				projectName,
 				projectDescription,
 				projectVersion,
 				authorName,
-				skipInstall, // Use value from initial options
-				addAliasesPrompted // Use value from prompt
+				skipInstall,
+				addAliasesPrompted,
+				dryRun // Pass dryRun
 			);
 		} catch (error) {
 			rl.close();
-			log('error', `Error during prompting: ${error.message}`); // Use log function
-			process.exit(1); // Exit on error during prompts
+			log('error', `Error during initialization process: ${error.message}`);
+			process.exit(1);
 		}
 	}
 }
@@ -575,7 +573,8 @@ function createProjectStructure(
 	projectVersion,
 	authorName,
 	skipInstall,
-	addAliases
+	addAliases,
+	dryRun
 ) {
 	const targetDir = process.cwd();
 	log('info', `Initializing project in ${targetDir}`);
@@ -599,7 +598,16 @@ function createProjectStructure(
 			'parse-prd': 'node scripts/dev.js parse-prd'
 		},
 		dependencies: {
-			'@anthropic-ai/sdk': '^0.39.0',
+			'@ai-sdk/anthropic': '^1.2.10',
+			'@ai-sdk/azure': '^1.3.17',
+			'@ai-sdk/google': '^1.2.13',
+			'@ai-sdk/mistral': '^1.2.7',
+			'@ai-sdk/openai': '^1.3.20',
+			'@ai-sdk/perplexity': '^1.1.7',
+			'@ai-sdk/xai': '^1.2.15',
+			'@openrouter/ai-sdk-provider': '^0.4.5',
+			'ollama-ai-provider': '^1.2.0',
+			ai: '^4.3.10',
 			boxen: '^8.0.1',
 			chalk: '^4.1.2',
 			commander: '^11.1.0',
@@ -673,7 +681,7 @@ function createProjectStructure(
 			fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
 			log(
 				'warn',
-				'Created new package.json (backup of original file was created)'
+				'Created new package.json (backup of original file was created if it existed)'
 			);
 		}
 	} else {
@@ -774,7 +782,18 @@ function createProjectStructure(
 	}
 
 	// Run npm install automatically
-	if (!isSilentMode()) {
+	const npmInstallOptions = {
+		cwd: targetDir,
+		// Default to inherit for interactive CLI, change if silent
+		stdio: 'inherit'
+	};
+
+	if (isSilentMode()) {
+		// If silent (MCP mode), suppress npm install output
+		npmInstallOptions.stdio = 'ignore';
+		log('info', 'Running npm install silently...'); // Log our own message
+	} else {
+		// Interactive mode, show the boxen message
 		console.log(
 			boxen(chalk.cyan('Installing dependencies...'), {
 				padding: 0.5,
@@ -787,15 +806,56 @@ function createProjectStructure(
 
 	try {
 		if (!skipInstall) {
-			execSync('npm install', { stdio: 'inherit', cwd: targetDir });
+			// Use the determined options
+			execSync('npm install', npmInstallOptions);
 			log('success', 'Dependencies installed successfully!');
 		} else {
 			log('info', 'Dependencies installation skipped');
 		}
 	} catch (error) {
 		log('error', 'Failed to install dependencies:', error.message);
-		log('error', 'Please run npm install manually');
+		// Add more detail if silent, as the user won't see npm's error directly
+		if (isSilentMode()) {
+			log('error', 'Check npm logs or run "npm install" manually for details.');
+		} else {
+			log('error', 'Please run npm install manually');
+		}
 	}
+
+	// === Add Model Configuration Step ===
+	if (!isSilentMode() && !dryRun) {
+		console.log(
+			boxen(chalk.cyan('Configuring AI Models...'), {
+				padding: 0.5,
+				margin: { top: 1, bottom: 0.5 },
+				borderStyle: 'round',
+				borderColor: 'blue'
+			})
+		);
+		log(
+			'info',
+			'Running interactive model setup. Please select your preferred AI models.'
+		);
+		try {
+			execSync('npx task-master models --setup', {
+				stdio: 'inherit',
+				cwd: targetDir
+			});
+			log('success', 'AI Models configured.');
+		} catch (error) {
+			log('error', 'Failed to configure AI models:', error.message);
+			log('warn', 'You may need to run "task-master models --setup" manually.');
+		}
+	} else if (isSilentMode() && !dryRun) {
+		log('info', 'Skipping interactive model setup in silent (MCP) mode.');
+		log(
+			'warn',
+			'Please configure AI models using "task-master models --set-..." or the "models" MCP tool.'
+		);
+	} else if (dryRun) {
+		log('info', 'DRY RUN: Skipping interactive model setup.');
+	}
+	// ====================================
 
 	// Display success message
 	if (!isSilentMode()) {
@@ -825,43 +885,59 @@ function createProjectStructure(
 	if (!isSilentMode()) {
 		console.log(
 			boxen(
-				chalk.cyan.bold('Things you can now do:') +
+				chalk.cyan.bold('Things you should do next:') +
 					'\n\n' +
 					chalk.white('1. ') +
 					chalk.yellow(
-						'Rename .env.example to .env and add your ANTHROPIC_API_KEY and PERPLEXITY_API_KEY'
+						'Configure AI models (if needed) and add API keys to `.env`'
+					) +
+					'\n' +
+					chalk.white('   ├─ ') +
+					chalk.dim('Models: Use `task-master models` commands') +
+					'\n' +
+					chalk.white('   └─ ') +
+					chalk.dim(
+						'Keys: Add provider API keys to .env (or inside the MCP config file i.e. .cursor/mcp.json)'
 					) +
 					'\n' +
 					chalk.white('2. ') +
 					chalk.yellow(
-						'Discuss your idea with AI, and once ready ask for a PRD using the example_prd.txt file, and save what you get to scripts/PRD.txt'
+						'Discuss your idea with AI and ask for a PRD using example_prd.txt, and save it to scripts/PRD.txt'
 					) +
 					'\n' +
 					chalk.white('3. ') +
 					chalk.yellow(
-						'Ask Cursor Agent to parse your PRD.txt and generate tasks'
+						'Ask Cursor Agent (or run CLI) to parse your PRD and generate initial tasks:'
 					) +
 					'\n' +
 					chalk.white('   └─ ') +
-					chalk.dim('You can also run ') +
-					chalk.cyan('task-master parse-prd <your-prd-file.txt>') +
+					chalk.dim('MCP Tool: ') +
+					chalk.cyan('parse_prd') +
+					chalk.dim(' | CLI: ') +
+					chalk.cyan('task-master parse-prd scripts/prd.txt') +
 					'\n' +
 					chalk.white('4. ') +
-					chalk.yellow('Ask Cursor to analyze the complexity of your tasks') +
+					chalk.yellow(
+						'Ask Cursor to analyze the complexity of the tasks in your PRD using research'
+					) +
+					'\n' +
+					chalk.white('   └─ ') +
+					chalk.dim('MCP Tool: ') +
+					chalk.cyan('analyze_project_complexity') +
+					chalk.dim(' | CLI: ') +
+					chalk.cyan('task-master analyze-complexity') +
 					'\n' +
 					chalk.white('5. ') +
 					chalk.yellow(
-						'Ask Cursor which task is next to determine where to start'
+						'Ask Cursor to expand all of your tasks using the complexity analysis'
 					) +
 					'\n' +
 					chalk.white('6. ') +
-					chalk.yellow(
-						'Ask Cursor to expand any complex tasks that are too large or complex.'
-					) +
+					chalk.yellow('Ask Cursor to begin working on the next task') +
 					'\n' +
 					chalk.white('7. ') +
 					chalk.yellow(
-						'Ask Cursor to set the status of a task, or multiple tasks. Use the task id from the task lists.'
+						'Ask Cursor to set the status of one or many tasks/subtasks at a time. Use the task id from the task lists.'
 					) +
 					'\n' +
 					chalk.white('8. ') +
@@ -874,6 +950,10 @@ function createProjectStructure(
 					'\n\n' +
 					chalk.dim(
 						'* Review the README.md file to learn how to use other commands via Cursor Agent.'
+					) +
+					'\n' +
+					chalk.dim(
+						'* Use the task-master command without arguments to see all available commands.'
 					),
 				{
 					padding: 1,
