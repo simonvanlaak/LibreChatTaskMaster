@@ -26,12 +26,6 @@ export function registerAnalyzeTool(server) {
 				.describe(
 					'Output file path relative to project root (default: scripts/task-complexity-report.json)'
 				),
-			model: z
-				.string()
-				.optional()
-				.describe(
-					'Deprecated: LLM model override (model is determined by configured role)'
-				),
 			threshold: z.coerce
 				.number()
 				.min(1)
@@ -44,7 +38,7 @@ export function registerAnalyzeTool(server) {
 				.string()
 				.optional()
 				.describe(
-					'Path to the tasks file relative to project root (default: tasks/tasks.json)'
+					'Absolute path to the tasks file in the /tasks folder inside the project root (default: tasks/tasks.json)'
 				),
 			research: z
 				.boolean()

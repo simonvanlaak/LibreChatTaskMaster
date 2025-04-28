@@ -5,9 +5,9 @@
 import { expandAllTasks } from '../../../../scripts/modules/task-manager.js';
 import {
 	enableSilentMode,
-	disableSilentMode,
-	isSilentMode
+	disableSilentMode
 } from '../../../../scripts/modules/utils.js';
+import { createLogWrapper } from '../../tools/utils.js';
 
 /**
  * Expand all pending tasks with subtasks (Direct Function Wrapper)
@@ -26,14 +26,8 @@ export async function expandAllTasksDirect(args, log, context = {}) {
 	// Destructure expected args
 	const { tasksJsonPath, num, research, prompt, force } = args;
 
-	// Create the standard logger wrapper
-	const logWrapper = {
-		info: (message, ...args) => log.info(message, ...args),
-		warn: (message, ...args) => log.warn(message, ...args),
-		error: (message, ...args) => log.error(message, ...args),
-		debug: (message, ...args) => log.debug && log.debug(message, ...args), // Handle optional debug
-		success: (message, ...args) => log.info(message, ...args) // Map success to info if needed
-	};
+	// Create logger wrapper using the utility
+	const mcpLog = createLogWrapper(log);
 
 	if (!tasksJsonPath) {
 		log.error('expandAllTasksDirect called without tasksJsonPath');
@@ -58,15 +52,14 @@ export async function expandAllTasksDirect(args, log, context = {}) {
 		const additionalContext = prompt || '';
 		const forceFlag = force === true;
 
-		// Call the core function, passing the logger wrapper and session
+		// Call the core function, passing options and the context object { session, mcpLog }
 		const result = await expandAllTasks(
-			tasksJsonPath, // Use the provided path
+			tasksJsonPath,
 			numSubtasks,
 			useResearch,
 			additionalContext,
 			forceFlag,
-			{ mcpLog: logWrapper, session }, // Pass the wrapper and session
-			'json' // Explicitly request JSON output format
+			{ session, mcpLog }
 		);
 
 		// Core function now returns a summary object

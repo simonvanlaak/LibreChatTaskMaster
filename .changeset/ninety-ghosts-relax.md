@@ -1,8 +1,8 @@
 ---
-'task-master-ai': patch
+'task-master-ai': minor
 ---
 
-- feat: Add custom model ID support for Ollama and OpenRouter providers.
+Adds custom model ID support for Ollama and OpenRouter providers.
   - Adds the `--ollama` and `--openrouter` flags to `task-master models --set-<role>` command to set models for those providers outside of the support models list.
   - Updated `task-master models --setup` interactive mode with options to explicitly enter custom Ollama or OpenRouter model IDs.
   - Implemented live validation against OpenRouter API (`/api/v1/models`) when setting a custom OpenRouter model ID (via flag or setup).

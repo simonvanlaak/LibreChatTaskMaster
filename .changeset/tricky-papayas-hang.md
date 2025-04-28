@@ -1,7 +1,7 @@
 ---
-'task-master-ai': patch
+'task-master-ai': minor
 ---
-- Tweaks Perplexity AI calls for research mode to max out input tokens and get day-fresh information
+Tweaks Perplexity AI calls for research mode to max out input tokens and get day-fresh information
     - Forces temp at 0.1 for highly deterministic output, no variations
     - Adds a system prompt to further improve the output
     - Correctly uses the maximum input tokens (8,719, used 8,700) for perplexity

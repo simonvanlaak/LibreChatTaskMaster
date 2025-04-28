@@ -10,6 +10,7 @@ import {
 	enableSilentMode,
 	disableSilentMode
 } from '../../../../scripts/modules/utils.js';
+import { createLogWrapper } from '../../tools/utils.js';
 
 /**
  * Direct function wrapper for parsing PRD documents and generating tasks.
@@ -104,23 +105,20 @@ export async function parsePRDDirect(args, log, context = {}) {
 			`Preparing to parse PRD from ${inputPath} and output to ${outputPath} with ${numTasks} tasks`
 		);
 
-		// Create the logger wrapper for proper logging in the core function
-		const logWrapper = {
-			info: (message, ...args) => log.info(message, ...args),
-			warn: (message, ...args) => log.warn(message, ...args),
-			error: (message, ...args) => log.error(message, ...args),
-			debug: (message, ...args) => log.debug && log.debug(message, ...args),
-			success: (message, ...args) => log.info(message, ...args) // Map success to info
+		// --- Logger Wrapper ---
+		const mcpLog = createLogWrapper(log);
+
+		// Prepare options for the core function
+		const options = {
+			mcpLog,
+			session
 		};
 
 		// Enable silent mode to prevent console logs from interfering with JSON response
 		enableSilentMode();
 		try {
 			// Execute core parsePRD function - It now handles AI internally
-			const tasksDataResult = await parsePRD(inputPath, outputPath, numTasks, {
-				mcpLog: logWrapper,
-				session
-			});
+			const tasksDataResult = await parsePRD(inputPath, numTasks, options);
 
 			// Check the result from the core function (assuming it might return data or null/undefined)
 			if (!tasksDataResult || !tasksDataResult.tasks) {

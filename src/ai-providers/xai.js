@@ -48,9 +48,7 @@ export async function generateXaiText({
 			model: client(modelId), // Correct model invocation
 			messages: messages,
 			maxTokens: maxTokens,
-			temperature: temperature,
-			// Add reasoningEffort or other xAI specific options via providerOptions if needed
-			providerOptions: { xai: { reasoningEffort: 'high' } }
+			temperature: temperature
 		});
 		log(
 			'debug',

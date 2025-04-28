@@ -9,13 +9,13 @@ import {
 	isSilentMode
 } from '../../../../scripts/modules/utils.js';
 import fs from 'fs';
+import { createLogWrapper } from '../../tools/utils.js'; // Import the new utility
 
 /**
  * Analyze task complexity and generate recommendations
  * @param {Object} args - Function arguments
  * @param {string} args.tasksJsonPath - Explicit path to the tasks.json file.
  * @param {string} args.outputPath - Explicit absolute path to save the report.
- * @param {string} [args.model] - Deprecated: LLM model to use for analysis (ignored)
  * @param {string|number} [args.threshold] - Minimum complexity score to recommend expansion (1-10)
  * @param {boolean} [args.research] - Use Perplexity AI for research-backed complexity analysis
  * @param {Object} log - Logger object
@@ -76,14 +76,8 @@ export async function analyzeTaskComplexityDirect(args, log, context = {}) {
 			enableSilentMode();
 		}
 
-		const logWrapper = {
-			info: (message, ...args) => log.info(message, ...args),
-			warn: (message, ...args) => log.warn(message, ...args),
-			error: (message, ...args) => log.error(message, ...args),
-			debug: (message, ...args) => log.debug && log.debug(message, ...args),
-			success: (message, ...args) => log.info(message, ...args) // Map success to info
-		};
-		// --- End Silent Mode and Logger Wrapper ---
+		// Create logger wrapper using the utility
+		const mcpLog = createLogWrapper(log);
 
 		let report; // To store the result from the core function
 
@@ -92,7 +86,7 @@ export async function analyzeTaskComplexityDirect(args, log, context = {}) {
 			// Call the core function, passing options and the context object { session, mcpLog }
 			report = await analyzeTaskComplexity(options, {
 				session, // Pass the session object
-				mcpLog: logWrapper // Pass the logger wrapper
+				mcpLog // Pass the logger wrapper
 			});
 			// --- End Core Function Call ---
 		} catch (error) {

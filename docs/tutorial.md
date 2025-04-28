@@ -16,7 +16,7 @@ MCP (Model Control Protocol) provides the easiest way to get started with Task M
 npm i -g task-master-ai
 ```
 
-2. **Add the MCP config to your editor** (Cursor recommended, but it works with other text editors):
+2. **Add the MCP config to your IDE/MCP Client** (Cursor is recommended, but it works with other clients):
 
 ```json
 {
@@ -38,6 +38,13 @@ npm i -g task-master-ai
 	}
 }
 ```
+
+**IMPORTANT:** An API key is _required_ for each AI provider you plan on using. Run the `task-master models` command to see your selected models and the status of your API keys across .env and mcp.json
+
+**To use AI commands in CLI** you MUST have API keys in the .env file
+**To use AI commands in MCP** you MUST have API keys in the .mcp.json file (or MCP config equivalent)
+
+We recommend having keys in both places and adding mcp.json to your gitignore so your API keys aren't checked into git.
 
 3. **Enable the MCP** in your editor settings
 

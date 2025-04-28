@@ -6,8 +6,6 @@
 import path from 'path';
 import chalk from 'chalk';
 import boxen from 'boxen';
-// Remove Anthropic import if client is no longer initialized globally
-// import { Anthropic } from '@anthropic-ai/sdk';
 
 import {
 	log,
@@ -22,11 +20,6 @@ import {
 import { displayBanner } from './ui.js';
 
 import { generateTaskFiles } from './task-manager.js';
-
-// Remove global Anthropic client initialization
-// const anthropic = new Anthropic({
-// 	apiKey: process.env.ANTHROPIC_API_KEY
-// });
 
 /**
  * Add a dependency to a task

@@ -44,7 +44,6 @@ Do not include any explanatory text, markdown formatting, or code block markers 
  * @param {Object} options Command options
  * @param {string} options.file - Path to tasks file
  * @param {string} options.output - Path to report output file
- * @param {string} [options.model] - Deprecated: Model override (ignored)
  * @param {string|number} [options.threshold] - Complexity threshold
  * @param {boolean} [options.research] - Use research role
  * @param {Object} [options._filteredTasksData] - Pre-filtered task data (internal use)

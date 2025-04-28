@@ -3,7 +3,7 @@
  * Direct function implementation for expanding a task into subtasks
  */
 
-import expandTask from '../../../../scripts/modules/task-manager/expand-task.js'; // Correct import path
+import expandTask from '../../../../scripts/modules/task-manager/expand-task.js';
 import {
 	readJSON,
 	writeJSON,
@@ -13,6 +13,7 @@ import {
 } from '../../../../scripts/modules/utils.js';
 import path from 'path';
 import fs from 'fs';
+import { createLogWrapper } from '../../tools/utils.js';
 
 /**
  * Direct function wrapper for expanding a task into subtasks with error handling.
@@ -180,28 +181,23 @@ export async function expandTaskDirect(args, log, context = {}) {
 		// Save tasks.json with potentially empty subtasks array
 		writeJSON(tasksPath, data);
 
+		// Create logger wrapper using the utility
+		const mcpLog = createLogWrapper(log);
+
 		// Process the request
 		try {
 			// Enable silent mode to prevent console logs from interfering with JSON response
 			const wasSilent = isSilentMode();
 			if (!wasSilent) enableSilentMode();
 
-			const logWrapper = {
-				info: (message, ...args) => log.info(message, ...args),
-				warn: (message, ...args) => log.warn(message, ...args),
-				error: (message, ...args) => log.error(message, ...args),
-				debug: (message, ...args) => log.debug && log.debug(message, ...args),
-				success: (message, ...args) => log.info(message, ...args)
-			};
-
-			// Call expandTask with session context to ensure AI client is properly initialized
+			// Call the core expandTask function with the wrapped logger
 			const result = await expandTask(
 				tasksPath,
 				taskId,
 				numSubtasks,
 				useResearch,
 				additionalContext,
-				{ session: session, mcpLog: logWrapper }
+				{ mcpLog, session }
 			);
 
 			// Restore normal logging

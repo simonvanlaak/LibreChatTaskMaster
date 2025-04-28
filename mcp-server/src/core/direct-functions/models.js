@@ -12,6 +12,7 @@ import {
 	enableSilentMode,
 	disableSilentMode
 } from '../../../../scripts/modules/utils.js';
+import { createLogWrapper } from '../../tools/utils.js';
 
 /**
  * Get or update model configuration
@@ -25,14 +26,7 @@ export async function modelsDirect(args, log, context = {}) {
 	const { projectRoot } = args; // Extract projectRoot from args
 
 	// Create a logger wrapper that the core functions can use
-	const logWrapper = {
-		info: (message, ...args) => log.info(message, ...args),
-		warn: (message, ...args) => log.warn(message, ...args),
-		error: (message, ...args) => log.error(message, ...args),
-		debug: (message, ...args) =>
-			log.debug ? log.debug(message, ...args) : null,
-		success: (message, ...args) => log.info(message, ...args)
-	};
+	const mcpLog = createLogWrapper(log);
 
 	log.info(`Executing models_direct with args: ${JSON.stringify(args)}`);
 	log.info(`Using project root: ${projectRoot}`);
@@ -59,7 +53,7 @@ export async function modelsDirect(args, log, context = {}) {
 			if (args.listAvailableModels === true) {
 				return await getAvailableModelsList({
 					session,
-					mcpLog: logWrapper,
+					mcpLog,
 					projectRoot // Pass projectRoot to function
 				});
 			}
@@ -68,7 +62,7 @@ export async function modelsDirect(args, log, context = {}) {
 			if (args.setMain) {
 				return await setModel('main', args.setMain, {
 					session,
-					mcpLog: logWrapper,
+					mcpLog,
 					projectRoot, // Pass projectRoot to function
 					providerHint: args.openrouter
 						? 'openrouter'
@@ -81,7 +75,7 @@ export async function modelsDirect(args, log, context = {}) {
 			if (args.setResearch) {
 				return await setModel('research', args.setResearch, {
 					session,
-					mcpLog: logWrapper,
+					mcpLog,
 					projectRoot, // Pass projectRoot to function
 					providerHint: args.openrouter
 						? 'openrouter'
@@ -94,7 +88,7 @@ export async function modelsDirect(args, log, context = {}) {
 			if (args.setFallback) {
 				return await setModel('fallback', args.setFallback, {
 					session,
-					mcpLog: logWrapper,
+					mcpLog,
 					projectRoot, // Pass projectRoot to function
 					providerHint: args.openrouter
 						? 'openrouter'
@@ -107,7 +101,7 @@ export async function modelsDirect(args, log, context = {}) {
 			// Default action: get current configuration
 			return await getModelConfiguration({
 				session,
-				mcpLog: logWrapper,
+				mcpLog,
 				projectRoot // Pass projectRoot to function
 			});
 		} finally {

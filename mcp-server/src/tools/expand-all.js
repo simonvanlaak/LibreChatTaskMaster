@@ -50,7 +50,7 @@ export function registerExpandAllTool(server) {
 				.string()
 				.optional()
 				.describe(
-					'Relative path to the tasks file from project root (default: tasks/tasks.json)'
+					'Absolute path to the tasks file in the /tasks folder inside the project root (default: tasks/tasks.json)'
 				),
 			projectRoot: z
 				.string()

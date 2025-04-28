@@ -5,7 +5,7 @@ Taskmaster uses two primary methods for configuration:
 1.  **`.taskmasterconfig` File (Project Root - Recommended for most settings)**
 
     - This JSON file stores most configuration settings, including AI model selections, parameters, logging levels, and project defaults.
-    - **Location:** Create this file in the root directory of your project.
+    - **Location:** This file is created in the root directory of your project when you run the `task-master models --setup` interactive setup. You typically do this during the initialization sequence. Do not manually edit this file beyond adjusting Temperature and Max Tokens depending on your model.
     - **Management:** Use the `task-master models --setup` command (or `models` MCP tool) to interactively create and manage this file. You can also set specific models directly using `task-master models --set-<role>=<model_id>`, adding `--ollama` or `--openrouter` flags for custom models. Manual editing is possible but not recommended unless you understand the structure.
     - **Example Structure:**
       ```json

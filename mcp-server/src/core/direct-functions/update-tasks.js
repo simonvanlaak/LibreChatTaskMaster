@@ -8,6 +8,7 @@ import {
 	enableSilentMode,
 	disableSilentMode
 } from '../../../../scripts/modules/utils.js';
+import { createLogWrapper } from '../../tools/utils.js';
 
 /**
  * Direct function wrapper for updating tasks based on new context/prompt.
@@ -88,6 +89,9 @@ export async function updateTasksDirect(args, log, context = {}) {
 
 	enableSilentMode(); // Enable silent mode
 	try {
+		// Create logger wrapper using the utility
+		const mcpLog = createLogWrapper(log);
+
 		// Execute core updateTasks function, passing session context
 		await updateTasks(
 			tasksJsonPath,
@@ -95,7 +99,7 @@ export async function updateTasksDirect(args, log, context = {}) {
 			prompt,
 			useResearch,
 			// Pass context with logger wrapper and session
-			{ mcpLog: logWrapper, session },
+			{ mcpLog, session },
 			'json' // Explicitly request JSON format for MCP
 		);
 

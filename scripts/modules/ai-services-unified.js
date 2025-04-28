@@ -8,26 +8,22 @@
 
 // --- Core Dependencies ---
 import {
-	// REMOVED: getProviderAndModelForRole, // This was incorrect
-	getMainProvider, // ADD individual getters
+	getMainProvider,
 	getMainModelId,
 	getResearchProvider,
 	getResearchModelId,
 	getFallbackProvider,
 	getFallbackModelId,
 	getParametersForRole
-	// ConfigurationError // Import if needed for specific handling
-} from './config-manager.js'; // Corrected: Removed getProviderAndModelForRole
+} from './config-manager.js';
 import { log, resolveEnvVariable } from './utils.js';
 
-// --- Provider Service Imports ---
-// Corrected path from scripts/ai-providers/... to ../../src/ai-providers/...
 import * as anthropic from '../../src/ai-providers/anthropic.js';
 import * as perplexity from '../../src/ai-providers/perplexity.js';
-import * as google from '../../src/ai-providers/google.js'; // Import Google provider
-import * as openai from '../../src/ai-providers/openai.js'; // ADD: Import OpenAI provider
-import * as xai from '../../src/ai-providers/xai.js'; // ADD: Import xAI provider
-import * as openrouter from '../../src/ai-providers/openrouter.js'; // ADD: Import OpenRouter provider
+import * as google from '../../src/ai-providers/google.js';
+import * as openai from '../../src/ai-providers/openai.js';
+import * as xai from '../../src/ai-providers/xai.js';
+import * as openrouter from '../../src/ai-providers/openrouter.js';
 // TODO: Import other provider modules when implemented (ollama, etc.)
 
 // --- Provider Function Map ---
@@ -37,13 +33,11 @@ const PROVIDER_FUNCTIONS = {
 		generateText: anthropic.generateAnthropicText,
 		streamText: anthropic.streamAnthropicText,
 		generateObject: anthropic.generateAnthropicObject
-		// streamObject: anthropic.streamAnthropicObject, // Add when implemented
 	},
 	perplexity: {
 		generateText: perplexity.generatePerplexityText,
 		streamText: perplexity.streamPerplexityText,
 		generateObject: perplexity.generatePerplexityObject
-		// streamObject: perplexity.streamPerplexityObject, // Add when implemented
 	},
 	google: {
 		// Add Google entry
@@ -73,22 +67,20 @@ const PROVIDER_FUNCTIONS = {
 };
 
 // --- Configuration for Retries ---
-const MAX_RETRIES = 2; // Total attempts = 1 + MAX_RETRIES
-const INITIAL_RETRY_DELAY_MS = 1000; // 1 second
+const MAX_RETRIES = 2;
+const INITIAL_RETRY_DELAY_MS = 1000;
 
 // Helper function to check if an error is retryable
 function isRetryableError(error) {
 	const errorMessage = error.message?.toLowerCase() || '';
-	// Add common retryable error patterns
 	return (
 		errorMessage.includes('rate limit') ||
 		errorMessage.includes('overloaded') ||
 		errorMessage.includes('service temporarily unavailable') ||
 		errorMessage.includes('timeout') ||
 		errorMessage.includes('network error') ||
-		// Add specific status codes if available from the SDK errors
-		error.status === 429 || // Too Many Requests
-		error.status >= 500 // Server-side errors
+		error.status === 429 ||
+		error.status >= 500
 	);
 }
 
@@ -151,11 +143,11 @@ function _resolveApiKey(providerName, session) {
 	const keyMap = {
 		openai: 'OPENAI_API_KEY',
 		anthropic: 'ANTHROPIC_API_KEY',
-		google: 'GOOGLE_API_KEY', // Add Google API Key
+		google: 'GOOGLE_API_KEY',
 		perplexity: 'PERPLEXITY_API_KEY',
 		mistral: 'MISTRAL_API_KEY',
 		azure: 'AZURE_OPENAI_API_KEY',
-		openrouter: 'OPENROUTER_API_KEY', // ADD OpenRouter key
+		openrouter: 'OPENROUTER_API_KEY',
 		xai: 'XAI_API_KEY'
 	};
 
@@ -199,7 +191,7 @@ async function _attemptProviderCallWithRetries(
 	attemptRole
 ) {
 	let retries = 0;
-	const fnName = providerApiFn.name; // Get function name for logging
+	const fnName = providerApiFn.name;
 
 	while (retries <= MAX_RETRIES) {
 		try {
@@ -215,7 +207,7 @@ async function _attemptProviderCallWithRetries(
 				'info',
 				`${fnName} succeeded for role ${attemptRole} (Provider: ${providerName}) on attempt ${retries + 1}`
 			);
-			return result; // Success!
+			return result;
 		} catch (error) {
 			log(
 				'warn',
@@ -235,7 +227,7 @@ async function _attemptProviderCallWithRetries(
 					'error',
 					`Non-retryable error or max retries reached for role ${attemptRole} (${fnName} / ${providerName}).`
 				);
-				throw error; // Final failure for this attempt chain
+				throw error;
 			}
 		}
 	}
@@ -288,18 +280,17 @@ async function _unifiedServiceRunner(serviceType, params) {
 		try {
 			log('info', `New AI service call with role: ${currentRole}`);
 
-			// --- Corrected Config Fetching ---
 			// 1. Get Config: Provider, Model, Parameters for the current role
 			// Call individual getters based on the current role
 			if (currentRole === 'main') {
-				providerName = getMainProvider(); // Use individual getter
-				modelId = getMainModelId(); // Use individual getter
+				providerName = getMainProvider();
+				modelId = getMainModelId();
 			} else if (currentRole === 'research') {
-				providerName = getResearchProvider(); // Use individual getter
-				modelId = getResearchModelId(); // Use individual getter
+				providerName = getResearchProvider();
+				modelId = getResearchModelId();
 			} else if (currentRole === 'fallback') {
-				providerName = getFallbackProvider(); // Use individual getter
-				modelId = getFallbackModelId(); // Use individual getter
+				providerName = getFallbackProvider();
+				modelId = getFallbackModelId();
 			} else {
 				log(
 					'error',
@@ -307,9 +298,8 @@ async function _unifiedServiceRunner(serviceType, params) {
 				);
 				lastError =
 					lastError || new Error(`Unknown AI role specified: ${currentRole}`);
-				continue; // Skip to the next role attempt
+				continue;
 			}
-			// --- End Corrected Config Fetching ---
 
 			if (!providerName || !modelId) {
 				log(
@@ -321,10 +311,10 @@ async function _unifiedServiceRunner(serviceType, params) {
 					new Error(
 						`Configuration missing for role '${currentRole}'. Provider: ${providerName}, Model: ${modelId}`
 					);
-				continue; // Skip to the next role
+				continue;
 			}
 
-			roleParams = getParametersForRole(currentRole); // Get { maxTokens, temperature }
+			roleParams = getParametersForRole(currentRole);
 
 			// 2. Get Provider Function Set
 			providerFnSet = PROVIDER_FUNCTIONS[providerName?.toLowerCase()];
@@ -355,7 +345,7 @@ async function _unifiedServiceRunner(serviceType, params) {
 			}
 
 			// 3. Resolve API Key (will throw if required and missing)
-			apiKey = _resolveApiKey(providerName?.toLowerCase(), session); // Throws on failure
+			apiKey = _resolveApiKey(providerName?.toLowerCase(), session);
 
 			// 4. Construct Messages Array
 			const messages = [];
@@ -395,10 +385,9 @@ async function _unifiedServiceRunner(serviceType, params) {
 				modelId,
 				maxTokens: roleParams.maxTokens,
 				temperature: roleParams.temperature,
-				messages, // *** Pass the constructed messages array ***
-				// Add specific params for generateObject if needed
+				messages,
 				...(serviceType === 'generateObject' && { schema, objectName }),
-				...restApiParams // Include other params like maxRetries
+				...restApiParams
 			};
 
 			// 6. Attempt the call with retries
@@ -412,20 +401,18 @@ async function _unifiedServiceRunner(serviceType, params) {
 
 			log('info', `${serviceType}Service succeeded using role: ${currentRole}`);
 
-			return result; // Return original result for other cases
+			return result;
 		} catch (error) {
-			const cleanMessage = _extractErrorMessage(error); // Extract clean message
+			const cleanMessage = _extractErrorMessage(error);
 			log(
-				'error', // Log as error since this role attempt failed
-				`Service call failed for role ${currentRole} (Provider: ${providerName || 'unknown'}, Model: ${modelId || 'unknown'}): ${cleanMessage}` // Log the clean message
+				'error',
+				`Service call failed for role ${currentRole} (Provider: ${providerName || 'unknown'}, Model: ${modelId || 'unknown'}): ${cleanMessage}`
 			);
-			lastError = error; // Store the original error for potential debugging
-			lastCleanErrorMessage = cleanMessage; // Store the clean message for final throw
+			lastError = error;
+			lastCleanErrorMessage = cleanMessage;
 
-			// --- ADDED: Specific check for tool use error in generateObject ---
 			if (serviceType === 'generateObject') {
 				const lowerCaseMessage = cleanMessage.toLowerCase();
-				// Check for specific error messages indicating lack of tool support
 				if (
 					lowerCaseMessage.includes(
 						'no endpoints found that support tool use'
@@ -437,14 +424,9 @@ async function _unifiedServiceRunner(serviceType, params) {
 				) {
 					const specificErrorMsg = `Model '${modelId || 'unknown'}' via provider '${providerName || 'unknown'}' does not support the 'tool use' required by generateObjectService. Please configure a model that supports tool/function calling for the '${currentRole}' role, or use generateTextService if structured output is not strictly required.`;
 					log('error', `[Tool Support Error] ${specificErrorMsg}`);
-					// Throw a more specific error immediately, breaking the fallback loop for this specific issue.
-					// Using a generic Error for simplicity, could use a custom ConfigurationError.
 					throw new Error(specificErrorMsg);
 				}
 			}
-			// --- END ADDED ---
-
-			// Continue to the next role in the sequence if it wasn't a specific tool support error
 		}
 	}
 
@@ -467,7 +449,6 @@ async function _unifiedServiceRunner(serviceType, params) {
  * @returns {Promise<string>} The generated text content.
  */
 async function generateTextService(params) {
-	// Now directly returns the text string or throws error
 	return _unifiedServiceRunner('generateText', params);
 }
 
@@ -484,7 +465,6 @@ async function generateTextService(params) {
  * @returns {Promise<ReadableStream<string>>} A readable stream of text deltas.
  */
 async function streamTextService(params) {
-	// Now directly returns the stream object or throws error
 	return _unifiedServiceRunner('streamText', params);
 }
 
@@ -500,7 +480,6 @@ async function streamTextService(params) {
  * @param {string} [params.systemPrompt] - Optional system prompt.
  * @param {string} [params.objectName='generated_object'] - Name for object/tool.
  * @param {number} [params.maxRetries=3] - Max retries for object generation.
- * // Other specific generateObject params can be included here.
  * @returns {Promise<object>} The generated object matching the schema.
  */
 async function generateObjectService(params) {
@@ -509,7 +488,6 @@ async function generateObjectService(params) {
 		maxRetries: 3
 	};
 	const combinedParams = { ...defaults, ...params };
-	// Now directly returns the generated object or throws error
 	return _unifiedServiceRunner('generateObject', combinedParams);
 }
 

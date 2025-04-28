@@ -9,7 +9,7 @@ import {
 	createErrorResponse,
 	getProjectRootFromSession
 } from './utils.js';
-import { expandTaskDirect } from '../core/direct-functions/expand-task.js';
+import { expandTaskDirect } from '../core/task-master-core.js';
 import { findTasksJsonPath } from '../core/utils/path-utils.js';
 
 /**

@@ -1,5 +1,5 @@
 ---
-'task-master-ai': patch
+'task-master-ai': minor
 ---
 
 feat(expand): Enhance `expand` and `expand-all` commands

@@ -8,6 +8,7 @@ import {
 	enableSilentMode,
 	disableSilentMode
 } from '../../../../scripts/modules/utils.js';
+import { createLogWrapper } from '../../tools/utils.js';
 
 /**
  * Direct function wrapper for updateTaskById with error handling.
@@ -96,14 +97,8 @@ export async function updateTaskByIdDirect(args, log, context = {}) {
 			// Enable silent mode to prevent console logs from interfering with JSON response
 			enableSilentMode();
 
-			// Create a logger wrapper that matches what updateTaskById expects
-			const logWrapper = {
-				info: (message) => log.info(message),
-				warn: (message) => log.warn(message),
-				error: (message) => log.error(message),
-				debug: (message) => log.debug && log.debug(message),
-				success: (message) => log.info(message) // Map success to info since many loggers don't have success
-			};
+			// Create the logger wrapper using the utility function
+			const mcpLog = createLogWrapper(log);
 
 			// Execute core updateTaskById function with proper parameters
 			await updateTaskById(
@@ -112,7 +107,7 @@ export async function updateTaskByIdDirect(args, log, context = {}) {
 				prompt,
 				useResearch,
 				{
-					mcpLog: logWrapper, // Use our wrapper object that has the expected method structure
+					mcpLog, // Pass the wrapped logger
 					session
 				},
 				'json'

@@ -8,6 +8,7 @@ import {
 	enableSilentMode,
 	disableSilentMode
 } from '../../../../scripts/modules/utils.js';
+import { createLogWrapper } from '../../tools/utils.js';
 
 /**
  * Direct function wrapper for adding a new task with error handling.
@@ -31,19 +32,13 @@ export async function addTaskDirect(args, log, context = {}) {
 	const { tasksJsonPath, prompt, dependencies, priority, research } = args;
 	const { session } = context; // Destructure session from context
 
-	// Define the logger wrapper to ensure compatibility with core report function
-	const logWrapper = {
-		info: (message, ...args) => log.info(message, ...args),
-		warn: (message, ...args) => log.warn(message, ...args),
-		error: (message, ...args) => log.error(message, ...args),
-		debug: (message, ...args) => log.debug && log.debug(message, ...args), // Handle optional debug
-		success: (message, ...args) => log.info(message, ...args) // Map success to info if needed
-	};
+	// Enable silent mode to prevent console logs from interfering with JSON response
+	enableSilentMode();
+
+	// Create logger wrapper using the utility
+	const mcpLog = createLogWrapper(log);
 
 	try {
-		// Enable silent mode to prevent console logs from interfering with JSON response
-		enableSilentMode();
-
 		// Check if tasksJsonPath was provided
 		if (!tasksJsonPath) {
 			log.error('addTaskDirect called without tasksJsonPath');
@@ -112,8 +107,8 @@ export async function addTaskDirect(args, log, context = {}) {
 				taskDependencies,
 				taskPriority,
 				{
-					mcpLog: logWrapper,
-					session
+					session,
+					mcpLog
 				},
 				'json', // outputFormat
 				manualTaskData, // Pass the manual task data
@@ -132,8 +127,8 @@ export async function addTaskDirect(args, log, context = {}) {
 				taskDependencies,
 				taskPriority,
 				{
-					mcpLog: logWrapper,
-					session
+					session,
+					mcpLog
 				},
 				'json', // outputFormat
 				null, // manualTaskData is null for AI creation
