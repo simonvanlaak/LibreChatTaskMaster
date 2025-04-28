@@ -258,13 +258,7 @@ function listTasks(
 		const avgDependenciesPerTask = totalDependencies / data.tasks.length;
 
 		// Find next task to work on
-		const nextTask = findNextTask(data.tasks);
-		const nextTaskInfo = nextTask
-			? `ID: ${chalk.cyan(nextTask.id)} - ${chalk.white.bold(truncate(nextTask.title, 40))}\n` +
-				`Priority: ${chalk.white(nextTask.priority || 'medium')}  Dependencies: ${formatDependenciesWithStatus(nextTask.dependencies, data.tasks, true)}`
-			: chalk.yellow(
-					'No eligible tasks found. All tasks are either completed or have unsatisfied dependencies.'
-				);
+		const nextItem = findNextTask(data.tasks);
 
 		// Get terminal width - more reliable method
 		let terminalWidth;
@@ -307,8 +301,8 @@ function listTasks(
 			`${chalk.blue('•')} ${chalk.white('Avg dependencies per task:')} ${avgDependenciesPerTask.toFixed(1)}\n\n` +
 			chalk.cyan.bold('Next Task to Work On:') +
 			'\n' +
-			`ID: ${chalk.cyan(nextTask ? nextTask.id : 'N/A')} - ${nextTask ? chalk.white.bold(truncate(nextTask.title, 40)) : chalk.yellow('No task available')}\n` +
-			`Priority: ${nextTask ? chalk.white(nextTask.priority || 'medium') : ''}  Dependencies: ${nextTask ? formatDependenciesWithStatus(nextTask.dependencies, data.tasks, true) : ''}`;
+			`ID: ${chalk.cyan(nextItem ? nextItem.id : 'N/A')} - ${nextItem ? chalk.white.bold(truncate(nextItem.title, 40)) : chalk.yellow('No task available')}\n` +
+			`Priority: ${nextItem ? chalk.white(nextItem.priority || 'medium') : ''}  Dependencies: ${nextItem ? formatDependenciesWithStatus(nextItem.dependencies, data.tasks, true) : ''}`;
 
 		// Calculate width for side-by-side display
 		// Box borders, padding take approximately 4 chars on each side
@@ -588,12 +582,20 @@ function listTasks(
 		};
 
 		// Show next task box in a prominent color
-		if (nextTask) {
-			// Prepare subtasks section if they exist
+		if (nextItem) {
+			// Prepare subtasks section if they exist (Only tasks have .subtasks property)
 			let subtasksSection = '';
-			if (nextTask.subtasks && nextTask.subtasks.length > 0) {
+			// Check if the nextItem is a top-level task before looking for subtasks
+			const parentTaskForSubtasks = data.tasks.find(
+				(t) => String(t.id) === String(nextItem.id)
+			); // Find the original task object
+			if (
+				parentTaskForSubtasks &&
+				parentTaskForSubtasks.subtasks &&
+				parentTaskForSubtasks.subtasks.length > 0
+			) {
 				subtasksSection = `\n\n${chalk.white.bold('Subtasks:')}\n`;
-				subtasksSection += nextTask.subtasks
+				subtasksSection += parentTaskForSubtasks.subtasks
 					.map((subtask) => {
 						// Using a more simplified format for subtask status display
 						const status = subtask.status || 'pending';
@@ -608,26 +610,31 @@ function listTasks(
 						};
 						const statusColor =
 							statusColors[status.toLowerCase()] || chalk.white;
-						return `${chalk.cyan(`${nextTask.id}.${subtask.id}`)} [${statusColor(status)}] ${subtask.title}`;
+						// Ensure subtask ID is displayed correctly using parent ID from the original task object
+						return `${chalk.cyan(`${parentTaskForSubtasks.id}.${subtask.id}`)} [${statusColor(status)}] ${subtask.title}`;
 					})
 					.join('\n');
 			}
 
 			console.log(
 				boxen(
-					chalk
-						.hex('#FF8800')
-						.bold(
-							`🔥 Next Task to Work On: #${nextTask.id} - ${nextTask.title}`
-						) +
+					chalk.hex('#FF8800').bold(
+						// Use nextItem.id and nextItem.title
+						`🔥 Next Task to Work On: #${nextItem.id} - ${nextItem.title}`
+					) +
 						'\n\n' +
-						`${chalk.white('Priority:')} ${priorityColors[nextTask.priority || 'medium'](nextTask.priority || 'medium')}   ${chalk.white('Status:')} ${getStatusWithColor(nextTask.status, true)}\n` +
-						`${chalk.white('Dependencies:')} ${nextTask.dependencies && nextTask.dependencies.length > 0 ? formatDependenciesWithStatus(nextTask.dependencies, data.tasks, true) : chalk.gray('None')}\n\n` +
-						`${chalk.white('Description:')} ${nextTask.description}` +
-						subtasksSection +
+						// Use nextItem.priority, nextItem.status, nextItem.dependencies
+						`${chalk.white('Priority:')} ${priorityColors[nextItem.priority || 'medium'](nextItem.priority || 'medium')}   ${chalk.white('Status:')} ${getStatusWithColor(nextItem.status, true)}\n` +
+						`${chalk.white('Dependencies:')} ${nextItem.dependencies && nextItem.dependencies.length > 0 ? formatDependenciesWithStatus(nextItem.dependencies, data.tasks, true) : chalk.gray('None')}\n\n` +
+						// Use nextItem.description (Note: findNextTask doesn't return description, need to fetch original task/subtask for this)
+						// *** Fetching original item for description and details ***
+						`${chalk.white('Description:')} ${getWorkItemDescription(nextItem, data.tasks)}` +
+						subtasksSection + // <-- Subtasks are handled above now
 						'\n\n' +
-						`${chalk.cyan('Start working:')} ${chalk.yellow(`task-master set-status --id=${nextTask.id} --status=in-progress`)}\n` +
-						`${chalk.cyan('View details:')} ${chalk.yellow(`task-master show ${nextTask.id}`)}`,
+						// Use nextItem.id
+						`${chalk.cyan('Start working:')} ${chalk.yellow(`task-master set-status --id=${nextItem.id} --status=in-progress`)}\n` +
+						// Use nextItem.id
+						`${chalk.cyan('View details:')} ${chalk.yellow(`task-master show ${nextItem.id}`)}`,
 					{
 						padding: { left: 2, right: 2, top: 1, bottom: 1 },
 						borderColor: '#FF8800',
@@ -635,8 +642,8 @@ function listTasks(
 						margin: { top: 1, bottom: 1 },
 						title: '⚡ RECOMMENDED NEXT TASK ⚡',
 						titleAlignment: 'center',
-						width: terminalWidth - 4, // Use full terminal width minus a small margin
-						fullscreen: false // Keep it expandable but not literally fullscreen
+						width: terminalWidth - 4,
+						fullscreen: false
 					}
 				)
 			);
@@ -689,6 +696,23 @@ function listTasks(
 
 		console.error(chalk.red(`Error: ${error.message}`));
 		process.exit(1);
+	}
+}
+
+// *** Helper function to get description for task or subtask ***
+function getWorkItemDescription(item, allTasks) {
+	if (!item) return 'N/A';
+	if (item.parentId) {
+		// It's a subtask
+		const parent = allTasks.find((t) => t.id === item.parentId);
+		const subtask = parent?.subtasks?.find(
+			(st) => `${parent.id}.${st.id}` === item.id
+		);
+		return subtask?.description || 'No description available.';
+	} else {
+		// It's a top-level task
+		const task = allTasks.find((t) => String(t.id) === String(item.id));
+		return task?.description || 'No description available.';
 	}
 }
 
