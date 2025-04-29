@@ -10,7 +10,6 @@ import boxen from 'boxen';
 import fs from 'fs';
 import https from 'https';
 import inquirer from 'inquirer';
-import Table from 'cli-table3';
 
 import { log, readJSON } from './utils.js';
 import {
@@ -45,9 +44,9 @@ import {
 	getDebugFlag,
 	getConfig,
 	writeConfig,
-	ConfigurationError, // Import the custom error
-	getAllProviders,
-	isConfigFilePresent
+	ConfigurationError,
+	isConfigFilePresent,
+	getAvailableModels
 } from './config-manager.js';
 
 import {
@@ -71,8 +70,8 @@ import {
 	getAvailableModelsList,
 	setModel,
 	getApiKeyStatusReport
-} from './task-manager/models.js'; // Import new core functions
-import { findProjectRoot } from './utils.js'; // Import findProjectRoot
+} from './task-manager/models.js';
+import { findProjectRoot } from './utils.js';
 
 /**
  * Runs the interactive setup process for model configuration.
@@ -86,6 +85,22 @@ async function runInteractiveSetup(projectRoot) {
 			)
 		);
 		process.exit(1);
+	}
+
+	const currentConfigResult = await getModelConfiguration({ projectRoot });
+	const currentModels = currentConfigResult.success
+		? currentConfigResult.data.activeModels
+		: { main: null, research: null, fallback: null };
+	// Handle potential config load failure gracefully for the setup flow
+	if (
+		!currentConfigResult.success &&
+		currentConfigResult.error?.code !== 'CONFIG_MISSING'
+	) {
+		console.warn(
+			chalk.yellow(
+				`Warning: Could not load current model configuration: ${currentConfigResult.error?.message || 'Unknown error'}. Proceeding with defaults.`
+			)
+		);
 	}
 
 	// Helper function to fetch OpenRouter models (duplicated for CLI context)
@@ -131,93 +146,108 @@ async function runInteractiveSetup(projectRoot) {
 		});
 	}
 
-	// Get available models - pass projectRoot
-	const availableModelsResult = await getAvailableModelsList({ projectRoot });
-	if (!availableModelsResult.success) {
-		console.error(
-			chalk.red(
-				`Error fetching available models: ${availableModelsResult.error?.message || 'Unknown error'}`
-			)
-		);
-		process.exit(1);
-	}
-	const availableModelsForSetup = availableModelsResult.data.models;
-
-	// Get current config - pass projectRoot
-	const currentConfigResult = await getModelConfiguration({ projectRoot });
-	// Allow setup even if current config fails (might be first time run)
-	const currentModels = currentConfigResult.success
-		? currentConfigResult.data?.activeModels
-		: { main: {}, research: {}, fallback: {} };
-	if (
-		!currentConfigResult.success &&
-		currentConfigResult.error?.code !== 'CONFIG_MISSING'
-	) {
-		// Log error if it's not just a missing file
-		console.error(
-			chalk.red(
-				`Warning: Could not fetch current configuration: ${currentConfigResult.error?.message || 'Unknown error'}`
-			)
-		);
-	}
-
-	console.log(chalk.cyan.bold('\nInteractive Model Setup:'));
-
 	// Helper to get choices and default index for a role
 	const getPromptData = (role, allowNone = false) => {
-		// Filter models FIRST based on allowed roles
-		const filteredModels = availableModelsForSetup
-			.filter((model) => !model.modelId.startsWith('[')) // Filter out placeholders
-			.filter((model) => model.allowedRoles?.includes(role)); // Filter by allowed role
+		const currentModel = currentModels[role]; // Use the fetched data
+		const allModelsRaw = getAvailableModels(); // Get all available models
 
-		// THEN map the filtered models to the choice format
-		const roleChoices = filteredModels.map((model) => ({
-			name: `${model.provider} / ${model.modelId}`,
-			value: { provider: model.provider, id: model.modelId }
-		}));
+		// Manually group models by provider
+		const modelsByProvider = allModelsRaw.reduce((acc, model) => {
+			if (!acc[model.provider]) {
+				acc[model.provider] = [];
+			}
+			acc[model.provider].push(model);
+			return acc;
+		}, {});
 
-		let choices = []; // Initialize choices array
-		let defaultIndex = -1;
-		const currentModelId = currentModels[role]?.modelId;
+		const cancelOption = { name: '⏹ Cancel Model Setup', value: '__CANCEL__' }; // Symbol updated
+		const noChangeOption = currentModel?.modelId
+			? {
+					name: `∘ No change to current ${role} model (${currentModel.modelId})`, // Symbol updated
+					value: '__NO_CHANGE__'
+				}
+			: null;
 
-		// --- Add Custom/Cancel Options --- //
 		const customOpenRouterOption = {
-			name: 'OpenRouter (Enter Custom ID)',
+			name: '* Custom OpenRouter model', // Symbol updated
 			value: '__CUSTOM_OPENROUTER__'
 		};
-		const customOllamaOption = {
-			name: 'Ollama (Enter Custom ID)',
-			value: '__CUSTOM_OLLAMA__'
-		};
-		const cancelOption = { name: 'Cancel setup', value: '__CANCEL__' };
 
-		// Find the index of the current model within the role-specific choices *before* adding custom options
-		const currentChoiceIndex = roleChoices.findIndex(
-			(c) => c.value.id === currentModelId
-		);
+		let choices = [];
+		let defaultIndex = 0; // Default to 'Cancel'
+
+		// Filter and format models allowed for this role using the manually grouped data
+		const roleChoices = Object.entries(modelsByProvider)
+			.map(([provider, models]) => {
+				const providerModels = models
+					.filter((m) => m.allowed_roles.includes(role))
+					.map((m) => ({
+						name: `${provider} / ${m.id} ${
+							m.cost_per_1m_tokens
+								? chalk.gray(
+										`($${m.cost_per_1m_tokens.input.toFixed(2)} input | $${m.cost_per_1m_tokens.output.toFixed(2)} output)`
+									)
+								: ''
+						}`,
+						value: { id: m.id, provider },
+						short: `${provider}/${m.id}`
+					}));
+				if (providerModels.length > 0) {
+					return [...providerModels];
+				}
+				return null;
+			})
+			.filter(Boolean)
+			.flat();
+
+		// Find the index of the currently selected model for setting the default
+		let currentChoiceIndex = -1;
+		if (currentModel?.modelId && currentModel?.provider) {
+			currentChoiceIndex = roleChoices.findIndex(
+				(choice) =>
+					typeof choice.value === 'object' &&
+					choice.value.id === currentModel.modelId &&
+					choice.value.provider === currentModel.provider
+			);
+		}
+
+		// Construct final choices list based on whether 'None' is allowed
+		const commonPrefix = [cancelOption];
+		if (noChangeOption) {
+			commonPrefix.push(noChangeOption); // Add if it exists
+		}
+		commonPrefix.push(customOpenRouterOption);
+
+		let prefixLength = commonPrefix.length; // Initial prefix length
 
 		if (allowNone) {
 			choices = [
-				cancelOption,
-				customOpenRouterOption,
-				customOllamaOption,
+				...commonPrefix,
 				new inquirer.Separator(),
-				{ name: 'None (disable)', value: null },
+				{ name: '⚪ None (disable)', value: null }, // Symbol updated
 				new inquirer.Separator(),
 				...roleChoices
 			];
-			// Adjust default index for extra options (Cancel, CustomOR, CustomOllama, Sep1, None, Sep2)
-			defaultIndex = currentChoiceIndex !== -1 ? currentChoiceIndex + 6 : 4; // Default to 'None' if no current model matched
+			// Adjust default index: Prefix + Sep1 + None + Sep2 (+3)
+			const noneOptionIndex = prefixLength + 1;
+			defaultIndex =
+				currentChoiceIndex !== -1
+					? currentChoiceIndex + prefixLength + 3 // Offset by prefix and separators
+					: noneOptionIndex; // Default to 'None' if no current model matched
 		} else {
 			choices = [
-				cancelOption,
-				customOpenRouterOption,
-				customOllamaOption,
+				...commonPrefix,
 				new inquirer.Separator(),
-				...roleChoices
+				...roleChoices,
+				new inquirer.Separator()
 			];
-			// Adjust default index for extra options (Cancel, CustomOR, CustomOllama, Sep)
-			defaultIndex = currentChoiceIndex !== -1 ? currentChoiceIndex + 4 : 0; // Default to 'Cancel' if no current model matched
+			// Adjust default index: Prefix + Sep (+1)
+			defaultIndex =
+				currentChoiceIndex !== -1
+					? currentChoiceIndex + prefixLength + 1 // Offset by prefix and separator
+					: noChangeOption
+						? 1
+						: 0; // Default to 'No Change' if present, else 'Cancel'
 		}
 
 		// Ensure defaultIndex is valid within the final choices array length
@@ -274,7 +304,14 @@ async function runInteractiveSetup(projectRoot) {
 			console.log(
 				chalk.yellow(`\nSetup canceled during ${role} model selection.`)
 			);
+			setupSuccess = false; // Also mark success as false on cancel
 			return false; // Indicate cancellation
+		}
+
+		// Handle the new 'No Change' option
+		if (selectedValue === '__NO_CHANGE__') {
+			console.log(chalk.gray(`No change selected for ${role} model.`));
+			return true; // Indicate success, continue setup
 		}
 
 		let modelIdToSet = null;
@@ -310,21 +347,6 @@ async function runInteractiveSetup(projectRoot) {
 				setupSuccess = false;
 				return true; // Continue setup, but mark as failed
 			}
-		} else if (selectedValue === '__CUSTOM_OLLAMA__') {
-			isCustomSelection = true;
-			const { customId } = await inquirer.prompt([
-				{
-					type: 'input',
-					name: 'customId',
-					message: `Enter the custom Ollama Model ID for the ${role} role:`
-				}
-			]);
-			if (!customId) {
-				console.log(chalk.yellow('No custom ID entered. Skipping role.'));
-				return true;
-			}
-			modelIdToSet = customId;
-			providerHint = 'ollama';
 		} else if (
 			selectedValue &&
 			typeof selectedValue === 'object' &&
@@ -406,26 +428,29 @@ async function runInteractiveSetup(projectRoot) {
 		!(await handleSetModel(
 			'main',
 			answers.mainModel,
-			currentModels.main?.modelId
+			currentModels.main?.modelId // <--- Now 'currentModels' is defined
 		))
-	)
-		return;
+	) {
+		return false; // Explicitly return false if cancelled
+	}
 	if (
 		!(await handleSetModel(
 			'research',
 			answers.researchModel,
-			currentModels.research?.modelId
+			currentModels.research?.modelId // <--- Now 'currentModels' is defined
 		))
-	)
-		return;
+	) {
+		return false; // Explicitly return false if cancelled
+	}
 	if (
 		!(await handleSetModel(
 			'fallback',
 			answers.fallbackModel,
-			currentModels.fallback?.modelId
+			currentModels.fallback?.modelId // <--- Now 'currentModels' is defined
 		))
-	)
-		return;
+	) {
+		return false; // Explicitly return false if cancelled
+	}
 
 	if (setupSuccess && setupConfigModified) {
 		console.log(chalk.green.bold('\nModel setup complete!'));
@@ -438,6 +463,7 @@ async function runInteractiveSetup(projectRoot) {
 			)
 		);
 	}
+	return true; // Indicate setup flow completed (not cancelled)
 	// Let the main command flow continue to display results
 }
 
@@ -475,6 +501,10 @@ function registerCommands(programInstance) {
 		.option('-o, --output <file>', 'Output file path', 'tasks/tasks.json')
 		.option('-n, --num-tasks <number>', 'Number of tasks to generate', '10')
 		.option('-f, --force', 'Skip confirmation when overwriting existing tasks')
+		.option(
+			'--append',
+			'Append new tasks to existing tasks.json instead of overwriting'
+		)
 		.action(async (file, options) => {
 			// Use input option if file argument not provided
 			const inputFile = file || options.input;
@@ -482,10 +512,11 @@ function registerCommands(programInstance) {
 			const numTasks = parseInt(options.numTasks, 10);
 			const outputPath = options.output;
 			const force = options.force || false;
+			const append = options.append || false;
 
 			// Helper function to check if tasks.json exists and confirm overwrite
 			async function confirmOverwriteIfNeeded() {
-				if (fs.existsSync(outputPath) && !force) {
+				if (fs.existsSync(outputPath) && !force && !append) {
 					const shouldContinue = await confirmTaskOverwrite(outputPath);
 					if (!shouldContinue) {
 						console.log(chalk.yellow('Operation cancelled by user.'));
@@ -504,7 +535,7 @@ function registerCommands(programInstance) {
 					if (!(await confirmOverwriteIfNeeded())) return;
 
 					console.log(chalk.blue(`Generating ${numTasks} tasks...`));
-					await parsePRD(defaultPrdPath, outputPath, numTasks);
+					await parsePRD(defaultPrdPath, outputPath, numTasks, { append });
 					return;
 				}
 
@@ -525,17 +556,21 @@ function registerCommands(programInstance) {
 							'  -i, --input <file>       Path to the PRD file (alternative to positional argument)\n' +
 							'  -o, --output <file>      Output file path (default: "tasks/tasks.json")\n' +
 							'  -n, --num-tasks <number> Number of tasks to generate (default: 10)\n' +
-							'  -f, --force              Skip confirmation when overwriting existing tasks\n\n' +
+							'  -f, --force              Skip confirmation when overwriting existing tasks\n' +
+							'  --append                 Append new tasks to existing tasks.json instead of overwriting\n\n' +
 							chalk.cyan('Example:') +
 							'\n' +
 							'  task-master parse-prd requirements.txt --num-tasks 15\n' +
 							'  task-master parse-prd --input=requirements.txt\n' +
-							'  task-master parse-prd --force\n\n' +
+							'  task-master parse-prd --force\n' +
+							'  task-master parse-prd requirements_v2.txt --append\n\n' +
 							chalk.yellow('Note: This command will:') +
 							'\n' +
 							'  1. Look for a PRD file at scripts/prd.txt by default\n' +
 							'  2. Use the file specified by --input or positional argument if provided\n' +
-							'  3. Generate tasks from the PRD and overwrite any existing tasks.json file',
+							'  3. Generate tasks from the PRD and either:\n' +
+							'     - Overwrite any existing tasks.json file (default)\n' +
+							'     - Append to existing tasks.json if --append is used',
 						{ padding: 1, borderColor: 'blue', borderStyle: 'round' }
 					)
 				);
@@ -547,8 +582,11 @@ function registerCommands(programInstance) {
 
 			console.log(chalk.blue(`Parsing PRD file: ${inputFile}`));
 			console.log(chalk.blue(`Generating ${numTasks} tasks...`));
+			if (append) {
+				console.log(chalk.blue('Appending to existing tasks...'));
+			}
 
-			await parsePRD(inputFile, outputPath, numTasks);
+			await parsePRD(inputFile, outputPath, numTasks, { append });
 		});
 
 	// update command
@@ -1781,6 +1819,7 @@ function registerCommands(programInstance) {
 	programInstance
 		.command('remove-task')
 		.description('Remove one or more tasks or subtasks permanently')
+		.description('Remove one or more tasks or subtasks permanently')
 		.option(
 			'-i, --id <ids>',
 			'ID(s) of the task(s) or subtask(s) to remove (e.g., "5", "5.2", or "5,6.1,7")'
@@ -1995,6 +2034,11 @@ function registerCommands(programInstance) {
 							`Note: The following IDs were not found initially and were skipped: ${nonExistentIds.join(', ')}`
 						)
 					);
+
+					// Exit with error if any removals failed
+					if (successfulRemovals.length === 0) {
+						process.exit(1);
+					}
 				}
 			} catch (error) {
 				console.error(
@@ -2085,15 +2129,33 @@ Examples:
 				process.exit(1);
 			}
 
-			// --- Handle Interactive Setup ---
-			if (options.setup) {
-				// Assume runInteractiveSetup is defined elsewhere in this file
-				await runInteractiveSetup(projectRoot);
-				// No return here, flow continues to display results below
+			// Determine the primary action based on flags
+			const isSetup = options.setup;
+			const isSetOperation =
+				options.setMain || options.setResearch || options.setFallback;
+
+			// --- Execute Action ---
+
+			if (isSetup) {
+				// Action 1: Run Interactive Setup
+				console.log(chalk.blue('Starting interactive model setup...')); // Added feedback
+				try {
+					await runInteractiveSetup(projectRoot);
+					// runInteractiveSetup logs its own completion/error messages
+				} catch (setupError) {
+					console.error(
+						chalk.red('\\nInteractive setup failed unexpectedly:'),
+						setupError.message
+					);
+				}
+				// --- IMPORTANT: Exit after setup ---
+				return; // Stop execution here
 			}
-			// --- Handle Direct Set Operations (only if not running setup) ---
-			else {
-				let modelUpdated = false;
+
+			if (isSetOperation) {
+				// Action 2: Perform Direct Set Operations
+				let updateOccurred = false; // Track if any update actually happened
+
 				if (options.setMain) {
 					const result = await setModel('main', options.setMain, {
 						projectRoot,
@@ -2105,13 +2167,13 @@ Examples:
 					});
 					if (result.success) {
 						console.log(chalk.green(`✅ ${result.data.message}`));
-						if (result.data.warning) {
+						if (result.data.warning)
 							console.log(chalk.yellow(result.data.warning));
-						}
-						modelUpdated = true;
+						updateOccurred = true;
 					} else {
-						console.error(chalk.red(`❌ Error: ${result.error.message}`));
-						// Optionally exit or provide more specific feedback
+						console.error(
+							chalk.red(`❌ Error setting main model: ${result.error.message}`)
+						);
 					}
 				}
 				if (options.setResearch) {
@@ -2125,12 +2187,15 @@ Examples:
 					});
 					if (result.success) {
 						console.log(chalk.green(`✅ ${result.data.message}`));
-						if (result.data.warning) {
+						if (result.data.warning)
 							console.log(chalk.yellow(result.data.warning));
-						}
-						modelUpdated = true;
+						updateOccurred = true;
 					} else {
-						console.error(chalk.red(`❌ Error: ${result.error.message}`));
+						console.error(
+							chalk.red(
+								`❌ Error setting research model: ${result.error.message}`
+							)
+						);
 					}
 				}
 				if (options.setFallback) {
@@ -2144,42 +2209,47 @@ Examples:
 					});
 					if (result.success) {
 						console.log(chalk.green(`✅ ${result.data.message}`));
-						if (result.data.warning) {
+						if (result.data.warning)
 							console.log(chalk.yellow(result.data.warning));
-						}
-						modelUpdated = true;
+						updateOccurred = true;
 					} else {
-						console.error(chalk.red(`❌ Error: ${result.error.message}`));
+						console.error(
+							chalk.red(
+								`❌ Error setting fallback model: ${result.error.message}`
+							)
+						);
 					}
 				}
-				// If only set flags were used, we still proceed to display the results
-			}
-			// --- Always Display Status After Setup or Set ---
 
+				// Optional: Add a final confirmation if any update occurred
+				if (updateOccurred) {
+					console.log(chalk.blue('\nModel configuration updated.'));
+				} else {
+					console.log(
+						chalk.yellow(
+							'\nNo model configuration changes were made (or errors occurred).'
+						)
+					);
+				}
+
+				// --- IMPORTANT: Exit after set operations ---
+				return; // Stop execution here
+			}
+
+			// Action 3: Display Full Status (Only runs if no setup and no set flags)
+			console.log(chalk.blue('Fetching current model configuration...')); // Added feedback
 			const configResult = await getModelConfiguration({ projectRoot });
-			// Fetch available models *before* displaying config to use for formatting
 			const availableResult = await getAvailableModelsList({ projectRoot });
-			const apiKeyStatusResult = await getApiKeyStatusReport({ projectRoot }); // Fetch API key status
+			const apiKeyStatusResult = await getApiKeyStatusReport({ projectRoot });
 
 			// 1. Display Active Models
 			if (!configResult.success) {
-				// If config is missing AFTER setup attempt, it might indicate an issue saving.
-				if (options.setup && configResult.error?.code === 'CONFIG_MISSING') {
-					console.error(
-						chalk.red(
-							`❌ Error: Configuration file still missing after setup attempt. Check file permissions.`
-						)
-					);
-				} else {
-					console.error(
-						chalk.red(
-							`❌ Error fetching configuration: ${configResult.error.message}`
-						)
-					);
-				}
-				// Attempt to display other info even if config fails
+				console.error(
+					chalk.red(
+						`❌ Error fetching configuration: ${configResult.error.message}`
+					)
+				);
 			} else {
-				// Pass available models list for SWE score formatting
 				displayModelConfiguration(
 					configResult.data,
 					availableResult.data?.models || []
@@ -2199,7 +2269,6 @@ Examples:
 
 			// 3. Display Other Available Models (Filtered)
 			if (availableResult.success) {
-				// Filter out models that are already actively configured and placeholders
 				const activeIds = configResult.success
 					? [
 							configResult.data.activeModels.main.modelId,
@@ -2208,9 +2277,9 @@ Examples:
 						].filter(Boolean)
 					: [];
 				const displayableAvailable = availableResult.data.models.filter(
-					(m) => !activeIds.includes(m.modelId) && !m.modelId.startsWith('[') // Exclude placeholders like [ollama-any]
+					(m) => !activeIds.includes(m.modelId) && !m.modelId.startsWith('[')
 				);
-				displayAvailableModels(displayableAvailable); // This function now includes the "Next Steps" box
+				displayAvailableModels(displayableAvailable);
 			} else {
 				console.error(
 					chalk.yellow(
@@ -2220,7 +2289,7 @@ Examples:
 			}
 
 			// 4. Conditional Hint if Config File is Missing
-			const configExists = isConfigFilePresent(projectRoot); // Re-check after potential setup/writes
+			const configExists = isConfigFilePresent(projectRoot);
 			if (!configExists) {
 				console.log(
 					chalk.yellow(
@@ -2228,6 +2297,8 @@ Examples:
 					)
 				);
 			}
+			// --- IMPORTANT: Exit after displaying status ---
+			return; // Stop execution here
 		});
 
 	return programInstance;

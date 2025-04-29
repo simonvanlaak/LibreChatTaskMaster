@@ -34,7 +34,8 @@
 			"id": "gpt-4o",
 			"swe_score": 0.332,
 			"cost_per_1m_tokens": { "input": 2.5, "output": 10.0 },
-			"allowed_roles": ["main", "fallback"]
+			"allowed_roles": ["main", "fallback"],
+			"max_tokens": 16384
 		},
 		{
 			"id": "o1",

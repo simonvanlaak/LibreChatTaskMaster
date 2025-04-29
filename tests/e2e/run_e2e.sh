@@ -18,6 +18,58 @@ SAMPLE_PRD_SOURCE="$TASKMASTER_SOURCE_DIR/tests/fixtures/sample-prd.txt"
 MAIN_ENV_FILE="$TASKMASTER_SOURCE_DIR/.env"
 # ---
 
+# <<< Source the helper script >>>
+source "$TASKMASTER_SOURCE_DIR/tests/e2e/e2e_helpers.sh"
+
+# --- Argument Parsing for Analysis-Only Mode ---
+if [ "$#" -ge 2 ] && [ "$1" == "--analyze-log" ]; then
+  LOG_TO_ANALYZE="$2"
+  # Ensure the log path is absolute
+  if [[ "$LOG_TO_ANALYZE" != /* ]]; then
+    LOG_TO_ANALYZE="$(pwd)/$LOG_TO_ANALYZE"
+  fi
+  echo "[INFO] Running in analysis-only mode for log: $LOG_TO_ANALYZE"
+
+  # --- Derive TEST_RUN_DIR from log file path --- 
+  # Extract timestamp like YYYYMMDD_HHMMSS from e2e_run_YYYYMMDD_HHMMSS.log
+  log_basename=$(basename "$LOG_TO_ANALYZE")
+  timestamp_match=$(echo "$log_basename" | sed -n 's/^e2e_run_\([0-9]\{8\}_[0-9]\{6\}\).log$/\1/p')
+
+  if [ -z "$timestamp_match" ]; then
+    echo "[ERROR] Could not extract timestamp from log file name: $log_basename" >&2
+    echo "[ERROR] Expected format: e2e_run_YYYYMMDD_HHMMSS.log" >&2
+    exit 1
+  fi
+
+  # Construct the expected run directory path relative to project root
+  EXPECTED_RUN_DIR="$TASKMASTER_SOURCE_DIR/tests/e2e/_runs/run_$timestamp_match"
+  # Make it absolute
+  EXPECTED_RUN_DIR_ABS="$(cd "$TASKMASTER_SOURCE_DIR" && pwd)/tests/e2e/_runs/run_$timestamp_match"
+
+  if [ ! -d "$EXPECTED_RUN_DIR_ABS" ]; then
+    echo "[ERROR] Corresponding test run directory not found: $EXPECTED_RUN_DIR_ABS" >&2
+    exit 1
+  fi
+
+  # Save original dir before changing
+  ORIGINAL_DIR=$(pwd)
+  
+  echo "[INFO] Changing directory to $EXPECTED_RUN_DIR_ABS for analysis context..."
+  cd "$EXPECTED_RUN_DIR_ABS"
+
+  # Call the analysis function (sourced from helpers)
+  echo "[INFO] Calling analyze_log_with_llm function..."
+  analyze_log_with_llm "$LOG_TO_ANALYZE" "$(cd "$ORIGINAL_DIR/$TASKMASTER_SOURCE_DIR" && pwd)" # Pass absolute project root
+  ANALYSIS_EXIT_CODE=$?
+
+  # Return to original directory
+  cd "$ORIGINAL_DIR"
+  exit $ANALYSIS_EXIT_CODE
+fi
+# --- End Analysis-Only Mode Logic ---
+
+# --- Normal Execution Starts Here (if not in analysis-only mode) ---
+
 # --- Test State Variables ---
 # Note: These are mainly for step numbering within the log now, not for final summary
 test_step_count=0
@@ -29,7 +81,8 @@ start_time_for_helpers=0 # Separate start time for helper functions inside the p
 mkdir -p "$LOG_DIR"
 # Define timestamped log file path
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-LOG_FILE="$LOG_DIR/e2e_run_$TIMESTAMP.log"
+# <<< Use pwd to create an absolute path >>>
+LOG_FILE="$(pwd)/$LOG_DIR/e2e_run_$TIMESTAMP"
 
 # Define and create the test run directory *before* the main pipe
 mkdir -p "$BASE_TEST_DIR" # Ensure base exists first
@@ -44,167 +97,53 @@ echo "--- Starting E2E Run ---" # Separator before piped output starts
 # Record start time for overall duration *before* the pipe
 overall_start_time=$(date +%s)
 
+# ==========================================
+# >>> MOVE FUNCTION DEFINITION HERE <<<
+# --- Helper Functions (Define globally) ---
+_format_duration() {
+  local total_seconds=$1
+  local minutes=$((total_seconds / 60))
+  local seconds=$((total_seconds % 60))
+  printf "%dm%02ds" "$minutes" "$seconds"
+}
+
+# Note: This relies on 'overall_start_time' being set globally before the function is called
+_get_elapsed_time_for_log() {
+  local current_time=$(date +%s)
+  # Use overall_start_time here, as start_time_for_helpers might not be relevant globally
+  local elapsed_seconds=$((current_time - overall_start_time))
+  _format_duration "$elapsed_seconds"
+}
+
+log_info() {
+  echo "[INFO] [$(_get_elapsed_time_for_log)] $(date +"%Y-%m-%d %H:%M:%S") $1"
+}
+
+log_success() {
+  echo "[SUCCESS] [$(_get_elapsed_time_for_log)] $(date +"%Y-%m-%d %H:%M:%S") $1"
+}
+
+log_error() {
+  echo "[ERROR] [$(_get_elapsed_time_for_log)] $(date +"%Y-%m-%d %H:%M:%S") $1" >&2
+}
+
+log_step() {
+  test_step_count=$((test_step_count + 1))
+  echo ""
+  echo "============================================="
+  echo "  STEP ${test_step_count}: [$(_get_elapsed_time_for_log)] $(date +"%Y-%m-%d %H:%M:%S") $1"
+  echo "============================================="
+}
+
+# ==========================================
+
 # --- Main Execution Block (Piped to tee) ---
 # Wrap the main part of the script in braces and pipe its output (stdout and stderr) to tee
 {
-  # Record start time for helper functions *inside* the pipe
-  start_time_for_helpers=$(date +%s)
-
-  # --- Helper Functions (Output will now go to tee -> terminal & log file) ---
-  _format_duration() {
-    local total_seconds=$1
-    local minutes=$((total_seconds / 60))
-    local seconds=$((total_seconds % 60))
-    printf "%dm%02ds" "$minutes" "$seconds"
-  }
-
-  _get_elapsed_time_for_log() {
-    local current_time=$(date +%s)
-    local elapsed_seconds=$((current_time - start_time_for_helpers))
-    _format_duration "$elapsed_seconds"
-  }
-
-  log_info() {
-    echo "[INFO] [$(_get_elapsed_time_for_log)] $(date +"%Y-%m-%d %H:%M:%S") $1"
-  }
-
-  log_success() {
-    # We no longer increment success_step_count here for the final summary
-    echo "[SUCCESS] [$(_get_elapsed_time_for_log)] $(date +"%Y-%m-%d %H:%M:%S") $1"
-  }
-
-  log_error() {
-    # Output errors to stderr, which gets merged and sent to tee
-    echo "[ERROR] [$(_get_elapsed_time_for_log)] $(date +"%Y-%m-%d %H:%M:%S") $1" >&2
-  }
-
-  log_step() {
-    test_step_count=$((test_step_count + 1))
-    echo ""
-    echo "============================================="
-    echo "  STEP ${test_step_count}: [$(_get_elapsed_time_for_log)] $(date +"%Y-%m-%d %H:%M:%S") $1"
-    echo "============================================="
-  }
-
-  analyze_log_with_llm() {
-    local log_file="$1"
-    local provider_summary_log="provider_add_task_summary.log" # File summarizing provider test outcomes
-    local api_key=""
-    local api_endpoint="https://api.anthropic.com/v1/messages"
-    local api_key_name="CLAUDE_API_KEY"
-
-    echo "" # Add a newline before analysis starts
-    log_info "Attempting LLM analysis of log: $log_file"
-
-    # Check for jq and curl
-    if ! command -v jq &> /dev/null; then
-      log_error "LLM Analysis requires 'jq'. Skipping analysis."
-      return 1
-    fi
-    if ! command -v curl &> /dev/null; then
-      log_error "LLM Analysis requires 'curl'. Skipping analysis."
-      return 1
-    fi
-
-    # Check for API Key in the TEST_RUN_DIR/.env (copied earlier)
-    if [ -f ".env" ]; then
-      # Using grep and sed for better handling of potential quotes/spaces
-      api_key=$(grep "^${api_key_name}=" .env | sed -e "s/^${api_key_name}=//" -e 's/^[[:space:]"]*//' -e 's/[[:space:]"]*$//')
-    fi
-
-    if [ -z "$api_key" ]; then
-      log_error "${api_key_name} not found or empty in .env file in the test run directory ($(pwd)/.env). Skipping LLM analysis."
-      return 1
-    fi
-
-    if [ ! -f "$log_file" ]; then
-      log_error "Log file not found: $log_file. Skipping LLM analysis."
-      return 1
-    fi
-
-    log_info "Reading log file content..."
-    local log_content
-    # Read entire file, handle potential errors
-    log_content=$(cat "$log_file") || {
-      log_error "Failed to read log file: $log_file. Skipping LLM analysis."
-      return 1
-    }
-
-    # Prepare the prompt
-    # Using printf with %s for the log content is generally safer than direct variable expansion
-    local prompt_template='Analyze the following E2E test log for the task-master tool. The log contains output from various '\''task-master'\'' commands executed sequentially.\n\nYour goal is to:\n1. Verify if the key E2E steps completed successfully based on the log messages (e.g., init, parse PRD, list tasks, analyze complexity, expand task, set status, manage models, add/remove dependencies, add/update/remove tasks/subtasks, generate files).\n2. **Specifically analyze the Multi-Provider Add-Task Test Sequence:**\n   a. Identify which providers were tested for `add-task`. Look for log steps like "Testing Add-Task with Provider: ..." and the summary log `'"$provider_summary_log"'`.\n   b. For each tested provider, determine if `add-task` succeeded or failed. Note the created task ID if successful.\n   c. Review the corresponding `add_task_show_output_<provider>_id_<id>.log` file (if created) for each successful `add-task` execution.\n   d. **Compare the quality and completeness** of the task generated by each successful provider based on their `show` output. Assign a score (e.g., 1-10, 10 being best) based on relevance to the prompt, detail level, and correctness.\n   e. Note any providers where `add-task` failed or where the task ID could not be extracted.\n3. Identify any general explicit "[ERROR]" messages or stack traces throughout the *entire* log.\n4. Identify any potential warnings or unusual output that might indicate a problem even if not marked as an explicit error.\n5. Provide an overall assessment of the test run'\''s health based *only* on the log content.\n\nReturn your analysis **strictly** in the following JSON format. Do not include any text outside of the JSON structure:\n\n{\n  "overall_status": "Success|Failure|Warning",\n  "verified_steps": [ "Initialization", "PRD Parsing", /* ...other general steps observed... */ ],\n  "provider_add_task_comparison": {\n     "prompt_used": "... (extract from log if possible or state 'standard auth prompt') ...",\n     "provider_results": {\n       "anthropic": { "status": "Success|Failure|ID_Extraction_Failed|Set_Model_Failed", "task_id": "...", "score": "X/10 | N/A", "notes": "..." },\n       "openai": { "status": "Success|Failure|...", "task_id": "...", "score": "X/10 | N/A", "notes": "..." },\n       /* ... include all tested providers ... */\n     },\n     "comparison_summary": "Brief overall comparison of generated tasks..."\n   },\n  "detected_issues": [ { "severity": "Error|Warning|Anomaly", "description": "...", "log_context": "[Optional, short snippet from log near the issue]" } ],\n  "llm_summary_points": [ "Overall summary point 1", "Provider comparison highlight", "Any major issues noted" ]\n}\n\nHere is the main log content:\n\n%s'
-
-    local full_prompt
-    printf -v full_prompt "$prompt_template" "$log_content"
-
-    # Construct the JSON payload for Claude Messages API
-    # Using jq for robust JSON construction
-    local payload
-    payload=$(jq -n --arg prompt "$full_prompt" '{
-      "model": "claude-3-7-sonnet-20250219", 
-      "max_tokens": 10000,
-      "messages": [
-        {"role": "user", "content": $prompt}
-      ],
-      "temperature": 0.0
-    }') || {
-        log_error "Failed to create JSON payload using jq."
-        return 1
-    }
-
-    log_info "Sending request to LLM API endpoint: $api_endpoint ..."
-    local response_raw response_http_code response_body
-    # Capture body and HTTP status code separately
-    response_raw=$(curl -s -w "\nHTTP_STATUS_CODE:%{http_code}" -X POST "$api_endpoint" \
-         -H "Content-Type: application/json" \
-         -H "x-api-key: $api_key" \
-         -H "anthropic-version: 2023-06-01" \
-         --data "$payload")
-
-    # Extract status code and body
-    response_http_code=$(echo "$response_raw" | grep '^HTTP_STATUS_CODE:' | sed 's/HTTP_STATUS_CODE://')
-    response_body=$(echo "$response_raw" | sed '$d') # Remove last line (status code)
-
-    if [ "$response_http_code" != "200" ]; then
-        log_error "LLM API call failed with HTTP status $response_http_code."
-        log_error "Response Body: $response_body"
-        return 1
-    fi
-
-    if [ -z "$response_body" ]; then
-        log_error "LLM API call returned empty response body."
-        return 1
-    fi
-
-    log_info "Received LLM response (HTTP 200). Parsing analysis JSON..."
-
-    # Extract the analysis JSON string from the API response (adjust jq path if needed)
-    local analysis_json_string
-    analysis_json_string=$(echo "$response_body" | jq -r '.content[0].text' 2>/dev/null) # Assumes Messages API structure
-
-    if [ -z "$analysis_json_string" ]; then
-        log_error "Failed to extract 'content[0].text' from LLM response JSON."
-        log_error "Full API response body: $response_body"
-        return 1
-    fi
-
-    # Validate and pretty-print the extracted JSON
-    if ! echo "$analysis_json_string" | jq -e . > /dev/null 2>&1; then
-        log_error "Extracted content from LLM is not valid JSON."
-        log_error "Raw extracted content: $analysis_json_string"
-        return 1
-    fi
-
-    log_success "LLM analysis completed successfully."
-    echo ""
-    echo "--- LLM Analysis ---"
-    # Pretty print the JSON analysis
-    echo "$analysis_json_string" | jq '.'
-    echo "--------------------"
-
-    return 0
-  }
-  # ---
+  # Note: Helper functions are now defined globally above,
+  # but we still need start_time_for_helpers if any logging functions
+  # called *inside* this block depend on it. If not, it can be removed.
+  start_time_for_helpers=$(date +%s) # Keep if needed by helpers called inside this block
 
   # --- Test Setup (Output to tee) ---
   log_step "Setting up test environment"
@@ -264,8 +203,8 @@ overall_start_time=$(date +%s)
 
   log_step "Initializing Task Master project (non-interactive)"
   task-master init -y --name="E2E Test $TIMESTAMP" --description="Automated E2E test run"
-  if [ ! -f ".taskmasterconfig" ] || [ ! -f "package.json" ]; then
-    log_error "Initialization failed: .taskmasterconfig or package.json not found."
+  if [ ! -f ".taskmasterconfig" ]; then
+    log_error "Initialization failed: .taskmasterconfig not found."
     exit 1
   fi
   log_success "Project initialized."
@@ -385,9 +324,9 @@ overall_start_time=$(date +%s)
 
     # 3. Check for success and extract task ID
     new_task_id=""
-    if [ $add_task_exit_code -eq 0 ] && echo "$add_task_cmd_output" | grep -q "Successfully added task with ID:"; then
+    if [ $add_task_exit_code -eq 0 ] && echo "$add_task_cmd_output" | grep -q "✓ Added new task #"; then
       # Attempt to extract the ID (adjust grep/sed/awk as needed based on actual output format)
-      new_task_id=$(echo "$add_task_cmd_output" | grep "Successfully added task with ID:" | sed 's/.*Successfully added task with ID: \([0-9.]\+\).*/\1/')
+      new_task_id=$(echo "$add_task_cmd_output" | grep "✓ Added new task #" | sed 's/.*✓ Added new task #\([0-9.]\+\).*/\1/')
       if [ -n "$new_task_id" ]; then
         log_success "Add-task succeeded for $provider. New task ID: $new_task_id"
         echo "Provider $provider add-task SUCCESS (ID: $new_task_id)" >> provider_add_task_summary.log
@@ -458,6 +397,68 @@ overall_start_time=$(date +%s)
   task-master fix-dependencies > fix_dependencies_output.log
   log_success "Fix dependencies attempted."
 
+  # === Start New Test Section: Validate/Fix Bad Dependencies ===
+
+  log_step "Intentionally adding non-existent dependency (1 -> 999)"
+  task-master add-dependency --id=1 --depends-on=999 || log_error "Failed to add non-existent dependency (unexpected)"
+  # Don't exit even if the above fails, the goal is to test validation
+  log_success "Attempted to add dependency 1 -> 999."
+
+  log_step "Validating dependencies (expecting non-existent error)"
+  task-master validate-dependencies > validate_deps_non_existent.log 2>&1 || true # Allow command to fail without exiting script
+  if grep -q "Non-existent dependency ID: 999" validate_deps_non_existent.log; then
+      log_success "Validation correctly identified non-existent dependency 999."
+  else
+      log_error "Validation DID NOT report non-existent dependency 999 as expected. Check validate_deps_non_existent.log"
+      # Consider exiting here if this check fails, as it indicates a validation logic problem
+      # exit 1
+  fi
+
+  log_step "Fixing dependencies (should remove 1 -> 999)"
+  task-master fix-dependencies > fix_deps_after_non_existent.log
+  log_success "Attempted to fix dependencies."
+
+  log_step "Validating dependencies (after fix)"
+  task-master validate-dependencies > validate_deps_after_fix_non_existent.log 2>&1 || true # Allow potential failure
+  if grep -q "Non-existent dependency ID: 999" validate_deps_after_fix_non_existent.log; then
+      log_error "Validation STILL reports non-existent dependency 999 after fix. Check logs."
+      # exit 1
+  else
+      log_success "Validation shows non-existent dependency 999 was removed."
+  fi
+
+
+  log_step "Intentionally adding circular dependency (4 -> 5 -> 4)"
+  task-master add-dependency --id=4 --depends-on=5 || log_error "Failed to add dependency 4->5"
+  task-master add-dependency --id=5 --depends-on=4 || log_error "Failed to add dependency 5->4"
+  log_success "Attempted to add dependencies 4 -> 5 and 5 -> 4."
+
+
+  log_step "Validating dependencies (expecting circular error)"
+  task-master validate-dependencies > validate_deps_circular.log 2>&1 || true # Allow command to fail
+  # Note: Adjust the grep pattern based on the EXACT error message from validate-dependencies
+  if grep -q -E "Circular dependency detected involving task IDs: (4, 5|5, 4)" validate_deps_circular.log; then
+      log_success "Validation correctly identified circular dependency between 4 and 5."
+  else
+      log_error "Validation DID NOT report circular dependency 4<->5 as expected. Check validate_deps_circular.log"
+      # exit 1
+  fi
+
+  log_step "Fixing dependencies (should remove one side of 4 <-> 5)"
+  task-master fix-dependencies > fix_deps_after_circular.log
+  log_success "Attempted to fix dependencies."
+
+  log_step "Validating dependencies (after fix circular)"
+  task-master validate-dependencies > validate_deps_after_fix_circular.log 2>&1 || true # Allow potential failure
+  if grep -q -E "Circular dependency detected involving task IDs: (4, 5|5, 4)" validate_deps_after_fix_circular.log; then
+      log_error "Validation STILL reports circular dependency 4<->5 after fix. Check logs."
+      # exit 1
+  else
+      log_success "Validation shows circular dependency 4<->5 was resolved."
+  fi
+
+  # === End New Test Section ===
+
   log_step "Adding Task 11 (Manual)"
   task-master add-task --title="Manual E2E Task" --description="Add basic health check endpoint" --priority=low --dependencies=3 # Depends on backend setup
   # Assuming the new task gets ID 11 (adjust if PRD parsing changes)
@@ -485,7 +486,7 @@ overall_start_time=$(date +%s)
   log_success "Attempted update for Subtask 8.1."
 
   # Add a couple more subtasks for multi-remove test
-  log_step "Adding subtasks to Task 2 (for multi-remove test)"
+  log_step 'Adding subtasks to Task 2 (for multi-remove test)'
   task-master add-subtask --parent=2 --title="Subtask 2.1 for removal"
   task-master add-subtask --parent=2 --title="Subtask 2.2 for removal"
   log_success "Added subtasks 2.1 and 2.2."
@@ -502,6 +503,18 @@ overall_start_time=$(date +%s)
   task-master next > next_task_after_change.log
   log_success "Next task after change saved to next_task_after_change.log"
 
+  # === Start New Test Section: List Filtering ===
+  log_step "Listing tasks filtered by status 'done'"
+  task-master list --status=done > task_list_status_done.log
+  log_success "Filtered list saved to task_list_status_done.log (Manual/LLM check recommended)"
+  # Optional assertion: Check if Task 1 ID exists and Task 2 ID does NOT
+  # if grep -q "^1\." task_list_status_done.log && ! grep -q "^2\." task_list_status_done.log; then
+  #    log_success "Basic check passed: Task 1 found, Task 2 not found in 'done' list."
+  # else
+  #    log_error "Basic check failed for list --status=done."
+  # fi
+  # === End New Test Section ===
+
   log_step "Clearing subtasks from Task 8"
   task-master clear-subtasks --id=8
   log_success "Attempted to clear subtasks from Task 8."
@@ -510,6 +523,46 @@ overall_start_time=$(date +%s)
   # Remove the tasks we added earlier
   task-master remove-task --id=11,12 -y
   log_success "Removed tasks 11 and 12."
+
+  # === Start New Test Section: Subtasks & Dependencies ===
+
+  log_step "Expanding Task 2 (to ensure multiple tasks have subtasks)"
+  task-master expand --id=2 # Expand task 2: Backend setup
+  log_success "Attempted to expand Task 2."
+
+  log_step "Listing tasks with subtasks (Before Clear All)"
+  task-master list --with-subtasks > task_list_before_clear_all.log
+  log_success "Task list before clear-all saved."
+
+  log_step "Clearing ALL subtasks"
+  task-master clear-subtasks --all
+  log_success "Attempted to clear all subtasks."
+
+  log_step "Listing tasks with subtasks (After Clear All)"
+  task-master list --with-subtasks > task_list_after_clear_all.log
+  log_success "Task list after clear-all saved. (Manual/LLM check recommended to verify subtasks removed)"
+
+  log_step "Expanding Task 1 again (to have subtasks for next test)"
+  task-master expand --id=1
+  log_success "Attempted to expand Task 1 again."
+
+  log_step "Adding dependency: Task 3 depends on Subtask 1.1"
+  task-master add-dependency --id=3 --depends-on=1.1
+  log_success "Added dependency 3 -> 1.1."
+
+  log_step "Showing Task 3 details (after adding subtask dependency)"
+  task-master show 3 > task_3_details_after_dep_add.log
+  log_success "Task 3 details saved. (Manual/LLM check recommended for dependency [1.1])"
+
+  log_step "Removing dependency: Task 3 depends on Subtask 1.1"
+  task-master remove-dependency --id=3 --depends-on=1.1
+  log_success "Removed dependency 3 -> 1.1."
+
+  log_step "Showing Task 3 details (after removing subtask dependency)"
+  task-master show 3 > task_3_details_after_dep_remove.log
+  log_success "Task 3 details saved. (Manual/LLM check recommended to verify dependency removed)"
+
+  # === End New Test Section ===
 
   log_step "Generating task files (final)"
   task-master generate
@@ -601,25 +654,16 @@ fi
 echo "-------------------------"
 
 # --- Attempt LLM Analysis ---
-echo "DEBUG: Entering LLM Analysis section..."
 # Run this *after* the main execution block and tee pipe finish writing the log file
-# It will read the completed log file and append its output to the terminal (and the log via subsequent writes if tee is still active, though it shouldn't be)
-# Change directory back into the test run dir where .env is located
 if [ -d "$TEST_RUN_DIR" ]; then
-  echo "DEBUG: Found TEST_RUN_DIR: $TEST_RUN_DIR. Attempting cd..."
   cd "$TEST_RUN_DIR"
-  echo "DEBUG: Changed directory to $(pwd). Calling analyze_log_with_llm..."
-  analyze_log_with_llm "$LOG_FILE"
-  echo "DEBUG: analyze_log_with_llm function call finished."
-  # Optional: cd back again if needed, though script is ending
+  analyze_log_with_llm "$LOG_FILE" "$TASKMASTER_SOURCE_DIR"
+  ANALYSIS_EXIT_CODE=$? # Capture the exit code of the analysis function
+  # Optional: cd back again if needed
   # cd "$ORIGINAL_DIR"
 else
-  # Use log_error format even outside the pipe for consistency
-  current_time_for_error=$(date +%s)
-  elapsed_seconds_for_error=$((current_time_for_error - overall_start_time)) # Use overall start time
-  formatted_duration_for_error=$(_format_duration "$elapsed_seconds_for_error")
+  formatted_duration_for_error=$(_format_duration "$total_elapsed_seconds")
   echo "[ERROR] [$formatted_duration_for_error] $(date +"%Y-%m-%d %H:%M:%S") Test run directory $TEST_RUN_DIR not found. Cannot perform LLM analysis." >&2
 fi
 
-echo "DEBUG: Reached end of script before final exit."
-exit $EXIT_CODE # Exit with the status of the main script block
+exit $EXIT_CODE

@@ -215,6 +215,7 @@ async function addTask(
 				// Determine the service role based on the useResearch flag
 				const serviceRole = useResearch ? 'research' : 'main';
 
+				report('DEBUG: Calling generateObjectService...', 'debug');
 				// Call the unified AI service
 				const aiGeneratedTaskData = await generateObjectService({
 					role: serviceRole, // <-- Use the determined role
@@ -225,14 +226,20 @@ async function addTask(
 					prompt: userPrompt,
 					reportProgress // Pass progress reporter if available
 				});
+				report('DEBUG: generateObjectService returned successfully.', 'debug');
 
 				report('Successfully generated task data from AI.', 'success');
 				taskData = aiGeneratedTaskData; // Assign the validated object
 			} catch (error) {
+				report(
+					`DEBUG: generateObjectService caught error: ${error.message}`,
+					'debug'
+				);
 				report(`Error generating task with AI: ${error.message}`, 'error');
 				if (loadingIndicator) stopLoadingIndicator(loadingIndicator);
 				throw error; // Re-throw error after logging
 			} finally {
+				report('DEBUG: generateObjectService finally block reached.', 'debug');
 				if (loadingIndicator) stopLoadingIndicator(loadingIndicator); // Ensure indicator stops
 			}
 			// --- End Refactored AI Interaction ---
@@ -254,13 +261,17 @@ async function addTask(
 		// Add the task to the tasks array
 		data.tasks.push(newTask);
 
+		report('DEBUG: Writing tasks.json...', 'debug');
 		// Write the updated tasks to the file
 		writeJSON(tasksPath, data);
+		report('DEBUG: tasks.json written.', 'debug');
 
 		// Generate markdown task files
 		report('Generating task files...', 'info');
+		report('DEBUG: Calling generateTaskFiles...', 'debug');
 		// Pass mcpLog if available to generateTaskFiles
 		await generateTaskFiles(tasksPath, path.dirname(tasksPath), { mcpLog });
+		report('DEBUG: generateTaskFiles finished.', 'debug');
 
 		// Show success message - only for text output (CLI)
 		if (outputFormat === 'text') {
@@ -305,7 +316,7 @@ async function addTask(
 						chalk.white(`Status: ${getStatusWithColor(newTask.status)}`) +
 						'\n' +
 						chalk.white(
-							`Priority: ${chalk.keyword(getPriorityColor(newTask.priority))(newTask.priority)}`
+							`Priority: ${chalk[getPriorityColor(newTask.priority)](newTask.priority)}`
 						) +
 						'\n' +
 						(numericDependencies.length > 0
@@ -332,6 +343,7 @@ async function addTask(
 		}
 
 		// Return the new task ID
+		report(`DEBUG: Returning new task ID: ${newTaskId}`, 'debug');
 		return newTaskId;
 	} catch (error) {
 		// Stop any loading indicator on error

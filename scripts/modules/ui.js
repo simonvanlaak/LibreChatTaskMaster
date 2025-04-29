@@ -427,7 +427,7 @@ function displayHelp() {
 			commands: [
 				{
 					name: 'parse-prd',
-					args: '--input=<file.txt> [--tasks=10]',
+					args: '--input=<file.txt> [--num-tasks=10]',
 					desc: 'Generate tasks from a PRD document'
 				},
 				{
@@ -1953,7 +1953,7 @@ function displayAvailableModels(availableModels) {
 				) +
 				'\n' +
 				chalk.cyan(
-					`5. Use custom models: ${chalk.yellow('task-master models --custom --set-main|research|fallback <model_id>')}`
+					`5. Use custom ollama/openrouter models: ${chalk.yellow('task-master models --openrouter|ollama --set-main|research|fallback <model_id>')}`
 				),
 			{
 				padding: 1,

@@ -37,7 +37,7 @@ export function registerRemoveTaskTool(server) {
 		}),
 		execute: async (args, { log, session }) => {
 			try {
-				log.info(`Removing task with ID: ${args.id}`);
+				log.info(`Removing task(s) with ID(s): ${args.id}`);
 
 				// Get project root from args or session
 				const rootFolder =

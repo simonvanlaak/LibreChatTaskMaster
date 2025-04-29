@@ -101,8 +101,12 @@ export async function parsePRDDirect(args, log, context = {}) {
 			}
 		}
 
+		// Extract the append flag from args
+		const append = Boolean(args.append) === true;
+
+		// Log key parameters including append flag
 		log.info(
-			`Preparing to parse PRD from ${inputPath} and output to ${outputPath} with ${numTasks} tasks`
+			`Preparing to parse PRD from ${inputPath} and output to ${outputPath} with ${numTasks} tasks, append mode: ${append}`
 		);
 
 		// --- Logger Wrapper ---
@@ -117,29 +121,61 @@ export async function parsePRDDirect(args, log, context = {}) {
 		// Enable silent mode to prevent console logs from interfering with JSON response
 		enableSilentMode();
 		try {
-			// Execute core parsePRD function - It now handles AI internally
-			const tasksDataResult = await parsePRD(inputPath, numTasks, options);
-
-			// Check the result from the core function (assuming it might return data or null/undefined)
-			if (!tasksDataResult || !tasksDataResult.tasks) {
-				throw new Error(
-					'Core parsePRD function did not return valid task data.'
-				);
+			// Make sure the output directory exists
+			const outputDir = path.dirname(outputPath);
+			if (!fs.existsSync(outputDir)) {
+				log.info(`Creating output directory: ${outputDir}`);
+				fs.mkdirSync(outputDir, { recursive: true });
 			}
 
-			log.info(
-				`Successfully parsed PRD and generated ${tasksDataResult.tasks?.length || 0} tasks`
+			// Execute core parsePRD function with AI client
+			const tasksDataResult = await parsePRD(
+				inputPath,
+				outputPath,
+				numTasks,
+				{
+					mcpLog: logWrapper,
+					session,
+					append
+				},
+				aiClient,
+				modelConfig
 			);
 
-			return {
-				success: true,
-				data: {
-					message: `Successfully generated ${tasksDataResult.tasks?.length || 0} tasks from PRD`,
-					taskCount: tasksDataResult.tasks?.length || 0,
-					outputPath
-				},
-				fromCache: false // This operation always modifies state
-			};
+			// Since parsePRD doesn't return a value but writes to a file, we'll read the result
+			// to return it to the caller
+			if (fs.existsSync(outputPath)) {
+				const tasksData = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+				const actionVerb = append ? 'appended' : 'generated';
+				const message = `Successfully ${actionVerb} ${tasksData.tasks?.length || 0} tasks from PRD`;
+
+				if (!tasksDataResult || !tasksDataResult.tasks || !tasksData) {
+					throw new Error(
+						'Core parsePRD function did not return valid task data.'
+					);
+				}
+
+				log.info(message);
+
+				return {
+					success: true,
+					data: {
+						message,
+						taskCount: tasksDataResult.tasks?.length || 0,
+						outputPath,
+						appended: append
+					},
+					fromCache: false // This operation always modifies state and should never be cached
+				};
+			} else {
+				const errorMessage = `Tasks file was not created at ${outputPath}`;
+				log.error(errorMessage);
+				return {
+					success: false,
+					error: { code: 'OUTPUT_FILE_NOT_CREATED', message: errorMessage },
+					fromCache: false
+				};
+			}
 		} finally {
 			// Always restore normal logging
 			disableSilentMode();
