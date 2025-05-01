@@ -21,6 +21,7 @@ import {
 import { getDebugFlag } from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
 import { generateTextService } from '../ai-services-unified.js';
+import { getModelConfiguration } from './models.js';
 
 // Zod schema for validating the structure of tasks AFTER parsing
 const updatedTaskSchema = z
@@ -173,7 +174,7 @@ async function updateTasks(
 	context = {},
 	outputFormat = 'text' // Default to text for CLI
 ) {
-	const { session, mcpLog } = context;
+	const { session, mcpLog, projectRoot } = context;
 	// Use mcpLog if available, otherwise use the imported consoleLog function
 	const logFn = mcpLog || consoleLog;
 	// Flag to easily check which logger type we have
@@ -312,7 +313,8 @@ The changes described in the prompt should be applied to ALL tasks in the list.`
 				prompt: userPrompt,
 				systemPrompt: systemPrompt,
 				role,
-				session
+				session,
+				projectRoot
 			});
 			if (isMCP) logFn.info('Successfully received text response');
 			else
