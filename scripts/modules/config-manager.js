@@ -424,12 +424,13 @@ function getParametersForRole(role, explicitRoot = null) {
 
 /**
  * Checks if the API key for a given provider is set in the environment.
- * Checks process.env first, then session.env if session is provided.
+ * Checks process.env first, then session.env if session is provided, then .env file if projectRoot provided.
  * @param {string} providerName - The name of the provider (e.g., 'openai', 'anthropic').
  * @param {object|null} [session=null] - The MCP session object (optional).
+ * @param {string|null} [projectRoot=null] - The project root directory (optional, for .env file check).
  * @returns {boolean} True if the API key is set, false otherwise.
  */
-function isApiKeySet(providerName, session = null) {
+function isApiKeySet(providerName, session = null, projectRoot = null) {
 	// Define the expected environment variable name for each provider
 	if (providerName?.toLowerCase() === 'ollama') {
 		return true; // Indicate key status is effectively "OK"
@@ -454,7 +455,7 @@ function isApiKeySet(providerName, session = null) {
 	}
 
 	const envVarName = keyMap[providerKey];
-	const apiKeyValue = resolveEnvVariable(envVarName, session);
+	const apiKeyValue = resolveEnvVariable(envVarName, session, projectRoot);
 
 	// Check if the key exists, is not empty, and is not a placeholder
 	return (
