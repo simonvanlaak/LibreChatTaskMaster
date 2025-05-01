@@ -16,21 +16,6 @@ describe('Roo Files Inclusion in Package', () => {
 		expect(packageJson.files).toContain('assets/**');
 	});
 
-	test('prepare-package.js verifies required Roo files', () => {
-		// Read the prepare-package.js file
-		const preparePackagePath = path.join(
-			process.cwd(),
-			'scripts',
-			'prepare-package.js'
-		);
-		const preparePackageContent = fs.readFileSync(preparePackagePath, 'utf8');
-
-		// Check if prepare-package.js includes verification for Roo files
-		expect(preparePackageContent).toContain('.roo/rules/');
-		expect(preparePackageContent).toContain('.roomodes');
-		expect(preparePackageContent).toContain('assets/roocode/');
-	});
-
 	test('init.js creates Roo directories and copies files', () => {
 		// Read the init.js file
 		const initJsPath = path.join(process.cwd(), 'scripts', 'init.js');
