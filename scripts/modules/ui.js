@@ -334,7 +334,8 @@ function formatDependenciesWithStatus(
 			typeof depId === 'string' ? parseInt(depId, 10) : depId;
 
 		// Look up the task using the numeric ID
-		const depTask = findTaskById(allTasks, numericDepId);
+		const depTaskResult = findTaskById(allTasks, numericDepId);
+		const depTask = depTaskResult.task; // Access the task object from the result
 
 		if (!depTask) {
 			return forConsole

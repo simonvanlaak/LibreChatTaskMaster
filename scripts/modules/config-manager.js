@@ -604,15 +604,23 @@ function getAvailableModels() {
  * @returns {boolean} True if successful, false otherwise.
  */
 function writeConfig(config, explicitRoot = null) {
-	const rootPath = explicitRoot || findProjectRoot();
-	if (!rootPath) {
-		console.error(
-			chalk.red(
-				'Error: Could not determine project root. Configuration not saved.'
-			)
-		);
-		return false;
+	// ---> Determine root path reliably <---
+	let rootPath = explicitRoot;
+	if (explicitRoot === null || explicitRoot === undefined) {
+		// Logic matching _loadAndValidateConfig
+		const foundRoot = findProjectRoot(); // *** Explicitly call findProjectRoot ***
+		if (!foundRoot) {
+			console.error(
+				chalk.red(
+					'Error: Could not determine project root. Configuration not saved.'
+				)
+			);
+			return false;
+		}
+		rootPath = foundRoot;
 	}
+	// ---> End determine root path logic <---
+
 	const configPath =
 		path.basename(rootPath) === CONFIG_FILE_NAME
 			? rootPath
@@ -638,10 +646,18 @@ function writeConfig(config, explicitRoot = null) {
  * @returns {boolean} True if the file exists, false otherwise
  */
 function isConfigFilePresent(explicitRoot = null) {
-	const rootPath = explicitRoot || findProjectRoot();
-	if (!rootPath) {
-		return false;
+	// ---> Determine root path reliably <---
+	let rootPath = explicitRoot;
+	if (explicitRoot === null || explicitRoot === undefined) {
+		// Logic matching _loadAndValidateConfig
+		const foundRoot = findProjectRoot(); // *** Explicitly call findProjectRoot ***
+		if (!foundRoot) {
+			return false; // Cannot check if root doesn't exist
+		}
+		rootPath = foundRoot;
 	}
+	// ---> End determine root path logic <---
+
 	const configPath = path.join(rootPath, CONFIG_FILE_NAME);
 	return fs.existsSync(configPath);
 }

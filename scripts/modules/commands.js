@@ -163,7 +163,7 @@ async function runInteractiveSetup(projectRoot) {
 		const cancelOption = { name: '⏹ Cancel Model Setup', value: '__CANCEL__' }; // Symbol updated
 		const noChangeOption = currentModel?.modelId
 			? {
-					name: `∘ No change to current ${role} model (${currentModel.modelId})`, // Symbol updated
+					name: `✔ No change to current ${role} model (${currentModel.modelId})`, // Symbol updated
 					value: '__NO_CHANGE__'
 				}
 			: null;
@@ -212,10 +212,11 @@ async function runInteractiveSetup(projectRoot) {
 		}
 
 		// Construct final choices list based on whether 'None' is allowed
-		const commonPrefix = [cancelOption];
+		const commonPrefix = [];
 		if (noChangeOption) {
-			commonPrefix.push(noChangeOption); // Add if it exists
+			commonPrefix.push(noChangeOption);
 		}
+		commonPrefix.push(cancelOption);
 		commonPrefix.push(customOpenRouterOption);
 
 		let prefixLength = commonPrefix.length; // Initial prefix length

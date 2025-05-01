@@ -22,18 +22,39 @@ MAIN_ENV_FILE="$TASKMASTER_SOURCE_DIR/.env"
 source "$TASKMASTER_SOURCE_DIR/tests/e2e/e2e_helpers.sh"
 
 # --- Argument Parsing for Analysis-Only Mode ---
-if [ "$#" -ge 2 ] && [ "$1" == "--analyze-log" ]; then
-  LOG_TO_ANALYZE="$2"
-  # Ensure the log path is absolute
+# Check if the first argument is --analyze-log
+if [ "$#" -ge 1 ] && [ "$1" == "--analyze-log" ]; then
+  LOG_TO_ANALYZE=""
+  # Check if a log file path was provided as the second argument
+  if [ "$#" -ge 2 ] && [ -n "$2" ]; then
+    LOG_TO_ANALYZE="$2"
+    echo "[INFO] Using specified log file for analysis: $LOG_TO_ANALYZE"
+  else
+    echo "[INFO] Log file not specified. Attempting to find the latest log..."
+    # Find the latest log file in the LOG_DIR
+    # Ensure LOG_DIR is absolute for ls to work correctly regardless of PWD
+    ABS_LOG_DIR="$(cd "$TASKMASTER_SOURCE_DIR/$LOG_DIR" && pwd)"
+    LATEST_LOG=$(ls -t "$ABS_LOG_DIR"/e2e_run_*.log 2>/dev/null | head -n 1)
+
+    if [ -z "$LATEST_LOG" ]; then
+      echo "[ERROR] No log files found matching 'e2e_run_*.log' in $ABS_LOG_DIR. Cannot analyze." >&2
+      exit 1
+    fi
+    LOG_TO_ANALYZE="$LATEST_LOG"
+    echo "[INFO] Found latest log file: $LOG_TO_ANALYZE"
+  fi
+
+  # Ensure the log path is absolute (it should be if found by ls, but double-check)
   if [[ "$LOG_TO_ANALYZE" != /* ]]; then
-    LOG_TO_ANALYZE="$(pwd)/$LOG_TO_ANALYZE"
+    LOG_TO_ANALYZE="$(pwd)/$LOG_TO_ANALYZE" # Fallback if relative path somehow occurred
   fi
   echo "[INFO] Running in analysis-only mode for log: $LOG_TO_ANALYZE"
 
   # --- Derive TEST_RUN_DIR from log file path --- 
   # Extract timestamp like YYYYMMDD_HHMMSS from e2e_run_YYYYMMDD_HHMMSS.log
   log_basename=$(basename "$LOG_TO_ANALYZE")
-  timestamp_match=$(echo "$log_basename" | sed -n 's/^e2e_run_\([0-9]\{8\}_[0-9]\{6\}\).log$/\1/p')
+  # Ensure the sed command matches the .log suffix correctly
+  timestamp_match=$(echo "$log_basename" | sed -n 's/^e2e_run_\([0-9]\{8\}_[0-9]\{6\}\)\.log$/\1/p')
 
   if [ -z "$timestamp_match" ]; then
     echo "[ERROR] Could not extract timestamp from log file name: $log_basename" >&2
@@ -81,8 +102,8 @@ start_time_for_helpers=0 # Separate start time for helper functions inside the p
 mkdir -p "$LOG_DIR"
 # Define timestamped log file path
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-# <<< Use pwd to create an absolute path >>>
-LOG_FILE="$(pwd)/$LOG_DIR/e2e_run_$TIMESTAMP"
+# <<< Use pwd to create an absolute path AND add .log extension >>>
+LOG_FILE="$(pwd)/$LOG_DIR/e2e_run_${TIMESTAMP}.log"
 
 # Define and create the test run directory *before* the main pipe
 mkdir -p "$BASE_TEST_DIR" # Ensure base exists first
@@ -96,6 +117,9 @@ echo "--- Starting E2E Run ---" # Separator before piped output starts
 
 # Record start time for overall duration *before* the pipe
 overall_start_time=$(date +%s)
+
+# <<< DEFINE ORIGINAL_DIR GLOBALLY HERE >>>
+ORIGINAL_DIR=$(pwd)
 
 # ==========================================
 # >>> MOVE FUNCTION DEFINITION HERE <<<
@@ -181,7 +205,7 @@ log_step() {
   fi
   log_success "Sample PRD copied."
 
-  ORIGINAL_DIR=$(pwd) # Save original dir
+  # ORIGINAL_DIR=$(pwd) # Save original dir # <<< REMOVED FROM HERE
   cd "$TEST_RUN_DIR"
   log_info "Changed directory to $(pwd)"
 
@@ -631,7 +655,8 @@ formatted_total_time=$(printf "%dm%02ds" "$total_minutes" "$total_sec_rem")
 
 # Count steps and successes from the log file *after* the pipe finishes
 # Use grep -c for counting lines matching the pattern
-final_step_count=$(grep -c '^==.* STEP [0-9]\+:' "$LOG_FILE" || true) # Count lines starting with === STEP X:
+# Corrected pattern to match '  STEP X:' format
+final_step_count=$(grep -c '^[[:space:]]\+STEP [0-9]\+:' "$LOG_FILE" || true)
 final_success_count=$(grep -c '\[SUCCESS\]' "$LOG_FILE" || true) # Count lines containing [SUCCESS]
 
 echo "--- E2E Run Summary ---"
@@ -656,11 +681,15 @@ echo "-------------------------"
 # --- Attempt LLM Analysis ---
 # Run this *after* the main execution block and tee pipe finish writing the log file
 if [ -d "$TEST_RUN_DIR" ]; then
+  # Define absolute path to source dir if not already defined (though it should be by setup)
+  TASKMASTER_SOURCE_DIR_ABS=${TASKMASTER_SOURCE_DIR_ABS:-$(cd "$ORIGINAL_DIR/$TASKMASTER_SOURCE_DIR" && pwd)}
+
   cd "$TEST_RUN_DIR"
-  analyze_log_with_llm "$LOG_FILE" "$TASKMASTER_SOURCE_DIR"
+  # Pass the absolute source directory path
+  analyze_log_with_llm "$LOG_FILE" "$TASKMASTER_SOURCE_DIR_ABS"
   ANALYSIS_EXIT_CODE=$? # Capture the exit code of the analysis function
   # Optional: cd back again if needed
-  # cd "$ORIGINAL_DIR"
+  cd "$ORIGINAL_DIR" # Ensure we change back to the original directory
 else
   formatted_duration_for_error=$(_format_duration "$total_elapsed_seconds")
   echo "[ERROR] [$formatted_duration_for_error] $(date +"%Y-%m-%d %H:%M:%S") Test run directory $TEST_RUN_DIR not found. Cannot perform LLM analysis." >&2

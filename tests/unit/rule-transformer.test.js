@@ -1,9 +1,8 @@
-import { expect } from 'chai';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { convertCursorRuleToRooRule } from '../modules/rule-transformer.js';
+import { convertCursorRuleToRooRule } from '../../scripts/modules/rule-transformer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -11,14 +10,14 @@ const __dirname = dirname(__filename);
 describe('Rule Transformer', () => {
 	const testDir = path.join(__dirname, 'temp-test-dir');
 
-	before(() => {
+	beforeAll(() => {
 		// Create test directory
 		if (!fs.existsSync(testDir)) {
 			fs.mkdirSync(testDir, { recursive: true });
 		}
 	});
 
-	after(() => {
+	afterAll(() => {
 		// Clean up test directory
 		if (fs.existsSync(testDir)) {
 			fs.rmSync(testDir, { recursive: true, force: true });
@@ -47,11 +46,11 @@ Also has references to .mdc files.`;
 		const convertedContent = fs.readFileSync(testRooRule, 'utf8');
 
 		// Verify transformations
-		expect(convertedContent).to.include('Roo Code');
-		expect(convertedContent).to.include('roocode.com');
-		expect(convertedContent).to.include('.md');
-		expect(convertedContent).to.not.include('cursor.so');
-		expect(convertedContent).to.not.include('Cursor rule');
+		expect(convertedContent).toContain('Roo Code');
+		expect(convertedContent).toContain('roocode.com');
+		expect(convertedContent).toContain('.md');
+		expect(convertedContent).not.toContain('cursor.so');
+		expect(convertedContent).not.toContain('Cursor rule');
 	});
 
 	it('should correctly convert tool references', () => {
@@ -78,10 +77,10 @@ alwaysApply: true
 		const convertedContent = fs.readFileSync(testRooRule, 'utf8');
 
 		// Verify transformations
-		expect(convertedContent).to.include('search_files tool');
-		expect(convertedContent).to.include('apply_diff tool');
-		expect(convertedContent).to.include('execute_command');
-		expect(convertedContent).to.include('use_mcp_tool');
+		expect(convertedContent).toContain('search_files tool');
+		expect(convertedContent).toContain('apply_diff tool');
+		expect(convertedContent).toContain('execute_command');
+		expect(convertedContent).toContain('use_mcp_tool');
 	});
 
 	it('should correctly update file references', () => {
@@ -106,8 +105,8 @@ This references [dev_workflow.mdc](mdc:.cursor/rules/dev_workflow.mdc) and
 		const convertedContent = fs.readFileSync(testRooRule, 'utf8');
 
 		// Verify transformations
-		expect(convertedContent).to.include('(mdc:.roo/rules/dev_workflow.md)');
-		expect(convertedContent).to.include('(mdc:.roo/rules/taskmaster.md)');
-		expect(convertedContent).to.not.include('(mdc:.cursor/rules/');
+		expect(convertedContent).toContain('(mdc:.roo/rules/dev_workflow.md)');
+		expect(convertedContent).toContain('(mdc:.roo/rules/taskmaster.md)');
+		expect(convertedContent).not.toContain('(mdc:.cursor/rules/');
 	});
 });

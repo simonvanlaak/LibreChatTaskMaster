@@ -204,7 +204,6 @@ function transformCursorToRooRules(content) {
 	);
 
 	// 2. Handle tool references - even partial ones
-	result = result.replace(/search/g, 'search_files');
 	result = result.replace(/\bedit_file\b/gi, 'apply_diff');
 	result = result.replace(/\bsearch tool\b/gi, 'search_files tool');
 	result = result.replace(/\bSearch Tool\b/g, 'Search_Files Tool');

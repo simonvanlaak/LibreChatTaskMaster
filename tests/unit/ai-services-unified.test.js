@@ -1,23 +1,51 @@
 import { jest } from '@jest/globals';
 
-// Mock ai-client-factory
-const mockGetClient = jest.fn();
-jest.unstable_mockModule('../../scripts/modules/ai-client-factory.js', () => ({
-	getClient: mockGetClient
+// Mock config-manager
+const mockGetMainProvider = jest.fn();
+const mockGetMainModelId = jest.fn();
+const mockGetResearchProvider = jest.fn();
+const mockGetResearchModelId = jest.fn();
+const mockGetFallbackProvider = jest.fn();
+const mockGetFallbackModelId = jest.fn();
+const mockGetParametersForRole = jest.fn();
+
+jest.unstable_mockModule('../../scripts/modules/config-manager.js', () => ({
+	getMainProvider: mockGetMainProvider,
+	getMainModelId: mockGetMainModelId,
+	getResearchProvider: mockGetResearchProvider,
+	getResearchModelId: mockGetResearchModelId,
+	getFallbackProvider: mockGetFallbackProvider,
+	getFallbackModelId: mockGetFallbackModelId,
+	getParametersForRole: mockGetParametersForRole
 }));
 
-// Mock AI SDK Core
-const mockGenerateText = jest.fn();
-jest.unstable_mockModule('ai', () => ({
-	generateText: mockGenerateText
-	// Mock other AI SDK functions like streamText as needed
+// Mock AI Provider Modules
+const mockGenerateAnthropicText = jest.fn();
+const mockStreamAnthropicText = jest.fn();
+const mockGenerateAnthropicObject = jest.fn();
+jest.unstable_mockModule('../../src/ai-providers/anthropic.js', () => ({
+	generateAnthropicText: mockGenerateAnthropicText,
+	streamAnthropicText: mockStreamAnthropicText,
+	generateAnthropicObject: mockGenerateAnthropicObject
 }));
 
-// Mock utils logger
+const mockGeneratePerplexityText = jest.fn();
+const mockStreamPerplexityText = jest.fn();
+const mockGeneratePerplexityObject = jest.fn();
+jest.unstable_mockModule('../../src/ai-providers/perplexity.js', () => ({
+	generatePerplexityText: mockGeneratePerplexityText,
+	streamPerplexityText: mockStreamPerplexityText,
+	generatePerplexityObject: mockGeneratePerplexityObject
+}));
+
+// ... Mock other providers (google, openai, etc.) similarly ...
+
+// Mock utils logger and API key resolver
 const mockLog = jest.fn();
+const mockResolveEnvVariable = jest.fn();
 jest.unstable_mockModule('../../scripts/modules/utils.js', () => ({
-	log: mockLog
-	// Keep other exports if utils has more, otherwise just log
+	log: mockLog,
+	resolveEnvVariable: mockResolveEnvVariable
 }));
 
 // Import the module to test (AFTER mocks)
@@ -28,656 +56,161 @@ const { generateTextService } = await import(
 describe('Unified AI Services', () => {
 	beforeEach(() => {
 		// Clear mocks before each test
-		mockGetClient.mockClear();
-		mockGenerateText.mockClear();
-		mockLog.mockClear(); // Clear log mock
+		jest.clearAllMocks(); // Clears all mocks
+
+		// Set default mock behaviors
+		mockGetMainProvider.mockReturnValue('anthropic');
+		mockGetMainModelId.mockReturnValue('test-main-model');
+		mockGetResearchProvider.mockReturnValue('perplexity');
+		mockGetResearchModelId.mockReturnValue('test-research-model');
+		mockGetFallbackProvider.mockReturnValue('anthropic');
+		mockGetFallbackModelId.mockReturnValue('test-fallback-model');
+		mockGetParametersForRole.mockImplementation((role) => {
+			if (role === 'main') return { maxTokens: 100, temperature: 0.5 };
+			if (role === 'research') return { maxTokens: 200, temperature: 0.3 };
+			if (role === 'fallback') return { maxTokens: 150, temperature: 0.6 };
+			return { maxTokens: 100, temperature: 0.5 }; // Default
+		});
+		mockResolveEnvVariable.mockImplementation((key) => {
+			if (key === 'ANTHROPIC_API_KEY') return 'mock-anthropic-key';
+			if (key === 'PERPLEXITY_API_KEY') return 'mock-perplexity-key';
+			return null;
+		});
 	});
 
 	describe('generateTextService', () => {
-		test('should get client and call generateText with correct parameters', async () => {
-			const mockClient = { type: 'mock-client' };
-			mockGetClient.mockResolvedValue(mockClient);
-			mockGenerateText.mockResolvedValue({ text: 'Mock response' });
+		test('should use main provider/model and succeed', async () => {
+			mockGenerateAnthropicText.mockResolvedValue('Main provider response');
 
-			const serviceParams = {
+			const params = {
 				role: 'main',
-				session: { env: { SOME_KEY: 'value' } }, // Example session
-				overrideOptions: { provider: 'override' }, // Example overrides
-				prompt: 'Test prompt',
-				// Other generateText options like maxTokens, temperature etc.
-				maxTokens: 100
+				session: { env: {} },
+				systemPrompt: 'System',
+				prompt: 'Test'
 			};
+			const result = await generateTextService(params);
 
-			const result = await generateTextService(serviceParams);
-
-			// Verify getClient call
-			expect(mockGetClient).toHaveBeenCalledTimes(1);
-			expect(mockGetClient).toHaveBeenCalledWith(
-				serviceParams.role,
-				serviceParams.session,
-				serviceParams.overrideOptions
+			expect(result).toBe('Main provider response');
+			expect(mockGetMainProvider).toHaveBeenCalled();
+			expect(mockGetMainModelId).toHaveBeenCalled();
+			expect(mockGetParametersForRole).toHaveBeenCalledWith('main');
+			expect(mockResolveEnvVariable).toHaveBeenCalledWith(
+				'ANTHROPIC_API_KEY',
+				params.session
 			);
-
-			// Verify generateText call
-			expect(mockGenerateText).toHaveBeenCalledTimes(1);
-			expect(mockGenerateText).toHaveBeenCalledWith({
-				model: mockClient, // Ensure the correct client is passed
-				prompt: serviceParams.prompt,
-				maxTokens: serviceParams.maxTokens
-				// Add other expected generateText options here
+			expect(mockGenerateAnthropicText).toHaveBeenCalledTimes(1);
+			expect(mockGenerateAnthropicText).toHaveBeenCalledWith({
+				apiKey: 'mock-anthropic-key',
+				modelId: 'test-main-model',
+				maxTokens: 100,
+				temperature: 0.5,
+				messages: [
+					{ role: 'system', content: 'System' },
+					{ role: 'user', content: 'Test' }
+				]
 			});
-
-			// Verify result
-			expect(result).toEqual({ text: 'Mock response' });
+			// Verify other providers NOT called
+			expect(mockGeneratePerplexityText).not.toHaveBeenCalled();
 		});
 
-		test('should retry generateText on specific errors and succeed', async () => {
-			const mockClient = { type: 'mock-client' };
-			mockGetClient.mockResolvedValue(mockClient);
+		test('should fall back to fallback provider if main fails', async () => {
+			const mainError = new Error('Main provider failed');
+			mockGenerateAnthropicText
+				.mockRejectedValueOnce(mainError) // Main fails first
+				.mockResolvedValueOnce('Fallback provider response'); // Fallback succeeds
 
-			// Simulate failure then success
-			mockGenerateText
-				.mockRejectedValueOnce(new Error('Rate limit exceeded')) // Retryable error
-				.mockRejectedValueOnce(new Error('Service temporarily unavailable')) // Retryable error
-				.mockResolvedValue({ text: 'Success after retries' });
+			const params = { role: 'main', prompt: 'Fallback test' };
+			const result = await generateTextService(params);
 
-			const serviceParams = { role: 'main', prompt: 'Retry test' };
+			expect(result).toBe('Fallback provider response');
+			expect(mockGetMainProvider).toHaveBeenCalled();
+			expect(mockGetFallbackProvider).toHaveBeenCalled(); // Fallback was tried
+			expect(mockGenerateAnthropicText).toHaveBeenCalledTimes(2); // Called for main (fail) and fallback (success)
+			expect(mockGeneratePerplexityText).not.toHaveBeenCalled(); // Research not called
 
-			// Use jest.advanceTimersByTime for delays if implemented
-			// jest.useFakeTimers();
-
-			const result = await generateTextService(serviceParams);
-
-			expect(mockGetClient).toHaveBeenCalledTimes(1); // Client fetched once
-			expect(mockGenerateText).toHaveBeenCalledTimes(3); // Initial call + 2 retries
-			expect(result).toEqual({ text: 'Success after retries' });
-
-			// jest.useRealTimers(); // Restore real timers if faked
-		});
-
-		test('should fail after exhausting retries', async () => {
-			jest.setTimeout(15000); // Increase timeout further
-			const mockClient = { type: 'mock-client' };
-			mockGetClient.mockResolvedValue(mockClient);
-
-			// Simulate persistent failure
-			mockGenerateText.mockRejectedValue(new Error('Rate limit exceeded'));
-
-			const serviceParams = { role: 'main', prompt: 'Retry failure test' };
-
-			await expect(generateTextService(serviceParams)).rejects.toThrow(
-				'Rate limit exceeded'
-			);
-
-			// Sequence is main -> fallback -> research. It tries all client gets even if main fails.
-			expect(mockGetClient).toHaveBeenCalledTimes(3);
-			expect(mockGenerateText).toHaveBeenCalledTimes(3); // Initial call + max retries (assuming 2 retries)
-		});
-
-		test('should not retry on non-retryable errors', async () => {
-			const mockMainClient = { type: 'mock-main' };
-			const mockFallbackClient = { type: 'mock-fallback' };
-			const mockResearchClient = { type: 'mock-research' };
-
-			// Simulate a non-retryable error
-			const nonRetryableError = new Error('Invalid request parameters');
-			mockGenerateText.mockRejectedValueOnce(nonRetryableError); // Fail only once
-
-			const serviceParams = { role: 'main', prompt: 'No retry test' };
-
-			// Sequence is main -> fallback -> research. Even if main fails non-retryably,
-			// it will still try to get clients for fallback and research before throwing.
-			// Let's assume getClient succeeds for all three.
-			mockGetClient
-				.mockResolvedValueOnce(mockMainClient)
-				.mockResolvedValueOnce(mockFallbackClient)
-				.mockResolvedValueOnce(mockResearchClient);
-
-			await expect(generateTextService(serviceParams)).rejects.toThrow(
-				'Invalid request parameters'
-			);
-			expect(mockGetClient).toHaveBeenCalledTimes(3); // Tries main, fallback, research
-			expect(mockGenerateText).toHaveBeenCalledTimes(1); // Called only once for main
-		});
-
-		test('should log service entry, client info, attempts, and success', async () => {
-			const mockClient = {
-				type: 'mock-client',
-				provider: 'test-provider',
-				model: 'test-model'
-			}; // Add mock details
-			mockGetClient.mockResolvedValue(mockClient);
-			mockGenerateText.mockResolvedValue({ text: 'Success' });
-
-			const serviceParams = { role: 'main', prompt: 'Log test' };
-			await generateTextService(serviceParams);
-
-			// Check logs (in order)
-			expect(mockLog).toHaveBeenNthCalledWith(
-				1,
-				'info',
-				'generateTextService called',
-				{ role: 'main' }
-			);
-			expect(mockLog).toHaveBeenNthCalledWith(
-				2,
-				'info',
-				'New AI service call with role: main'
-			);
-			expect(mockLog).toHaveBeenNthCalledWith(
-				3,
-				'info',
-				'Retrieved AI client',
-				{
-					provider: mockClient.provider,
-					model: mockClient.model
-				}
-			);
-			expect(mockLog).toHaveBeenNthCalledWith(
-				4,
-				expect.stringMatching(
-					/Attempt 1\/3 calling generateText for role main/i
-				)
-			);
-			expect(mockLog).toHaveBeenNthCalledWith(
-				5,
-				'info',
-				'generateText succeeded for role main on attempt 1' // Original success log from helper
-			);
-			expect(mockLog).toHaveBeenNthCalledWith(
-				6,
-				'info',
-				'generateTextService succeeded using role: main' // Final success log from service
-			);
-
-			// Ensure no failure/retry logs were called
-			expect(mockLog).not.toHaveBeenCalledWith(
-				'warn',
-				expect.stringContaining('failed')
-			);
-			expect(mockLog).not.toHaveBeenCalledWith(
-				'info',
-				expect.stringContaining('Retrying')
-			);
-		});
-
-		test('should log retry attempts and eventual failure', async () => {
-			jest.setTimeout(15000); // Increase timeout further
-			const mockClient = {
-				type: 'mock-client',
-				provider: 'test-provider',
-				model: 'test-model'
-			};
-			const mockFallbackClient = { type: 'mock-fallback' };
-			const mockResearchClient = { type: 'mock-research' };
-			mockGetClient
-				.mockResolvedValueOnce(mockClient)
-				.mockResolvedValueOnce(mockFallbackClient)
-				.mockResolvedValueOnce(mockResearchClient);
-			mockGenerateText.mockRejectedValue(new Error('Rate limit'));
-
-			const serviceParams = { role: 'main', prompt: 'Log retry failure' };
-			await expect(generateTextService(serviceParams)).rejects.toThrow(
-				'Rate limit'
-			);
-
-			// Check logs
-			expect(mockLog).toHaveBeenCalledWith(
-				'info',
-				'generateTextService called',
-				{ role: 'main' }
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'info',
-				'New AI service call with role: main'
-			);
-			expect(mockLog).toHaveBeenCalledWith('info', 'Retrieved AI client', {
-				provider: mockClient.provider,
-				model: mockClient.model
-			});
-			expect(mockLog).toHaveBeenCalledWith(
-				expect.stringMatching(
-					/Attempt 1\/3 calling generateText for role main/i
-				)
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'warn',
-				'Attempt 1 failed for role main: Rate limit'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'info',
-				'Retryable error detected. Retrying in 1s...'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				expect.stringMatching(
-					/Attempt 2\/3 calling generateText for role main/i
-				)
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'warn',
-				'Attempt 2 failed for role main: Rate limit'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'info',
-				'Retryable error detected. Retrying in 2s...'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				expect.stringMatching(
-					/Attempt 3\/3 calling generateText for role main/i
-				)
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'warn',
-				'Attempt 3 failed for role main: Rate limit'
-			);
+			// Check log messages for fallback attempt
 			expect(mockLog).toHaveBeenCalledWith(
 				'error',
-				'Non-retryable error or max retries reached for role main (generateText).'
-			);
-			// Check subsequent fallback attempts (which also fail)
-			expect(mockLog).toHaveBeenCalledWith(
-				'info',
-				'New AI service call with role: fallback'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'error',
-				'Service call failed for role fallback: Rate limit'
+				expect.stringContaining('Service call failed for role main')
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',
-				'New AI service call with role: research'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'error',
-				'Service call failed for role research: Rate limit'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'error',
-				'All roles in the sequence [main,fallback,research] failed.'
+				expect.stringContaining('New AI service call with role: fallback')
 			);
 		});
 
-		test('should use fallback client after primary fails, then succeed', async () => {
-			const mockMainClient = { type: 'mock-client', provider: 'main-provider' };
-			const mockFallbackClient = {
-				type: 'mock-client',
-				provider: 'fallback-provider'
-			};
-
-			// Setup calls: main client fails, fallback succeeds
-			mockGetClient
-				.mockResolvedValueOnce(mockMainClient) // First call for 'main' role
-				.mockResolvedValueOnce(mockFallbackClient); // Second call for 'fallback' role
-			mockGenerateText
-				.mockRejectedValueOnce(new Error('Main Rate limit')) // Main attempt 1 fail
-				.mockRejectedValueOnce(new Error('Main Rate limit')) // Main attempt 2 fail
-				.mockRejectedValueOnce(new Error('Main Rate limit')) // Main attempt 3 fail
-				.mockResolvedValue({ text: 'Fallback success' }); // Fallback attempt 1 success
-
-			const serviceParams = { role: 'main', prompt: 'Fallback test' };
-			const result = await generateTextService(serviceParams);
-
-			// Check calls
-			expect(mockGetClient).toHaveBeenCalledTimes(2);
-			expect(mockGetClient).toHaveBeenNthCalledWith(
-				1,
-				'main',
-				undefined,
-				undefined
+		test('should fall back to research provider if main and fallback fail', async () => {
+			const mainError = new Error('Main failed');
+			const fallbackError = new Error('Fallback failed');
+			mockGenerateAnthropicText
+				.mockRejectedValueOnce(mainError)
+				.mockRejectedValueOnce(fallbackError);
+			mockGeneratePerplexityText.mockResolvedValue(
+				'Research provider response'
 			);
-			expect(mockGetClient).toHaveBeenNthCalledWith(
-				2,
-				'fallback',
-				undefined,
-				undefined
-			);
-			expect(mockGenerateText).toHaveBeenCalledTimes(4); // 3 main fails, 1 fallback success
-			expect(mockGenerateText).toHaveBeenNthCalledWith(4, {
-				model: mockFallbackClient,
-				prompt: 'Fallback test'
-			});
-			expect(result).toEqual({ text: 'Fallback success' });
 
-			// Check logs for fallback attempt
+			const params = { role: 'main', prompt: 'Research fallback test' };
+			const result = await generateTextService(params);
+
+			expect(result).toBe('Research provider response');
+			expect(mockGetMainProvider).toHaveBeenCalled();
+			expect(mockGetFallbackProvider).toHaveBeenCalled();
+			expect(mockGetResearchProvider).toHaveBeenCalled(); // Research was tried
+			expect(mockGenerateAnthropicText).toHaveBeenCalledTimes(2); // main, fallback
+			expect(mockGeneratePerplexityText).toHaveBeenCalledTimes(1); // research
+
 			expect(mockLog).toHaveBeenCalledWith(
 				'error',
-				'Service call failed for role main: Main Rate limit'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'warn',
-				'Retries exhausted or non-retryable error for role main, trying next role in sequence...'
+				expect.stringContaining('Service call failed for role fallback')
 			);
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',
-				'New AI service call with role: fallback'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'info',
-				'generateTextService succeeded using role: fallback'
+				expect.stringContaining('New AI service call with role: research')
 			);
 		});
 
-		test('should use research client after primary and fallback fail, then succeed', async () => {
-			const mockMainClient = { type: 'mock-client', provider: 'main-provider' };
-			const mockFallbackClient = {
-				type: 'mock-client',
-				provider: 'fallback-provider'
-			};
-			const mockResearchClient = {
-				type: 'mock-client',
-				provider: 'research-provider'
-			};
+		test('should throw error if all providers in sequence fail', async () => {
+			mockGenerateAnthropicText.mockRejectedValue(
+				new Error('Anthropic failed')
+			);
+			mockGeneratePerplexityText.mockRejectedValue(
+				new Error('Perplexity failed')
+			);
 
-			// Setup calls: main fails, fallback fails, research succeeds
-			mockGetClient
-				.mockResolvedValueOnce(mockMainClient)
-				.mockResolvedValueOnce(mockFallbackClient)
-				.mockResolvedValueOnce(mockResearchClient);
-			mockGenerateText
-				.mockRejectedValueOnce(new Error('Main fail 1')) // Main 1
-				.mockRejectedValueOnce(new Error('Main fail 2')) // Main 2
-				.mockRejectedValueOnce(new Error('Main fail 3')) // Main 3
-				.mockRejectedValueOnce(new Error('Fallback fail 1')) // Fallback 1
-				.mockRejectedValueOnce(new Error('Fallback fail 2')) // Fallback 2
-				.mockRejectedValueOnce(new Error('Fallback fail 3')) // Fallback 3
-				.mockResolvedValue({ text: 'Research success' }); // Research 1 success
+			const params = { role: 'main', prompt: 'All fail test' };
 
-			const serviceParams = { role: 'main', prompt: 'Research fallback test' };
-			const result = await generateTextService(serviceParams);
+			await expect(generateTextService(params)).rejects.toThrow(
+				'Perplexity failed' // Error from the last attempt (research)
+			);
 
-			// Check calls
-			expect(mockGetClient).toHaveBeenCalledTimes(3);
-			expect(mockGetClient).toHaveBeenNthCalledWith(
-				1,
-				'main',
-				undefined,
-				undefined
-			);
-			expect(mockGetClient).toHaveBeenNthCalledWith(
-				2,
-				'fallback',
-				undefined,
-				undefined
-			);
-			expect(mockGetClient).toHaveBeenNthCalledWith(
-				3,
-				'research',
-				undefined,
-				undefined
-			);
-			expect(mockGenerateText).toHaveBeenCalledTimes(7); // 3 main, 3 fallback, 1 research
-			expect(mockGenerateText).toHaveBeenNthCalledWith(7, {
-				model: mockResearchClient,
-				prompt: 'Research fallback test'
-			});
-			expect(result).toEqual({ text: 'Research success' });
+			expect(mockGenerateAnthropicText).toHaveBeenCalledTimes(2); // main, fallback
+			expect(mockGeneratePerplexityText).toHaveBeenCalledTimes(1); // research
+		});
 
-			// Check logs for fallback attempt
-			expect(mockLog).toHaveBeenCalledWith(
-				'error',
-				'Service call failed for role main: Main fail 3' // Error from last attempt for role
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'warn',
-				'Retries exhausted or non-retryable error for role main, trying next role in sequence...'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'error',
-				'Service call failed for role fallback: Fallback fail 3' // Error from last attempt for role
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'warn',
-				'Retries exhausted or non-retryable error for role fallback, trying next role in sequence...'
-			);
+		test('should handle retryable errors correctly', async () => {
+			const retryableError = new Error('Rate limit');
+			mockGenerateAnthropicText
+				.mockRejectedValueOnce(retryableError) // Fails once
+				.mockResolvedValue('Success after retry'); // Succeeds on retry
+
+			const params = { role: 'main', prompt: 'Retry success test' };
+			const result = await generateTextService(params);
+
+			expect(result).toBe('Success after retry');
+			expect(mockGenerateAnthropicText).toHaveBeenCalledTimes(2); // Initial + 1 retry
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',
-				'New AI service call with role: research'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'info',
-				'generateTextService succeeded using role: research'
+				expect.stringContaining('Retryable error detected. Retrying')
 			);
 		});
 
-		test('should fail if primary, fallback, and research clients all fail', async () => {
-			const mockMainClient = { type: 'mock-client', provider: 'main' };
-			const mockFallbackClient = { type: 'mock-client', provider: 'fallback' };
-			const mockResearchClient = { type: 'mock-client', provider: 'research' };
-
-			// Setup calls: all fail
-			mockGetClient
-				.mockResolvedValueOnce(mockMainClient)
-				.mockResolvedValueOnce(mockFallbackClient)
-				.mockResolvedValueOnce(mockResearchClient);
-			mockGenerateText
-				.mockRejectedValueOnce(new Error('Main fail 1'))
-				.mockRejectedValueOnce(new Error('Main fail 2'))
-				.mockRejectedValueOnce(new Error('Main fail 3'))
-				.mockRejectedValueOnce(new Error('Fallback fail 1'))
-				.mockRejectedValueOnce(new Error('Fallback fail 2'))
-				.mockRejectedValueOnce(new Error('Fallback fail 3'))
-				.mockRejectedValueOnce(new Error('Research fail 1'))
-				.mockRejectedValueOnce(new Error('Research fail 2'))
-				.mockRejectedValueOnce(new Error('Research fail 3')); // Last error
-
-			const serviceParams = { role: 'main', prompt: 'All fail test' };
-
-			await expect(generateTextService(serviceParams)).rejects.toThrow(
-				'Research fail 3' // Should throw the error from the LAST failed attempt
-			);
-
-			// Check calls
-			expect(mockGetClient).toHaveBeenCalledTimes(3);
-			expect(mockGenerateText).toHaveBeenCalledTimes(9); // 3 for each role
-			expect(mockLog).toHaveBeenCalledWith(
-				'error',
-				'All roles in the sequence [main,fallback,research] failed.'
-			);
-		});
-
-		test('should handle error getting fallback client', async () => {
-			const mockMainClient = { type: 'mock-client', provider: 'main' };
-
-			// Setup calls: main fails, getting fallback client fails, research succeeds (to test sequence)
-			const mockResearchClient = { type: 'mock-client', provider: 'research' };
-			mockGetClient
-				.mockResolvedValueOnce(mockMainClient)
-				.mockRejectedValueOnce(new Error('Cannot get fallback client'))
-				.mockResolvedValueOnce(mockResearchClient);
-
-			mockGenerateText
-				.mockRejectedValueOnce(new Error('Main fail 1'))
-				.mockRejectedValueOnce(new Error('Main fail 2'))
-				.mockRejectedValueOnce(new Error('Main fail 3')) // Main fails 3 times
-				.mockResolvedValue({ text: 'Research success' }); // Research succeeds on its 1st attempt
-
-			const serviceParams = { role: 'main', prompt: 'Fallback client error' };
-
-			// Should eventually succeed with research after main+fallback fail
-			const result = await generateTextService(serviceParams);
-			expect(result).toEqual({ text: 'Research success' });
-
-			expect(mockGetClient).toHaveBeenCalledTimes(3); // Tries main, fallback (fails), research
-			expect(mockGenerateText).toHaveBeenCalledTimes(4); // 3 main attempts, 1 research attempt
-			expect(mockLog).toHaveBeenCalledWith(
-				'error',
-				'Service call failed for role fallback: Cannot get fallback client'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'warn',
-				'Could not get client for role fallback, trying next role in sequence...'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'info',
-				'New AI service call with role: research'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'info',
-				expect.stringContaining(
-					'generateTextService succeeded using role: research'
-				)
-			);
-		});
-
-		test('should try research after fallback fails if initial role is fallback', async () => {
-			const mockFallbackClient = { type: 'mock-client', provider: 'fallback' };
-			const mockResearchClient = { type: 'mock-client', provider: 'research' };
-
-			mockGetClient
-				.mockResolvedValueOnce(mockFallbackClient)
-				.mockResolvedValueOnce(mockResearchClient);
-			mockGenerateText
-				.mockRejectedValueOnce(new Error('Fallback fail 1')) // Fallback 1
-				.mockRejectedValueOnce(new Error('Fallback fail 2')) // Fallback 2
-				.mockRejectedValueOnce(new Error('Fallback fail 3')) // Fallback 3
-				.mockResolvedValue({ text: 'Research success' }); // Research 1
-
-			const serviceParams = { role: 'fallback', prompt: 'Start with fallback' };
-			const result = await generateTextService(serviceParams);
-
-			expect(mockGetClient).toHaveBeenCalledTimes(2); // Fallback, Research
-			expect(mockGetClient).toHaveBeenNthCalledWith(
-				1,
-				'fallback',
-				undefined,
-				undefined
-			);
-			expect(mockGetClient).toHaveBeenNthCalledWith(
-				2,
-				'research',
-				undefined,
-				undefined
-			);
-			expect(mockGenerateText).toHaveBeenCalledTimes(4); // 3 fallback, 1 research
-			expect(result).toEqual({ text: 'Research success' });
-
-			// Check logs for sequence
-			expect(mockLog).toHaveBeenCalledWith(
-				'info',
-				'New AI service call with role: fallback'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'error',
-				'Service call failed for role fallback: Fallback fail 3'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'warn',
-				expect.stringContaining(
-					'Retries exhausted or non-retryable error for role fallback'
-				)
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'info',
-				'New AI service call with role: research'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'info',
-				expect.stringContaining(
-					'generateTextService succeeded using role: research'
-				)
-			);
-		});
-
-		test('should try fallback after research fails if initial role is research', async () => {
-			const mockResearchClient = { type: 'mock-client', provider: 'research' };
-			const mockFallbackClient = { type: 'mock-client', provider: 'fallback' };
-
-			mockGetClient
-				.mockResolvedValueOnce(mockResearchClient)
-				.mockResolvedValueOnce(mockFallbackClient);
-			mockGenerateText
-				.mockRejectedValueOnce(new Error('Research fail 1')) // Research 1
-				.mockRejectedValueOnce(new Error('Research fail 2')) // Research 2
-				.mockRejectedValueOnce(new Error('Research fail 3')) // Research 3
-				.mockResolvedValue({ text: 'Fallback success' }); // Fallback 1
-
-			const serviceParams = { role: 'research', prompt: 'Start with research' };
-			const result = await generateTextService(serviceParams);
-
-			expect(mockGetClient).toHaveBeenCalledTimes(2); // Research, Fallback
-			expect(mockGetClient).toHaveBeenNthCalledWith(
-				1,
-				'research',
-				undefined,
-				undefined
-			);
-			expect(mockGetClient).toHaveBeenNthCalledWith(
-				2,
-				'fallback',
-				undefined,
-				undefined
-			);
-			expect(mockGenerateText).toHaveBeenCalledTimes(4); // 3 research, 1 fallback
-			expect(result).toEqual({ text: 'Fallback success' });
-
-			// Check logs for sequence
-			expect(mockLog).toHaveBeenCalledWith(
-				'info',
-				'New AI service call with role: research'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'error',
-				'Service call failed for role research: Research fail 3'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'warn',
-				expect.stringContaining(
-					'Retries exhausted or non-retryable error for role research'
-				)
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'info',
-				'New AI service call with role: fallback'
-			);
-			expect(mockLog).toHaveBeenCalledWith(
-				'info',
-				expect.stringContaining(
-					'generateTextService succeeded using role: fallback'
-				)
-			);
-		});
-
-		test('should use default sequence and log warning for unknown initial role', async () => {
-			const mockMainClient = { type: 'mock-client', provider: 'main' };
-			const mockFallbackClient = { type: 'mock-client', provider: 'fallback' };
-
-			mockGetClient
-				.mockResolvedValueOnce(mockMainClient)
-				.mockResolvedValueOnce(mockFallbackClient);
-			mockGenerateText
-				.mockRejectedValueOnce(new Error('Main fail 1')) // Main 1
-				.mockRejectedValueOnce(new Error('Main fail 2')) // Main 2
-				.mockRejectedValueOnce(new Error('Main fail 3')) // Main 3
-				.mockResolvedValue({ text: 'Fallback success' }); // Fallback 1
-
-			const serviceParams = {
-				role: 'invalid-role',
-				prompt: 'Unknown role test'
-			};
-			const result = await generateTextService(serviceParams);
-
-			// Check warning log for unknown role
-			expect(mockLog).toHaveBeenCalledWith(
-				'warn',
-				'Unknown initial role: invalid-role. Defaulting to main -> fallback -> research sequence.'
-			);
-
-			// Check it followed the default main -> fallback sequence
-			expect(mockGetClient).toHaveBeenCalledTimes(2); // Main, Fallback
-			expect(mockGetClient).toHaveBeenNthCalledWith(
-				1,
-				'main',
-				undefined,
-				undefined
-			);
-			expect(mockGetClient).toHaveBeenNthCalledWith(
-				2,
-				'fallback',
-				undefined,
-				undefined
-			);
-			expect(mockGenerateText).toHaveBeenCalledTimes(4); // 3 main, 1 fallback
-			expect(result).toEqual({ text: 'Fallback success' });
-		});
+		// Add more tests for edge cases:
+		// - Missing API keys (should throw from _resolveApiKey)
+		// - Unsupported provider configured (should skip and log)
+		// - Missing provider/model config for a role (should skip and log)
+		// - Missing prompt
+		// - Different initial roles (research, fallback)
+		// - generateObjectService (mock schema, check object result)
+		// - streamTextService (more complex to test, might need stream helpers)
 	});
 });
