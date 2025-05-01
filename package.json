@@ -97,7 +97,6 @@
 		"@changesets/cli": "^2.28.1",
 		"@types/jest": "^29.5.14",
 		"boxen": "^8.0.1",
-		"chai": "^5.2.0",
 		"chalk": "^5.4.1",
 		"cli-table3": "^0.6.5",
 		"execa": "^8.0.1",
