@@ -43,13 +43,12 @@ const updatedTaskArraySchema = z.array(updatedTaskSchema);
  * Parses an array of task objects from AI's text response.
  * @param {string} text - Response text from AI.
  * @param {number} expectedCount - Expected number of tasks.
- * @param {Function | Object} logFn - The logging function (consoleLog) or MCP log object.
+ * @param {Function | Object} logFn - The logging function or MCP log object.
  * @param {boolean} isMCP - Flag indicating if logFn is MCP logger.
  * @returns {Array} Parsed and validated tasks array.
  * @throws {Error} If parsing or validation fails.
  */
 function parseUpdatedTasksFromText(text, expectedCount, logFn, isMCP) {
-	// Helper for consistent logging inside parser
 	const report = (level, ...args) => {
 		if (isMCP) {
 			if (typeof logFn[level] === 'function') logFn[level](...args);
@@ -70,32 +69,70 @@ function parseUpdatedTasksFromText(text, expectedCount, logFn, isMCP) {
 	let cleanedResponse = text.trim();
 	const originalResponseForDebug = cleanedResponse;
 
-	// Extract from Markdown code block first
+	// Step 1: Attempt to extract from Markdown code block first
 	const codeBlockMatch = cleanedResponse.match(
-		/```(?:json)?\s*([\s\S]*?)\s*```/
+		/```(?:json|javascript)?\s*([\s\S]*?)\s*```/i // Made case-insensitive, allow js
 	);
 	if (codeBlockMatch) {
 		cleanedResponse = codeBlockMatch[1].trim();
-		report('info', 'Extracted JSON content from Markdown code block.');
+		report('info', 'Extracted content from Markdown code block.');
 	} else {
-		// If no code block, find first '[' and last ']' for the array
+		// Step 2 (if no code block): Attempt to strip common language identifiers/intro text
+		// List common prefixes AI might add before JSON
+		const commonPrefixes = [
+			'json\n',
+			'javascript\n',
+			'python\n', // Language identifiers
+			'here are the updated tasks:',
+			'here is the updated json:', // Common intro phrases
+			'updated tasks:',
+			'updated json:',
+			'response:',
+			'output:'
+		];
+		let prefixFound = false;
+		for (const prefix of commonPrefixes) {
+			if (cleanedResponse.toLowerCase().startsWith(prefix)) {
+				cleanedResponse = cleanedResponse.substring(prefix.length).trim();
+				report('info', `Stripped prefix: "${prefix.trim()}"`);
+				prefixFound = true;
+				break; // Stop after finding the first matching prefix
+			}
+		}
+
+		// Step 3 (if no code block and no prefix stripped, or after stripping): Find first '[' and last ']'
+		// This helps if there's still leading/trailing text around the array
 		const firstBracket = cleanedResponse.indexOf('[');
 		const lastBracket = cleanedResponse.lastIndexOf(']');
 		if (firstBracket !== -1 && lastBracket > firstBracket) {
-			cleanedResponse = cleanedResponse.substring(
+			const extractedArray = cleanedResponse.substring(
 				firstBracket,
 				lastBracket + 1
 			);
-			report('info', 'Extracted content between first [ and last ].');
-		} else {
+			// Basic check to see if the extraction looks like JSON
+			if (extractedArray.length > 2) {
+				// More than just '[]'
+				cleanedResponse = extractedArray; // Use the extracted array content
+				if (!codeBlockMatch && !prefixFound) {
+					// Only log if we didn't already log extraction/stripping
+					report('info', 'Extracted content between first [ and last ].');
+				}
+			} else if (!codeBlockMatch && !prefixFound) {
+				report(
+					'warn',
+					'Found brackets "[]" but content seems empty or invalid. Proceeding with original cleaned response.'
+				);
+			}
+		} else if (!codeBlockMatch && !prefixFound) {
+			// Only warn if no other extraction method worked
 			report(
 				'warn',
-				'Response does not appear to contain a JSON array structure. Parsing raw response.'
+				'Response does not appear to contain a JSON code block, known prefix, or clear array structure ([...]). Attempting to parse raw response.'
 			);
 		}
 	}
 
-	// Attempt to parse the array
+	// Step 4: Attempt to parse the (hopefully) cleaned JSON array
 	let parsedTasks;
 	try {
 		parsedTasks = JSON.parse(cleanedResponse);
@@ -114,7 +151,7 @@ function parseUpdatedTasksFromText(text, expectedCount, logFn, isMCP) {
 		);
 	}
 
-	// Validate Array structure
+	// Step 5: Validate Array structure
 	if (!Array.isArray(parsedTasks)) {
 		report(
 			'error',
@@ -135,7 +172,7 @@ function parseUpdatedTasksFromText(text, expectedCount, logFn, isMCP) {
 		);
 	}
 
-	// Validate each task object using Zod
+	// Step 6: Validate each task object using Zod
 	const validationResult = updatedTaskArraySchema.safeParse(parsedTasks);
 	if (!validationResult.success) {
 		report('error', 'Parsed task array failed Zod validation.');

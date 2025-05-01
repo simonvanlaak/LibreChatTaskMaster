@@ -510,8 +510,6 @@ function detectCamelCaseFlags(args) {
 
 // Export all utility functions and configuration
 export {
-	// CONFIG, <-- Already Removed
-	// getConfig <-- Removing now
 	LOG_LEVELS,
 	log,
 	readJSON,
@@ -532,5 +530,4 @@ export {
 	resolveEnvVariable,
 	getTaskManager,
 	findProjectRoot
-	// getConfig <-- Removed
 };
