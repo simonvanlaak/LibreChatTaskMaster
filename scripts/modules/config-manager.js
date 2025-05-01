@@ -345,6 +345,12 @@ function getDefaultSubtasks(explicitRoot = null) {
 	return isNaN(parsedVal) ? DEFAULTS.global.defaultSubtasks : parsedVal;
 }
 
+function getDefaultNumTasks(explicitRoot = null) {
+	const val = getGlobalConfig(explicitRoot).defaultNumTasks;
+	const parsedVal = parseInt(val, 10);
+	return isNaN(parsedVal) ? DEFAULTS.global.defaultNumTasks : parsedVal;
+}
+
 function getDefaultPriority(explicitRoot = null) {
 	// Directly return value from config
 	return getGlobalConfig(explicitRoot).defaultPriority;
@@ -702,6 +708,7 @@ export {
 	// Global setting getters (No env var overrides)
 	getLogLevel,
 	getDebugFlag,
+	getDefaultNumTasks,
 	getDefaultSubtasks,
 	getDefaultPriority,
 	getProjectName,
