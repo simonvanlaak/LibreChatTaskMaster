@@ -5,7 +5,11 @@
 
 import { z } from 'zod';
 import path from 'path';
-import { handleApiResult, createErrorResponse } from './utils.js';
+import {
+	handleApiResult,
+	createErrorResponse,
+	withNormalizedProjectRoot
+} from './utils.js';
 import { parsePRDDirect } from '../core/task-master-core.js';
 
 /**
@@ -49,7 +53,7 @@ export function registerParsePRDTool(server) {
 				.string()
 				.describe('The directory of the project. Must be an absolute path.')
 		}),
-		execute: async (args, { log, session }) => {
+		execute: withNormalizedProjectRoot(async (args, { log, session }) => {
 			const toolName = 'parse_prd';
 			try {
 				log.info(
@@ -97,6 +101,6 @@ export function registerParsePRDTool(server) {
 					`Internal tool error (${toolName}): ${error.message}`
 				);
 			}
-		}
+		})
 	});
 }
