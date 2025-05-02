@@ -42,7 +42,9 @@ export function registerModelsTool(server) {
 			listAvailableModels: z
 				.boolean()
 				.optional()
-				.describe('List all available models not currently in use.'),
+				.describe(
+					'List all available models not currently in use. Input/output costs values are in dollars (3 is $3.00).'
+				),
 			projectRoot: z
 				.string()
 				.optional()

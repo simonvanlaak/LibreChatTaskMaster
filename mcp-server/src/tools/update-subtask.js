@@ -4,11 +4,13 @@
  */
 
 import { z } from 'zod';
-import { handleApiResult, createErrorResponse } from './utils.js';
+import {
+	handleApiResult,
+	createErrorResponse,
+	withNormalizedProjectRoot
+} from './utils.js';
 import { updateSubtaskByIdDirect } from '../core/task-master-core.js';
 import { findTasksJsonPath } from '../core/utils/path-utils.js';
-import path from 'path';
-import { withNormalizedProjectRoot } from '../core/utils/project-utils.js';
 
 /**
  * Register the update-subtask tool with the MCP server
