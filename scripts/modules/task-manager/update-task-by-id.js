@@ -380,7 +380,7 @@ The changes described in the prompt should be thoughtfully applied to make the t
 		let loadingIndicator = null;
 		if (outputFormat === 'text') {
 			loadingIndicator = startLoadingIndicator(
-				useResearch ? 'Updating task with research...' : 'Updating task...'
+				useResearch ? 'Updating task with research...\n' : 'Updating task...\n'
 			);
 		}
 
