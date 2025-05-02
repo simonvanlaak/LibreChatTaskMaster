@@ -6,7 +6,6 @@
 import { z } from 'zod';
 import {
 	createErrorResponse,
-	getProjectRootFromSession,
 	handleApiResult,
 	withNormalizedProjectRoot
 } from './utils.js';

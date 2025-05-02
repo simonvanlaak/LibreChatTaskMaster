@@ -7,7 +7,6 @@ import { z } from 'zod';
 import {
 	handleApiResult,
 	createErrorResponse,
-	getProjectRootFromSession,
 	withNormalizedProjectRoot
 } from './utils.js';
 import { complexityReportDirect } from '../core/task-master-core.js';

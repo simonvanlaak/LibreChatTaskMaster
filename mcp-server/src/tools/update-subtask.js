@@ -40,40 +40,26 @@ export function registerUpdateSubtaskTool(server) {
 			try {
 				log.info(`Updating subtask with args: ${JSON.stringify(args)}`);
 
-				// 1. Get Project Root
-				const rootFolder = args.projectRoot;
-				if (!rootFolder || !path.isAbsolute(rootFolder)) {
-					log.error(
-						`${toolName}: projectRoot is required and must be absolute.`
-					);
-					return createErrorResponse(
-						'projectRoot is required and must be absolute.'
-					);
-				}
-				log.info(`${toolName}: Project root: ${rootFolder}`);
-
-				// 2. Resolve Tasks Path
 				let tasksJsonPath;
 				try {
 					tasksJsonPath = findTasksJsonPath(
-						{ projectRoot: rootFolder, file: args.file },
+						{ projectRoot: args.projectRoot, file: args.file },
 						log
 					);
 				} catch (error) {
 					log.error(`${toolName}: Error finding tasks.json: ${error.message}`);
 					return createErrorResponse(
-						`Failed to find tasks.json within project root '${rootFolder}': ${error.message}`
+						`Failed to find tasks.json: ${error.message}`
 					);
 				}
 
-				// 3. Call Direct Function - Include projectRoot
 				const result = await updateSubtaskByIdDirect(
 					{
 						tasksJsonPath: tasksJsonPath,
 						id: args.id,
 						prompt: args.prompt,
 						research: args.research,
-						projectRoot: rootFolder
+						projectRoot: args.projectRoot
 					},
 					log,
 					{ session }

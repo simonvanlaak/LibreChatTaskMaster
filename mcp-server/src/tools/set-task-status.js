@@ -7,7 +7,6 @@ import { z } from 'zod';
 import {
 	handleApiResult,
 	createErrorResponse,
-	getProjectRootFromSession,
 	withNormalizedProjectRoot
 } from './utils.js';
 import { setTaskStatusDirect } from '../core/task-master-core.js';
@@ -37,7 +36,7 @@ export function registerSetTaskStatusTool(server) {
 				.string()
 				.describe('The directory of the project. Must be an absolute path.')
 		}),
-		execute: withNormalizedProjectRoot(async (args, { log, session }) => {
+		execute: withNormalizedProjectRoot(async (args, { log }) => {
 			try {
 				log.info(`Setting status of task(s) ${args.id} to: ${args.status}`);
 

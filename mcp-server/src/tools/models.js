@@ -5,7 +5,6 @@
 
 import { z } from 'zod';
 import {
-	getProjectRootFromSession,
 	handleApiResult,
 	createErrorResponse,
 	withNormalizedProjectRoot

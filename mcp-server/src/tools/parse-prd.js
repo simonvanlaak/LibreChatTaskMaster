@@ -60,35 +60,20 @@ export function registerParsePRDTool(server) {
 					`Executing ${toolName} tool with args: ${JSON.stringify(args)}`
 				);
 
-				// 1. Get Project Root
-				const rootFolder = args.projectRoot;
-				if (!rootFolder || !path.isAbsolute(rootFolder)) {
-					log.error(
-						`${toolName}: projectRoot is required and must be absolute.`
-					);
-					return createErrorResponse(
-						'projectRoot is required and must be absolute.'
-					);
-				}
-				log.info(`${toolName}: Project root: ${rootFolder}`);
-
-				// 2. Call Direct Function - Pass relevant args including projectRoot
-				// Path resolution (input/output) is handled within the direct function now
+				// Call Direct Function - Pass relevant args including projectRoot
 				const result = await parsePRDDirect(
 					{
-						// Pass args directly needed by the direct function
-						input: args.input, // Pass relative or absolute path
-						output: args.output, // Pass relative or absolute path
-						numTasks: args.numTasks, // Pass number (direct func handles default)
+						input: args.input,
+						output: args.output,
+						numTasks: args.numTasks,
 						force: args.force,
 						append: args.append,
-						projectRoot: rootFolder
+						projectRoot: args.projectRoot
 					},
 					log,
-					{ session } // Pass context object with session
+					{ session }
 				);
 
-				// 3. Handle Result
 				log.info(
 					`${toolName}: Direct function result: success=${result.success}`
 				);

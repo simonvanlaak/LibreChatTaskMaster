@@ -7,7 +7,6 @@ import { z } from 'zod';
 import {
 	handleApiResult,
 	createErrorResponse,
-	getProjectRootFromSession,
 	withNormalizedProjectRoot
 } from './utils.js';
 import { removeSubtaskDirect } from '../core/task-master-core.js';
@@ -47,7 +46,7 @@ export function registerRemoveSubtaskTool(server) {
 				.string()
 				.describe('The directory of the project. Must be an absolute path.')
 		}),
-		execute: withNormalizedProjectRoot(async (args, { log, session }) => {
+		execute: withNormalizedProjectRoot(async (args, { log }) => {
 			try {
 				log.info(`Removing subtask with args: ${JSON.stringify(args)}`);
 

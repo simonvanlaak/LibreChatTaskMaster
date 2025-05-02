@@ -7,7 +7,6 @@ import { z } from 'zod';
 import {
 	handleApiResult,
 	createErrorResponse,
-	getProjectRootFromSession,
 	withNormalizedProjectRoot
 } from './utils.js';
 import { removeTaskDirect } from '../core/task-master-core.js';
@@ -36,7 +35,7 @@ export function registerRemoveTaskTool(server) {
 				.optional()
 				.describe('Whether to skip confirmation prompt (default: false)')
 		}),
-		execute: withNormalizedProjectRoot(async (args, { log, session }) => {
+		execute: withNormalizedProjectRoot(async (args, { log }) => {
 			try {
 				log.info(`Removing task(s) with ID(s): ${args.id}`);
 
