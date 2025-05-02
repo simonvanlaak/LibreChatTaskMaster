@@ -7,7 +7,6 @@ import { z } from 'zod';
 import {
 	handleApiResult,
 	createErrorResponse,
-	getProjectRootFromSession,
 	withNormalizedProjectRoot
 } from './utils.js';
 import { nextTaskDirect } from '../core/task-master-core.js';
