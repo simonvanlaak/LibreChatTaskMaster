@@ -23,7 +23,7 @@ import { findTasksJsonPath } from '../utils/path-utils.js';
  * @param {Object} context - Context object containing session data.
  * @returns {Promise<Object>} - Result object with success status and data/error information.
  */
-export async function showTaskDirect(args, log, context = {}) {
+export async function showTaskDirect(args, log) {
 	// Destructure session from context if needed later, otherwise ignore
 	// const { session } = context;
 	// Destructure projectRoot and other args. projectRoot is assumed normalized.

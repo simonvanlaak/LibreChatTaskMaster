@@ -57,7 +57,7 @@ export function registerShowTaskTool(server) {
 					'Absolute path to the project root directory (Optional, usually from session)'
 				)
 		}),
-		execute: withNormalizedProjectRoot(async (args, { log, session }) => {
+		execute: withNormalizedProjectRoot(async (args, { log }) => {
 			const { id, file, status, projectRoot } = args;
 
 			try {
@@ -88,8 +88,7 @@ export function registerShowTaskTool(server) {
 						status: status,
 						projectRoot: projectRoot
 					},
-					log,
-					{ session }
+					log
 				);
 
 				if (result.success) {

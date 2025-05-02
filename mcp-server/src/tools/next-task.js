@@ -7,7 +7,8 @@ import { z } from 'zod';
 import {
 	handleApiResult,
 	createErrorResponse,
-	getProjectRootFromSession
+	getProjectRootFromSession,
+	withNormalizedProjectRoot
 } from './utils.js';
 import { nextTaskDirect } from '../core/task-master-core.js';
 import { findTasksJsonPath } from '../core/utils/path-utils.js';
@@ -27,7 +28,7 @@ export function registerNextTaskTool(server) {
 				.string()
 				.describe('The directory of the project. Must be an absolute path.')
 		}),
-		execute: async (args, { log, session }) => {
+		execute: withNormalizedProjectRoot(async (args, { log, session }) => {
 			try {
 				log.info(`Finding next task with args: ${JSON.stringify(args)}`);
 
@@ -80,6 +81,6 @@ export function registerNextTaskTool(server) {
 				log.error(`Error in nextTask tool: ${error.message}`);
 				return createErrorResponse(error.message);
 			}
-		}
+		})
 	});
 }
