@@ -180,9 +180,9 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 
 	// Map template names to their actual source paths
 	switch (templateName) {
-		case 'scripts_README.md':
-			sourcePath = path.join(__dirname, '..', 'assets', 'scripts_README.md');
-			break;
+		// case 'scripts_README.md':
+		// 	sourcePath = path.join(__dirname, '..', 'assets', 'scripts_README.md');
+		// 	break;
 		case 'dev_workflow.mdc':
 			sourcePath = path.join(
 				__dirname,
@@ -219,8 +219,8 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 				'self_improve.mdc'
 			);
 			break;
-		case 'README-task-master.md':
-			sourcePath = path.join(__dirname, '..', 'README-task-master.md');
+			// case 'README-task-master.md':
+			// 	sourcePath = path.join(__dirname, '..', 'README-task-master.md');
 			break;
 		case 'windsurfrules':
 			sourcePath = path.join(__dirname, '..', 'assets', '.windsurfrules');
@@ -351,18 +351,18 @@ async function initializeProject(options = {}) {
 	}
 
 	// Debug logging only if not in silent mode
-	if (!isSilentMode()) {
-		console.log('===== DEBUG: INITIALIZE PROJECT OPTIONS RECEIVED =====');
-		console.log('Full options object:', JSON.stringify(options));
-		console.log('options.yes:', options.yes);
-		console.log('==================================================');
-	}
+	// if (!isSilentMode()) {
+	// 	console.log('===== DEBUG: INITIALIZE PROJECT OPTIONS RECEIVED =====');
+	// 	console.log('Full options object:', JSON.stringify(options));
+	// 	console.log('options.yes:', options.yes);
+	// 	console.log('==================================================');
+	// }
 
 	const skipPrompts = options.yes || (options.name && options.description);
 
-	if (!isSilentMode()) {
-		console.log('Skip prompts determined:', skipPrompts);
-	}
+	// if (!isSilentMode()) {
+	// 	console.log('Skip prompts determined:', skipPrompts);
+	// }
 
 	if (skipPrompts) {
 		if (!isSilentMode()) {
@@ -565,12 +565,12 @@ function createProjectStructure(addAliases, dryRun) {
 		path.join(targetDir, 'scripts', 'example_prd.txt')
 	);
 
-	// Create main README.md
-	copyTemplateFile(
-		'README-task-master.md',
-		path.join(targetDir, 'README-task-master.md'),
-		replacements
-	);
+	// // Create main README.md
+	// copyTemplateFile(
+	// 	'README-task-master.md',
+	// 	path.join(targetDir, 'README-task-master.md'),
+	// 	replacements
+	// );
 
 	// Initialize git repository if git is available
 	try {
@@ -796,14 +796,14 @@ function setupMCPConfiguration(targetDir) {
 				(server) =>
 					server.args &&
 					server.args.some(
-						(arg) => typeof arg === 'string' && arg.includes('task-master-mcp')
+						(arg) => typeof arg === 'string' && arg.includes('task-master-ai')
 					)
 			);
 
 			if (hasMCPString) {
 				log(
 					'info',
-					'Found existing task-master-mcp configuration in mcp.json, leaving untouched'
+					'Found existing task-master-ai MCP configuration in mcp.json, leaving untouched'
 				);
 				return; // Exit early, don't modify the existing configuration
 			}
