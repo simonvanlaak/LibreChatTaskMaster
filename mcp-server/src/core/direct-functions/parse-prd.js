@@ -131,7 +131,7 @@ export async function parsePRDDirect(args, log, context = {}) {
 			inputPath,
 			outputPath,
 			numTasks,
-			{ session, mcpLog, projectRoot, useForce, useAppend },
+			{ session, mcpLog: logWrapper, projectRoot, useForce, useAppend },
 			'json'
 		);
 
