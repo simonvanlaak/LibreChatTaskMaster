@@ -42,6 +42,8 @@ jobs:
 
       - name: Version RC packages
         run: |
+          git config user.name "GitHub Actions"
+          git config user.email "github-actions@example.com"
           npx changeset version
           git add .
           git commit -m "chore: rc version bump" || echo "No changes to commit"
