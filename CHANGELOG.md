@@ -1,5 +1,76 @@
 # task-master-ai
 
+## 0.13.1-rc.1
+
+### Patch Changes
+
+- Resolve all issues related to MCP
+
+## 0.13.0-rc.2
+
+### Patch Changes
+
+- Add src directory to exports
+
+## 0.13.0-rc.1
+
+### Patch Changes
+
+- 4cbfe82: Fix ERR_MODULE_NOT_FOUND when trying to run MCP Server
+
+## 0.13.0-rc.0
+
+### Minor Changes
+
+- ef782ff: feat(expand): Enhance `expand` and `expand-all` commands
+
+  - Integrate `task-complexity-report.json` to automatically determine the number of subtasks and use tailored prompts for expansion based on prior analysis. You no longer need to try copy-pasting the recommended prompt. If it exists, it will use it for you. You can just run `task-master update --id=[id of task] --research` and it will use that prompt automatically. No extra prompt needed.
+  - Change default behavior to _append_ new subtasks to existing ones. Use the `--force` flag to clear existing subtasks before expanding. This is helpful if you need to add more subtasks to a task but you want to do it by the batch from a given prompt. Use force if you want to start fresh with a task's subtasks.
+
+- 87d97bb: Adds support for the OpenRouter AI provider. Users can now configure models available through OpenRouter (requiring an `OPENROUTER_API_KEY`) via the `task-master models` command, granting access to a wide range of additional LLMs. - IMPORTANT FYI ABOUT OPENROUTER: Taskmaster relies on AI SDK, which itself relies on tool use. It looks like **free** models sometimes do not include tool use. For example, Gemini 2.5 pro (free) failed via OpenRouter (no tool use) but worked fine on the paid version of the model. Custom model support for Open Router is considered experimental and likely will not be further improved for some time.
+- 1ab836f: Adds model management and new configuration file .taskmasterconfig which houses the models used for main, research and fallback. Adds models command and setter flags. Adds a --setup flag with an interactive setup. We should be calling this during init. Shows a table of active and available models when models is called without flags. Includes SWE scores and token costs, which are manually entered into the supported_models.json, the new place where models are defined for support. Config-manager.js is the core module responsible for managing the new config."
+- c8722b0: Adds custom model ID support for Ollama and OpenRouter providers.
+  - Adds the `--ollama` and `--openrouter` flags to `task-master models --set-<role>` command to set models for those providers outside of the support models list.
+  - Updated `task-master models --setup` interactive mode with options to explicitly enter custom Ollama or OpenRouter model IDs.
+  - Implemented live validation against OpenRouter API (`/api/v1/models`) when setting a custom OpenRouter model ID (via flag or setup).
+  - Refined logic to prioritize explicit provider flags/choices over internal model list lookups in case of ID conflicts.
+  - Added warnings when setting custom/unvalidated models.
+  - We obviously don't recommend going with a custom, unproven model. If you do and find performance is good, please let us know so we can add it to the list of supported models.
+- 2517bc1: Integrate OpenAI as a new AI provider. - Enhance `models` command/tool to display API key status. - Implement model-specific `maxTokens` override based on `supported-models.json` to save you if you use an incorrect max token value.
+- 9a48278: Tweaks Perplexity AI calls for research mode to max out input tokens and get day-fresh information - Forces temp at 0.1 for highly deterministic output, no variations - Adds a system prompt to further improve the output - Correctly uses the maximum input tokens (8,719, used 8,700) for perplexity - Specificies to use a high degree of research across the web - Specifies to use information that is as fresh as today; this support stuff like capturing brand new announcements like new GPT models and being able to query for those in research. 🔥
+
+### Patch Changes
+
+- 842eaf7: - Add support for Google Gemini models via Vercel AI SDK integration.
+- ed79d4f: Add xAI provider and Grok models support
+- ad89253: Better support for file paths on Windows, Linux & WSL.
+
+  - Standardizes handling of different path formats (URI encoded, Windows, Linux, WSL).
+  - Ensures tools receive a clean, absolute path suitable for the server OS.
+  - Simplifies tool implementation by centralizing normalization logic.
+
+- 2acba94: Add integration for Roo Code
+- d63964a: Improved update-subtask - Now it has context about the parent task details - It also has context about the subtask before it and the subtask after it (if they exist) - Not passing all subtasks to stay token efficient
+- 5f504fa: Improve and adjust `init` command for robustness and updated dependencies.
+
+  - **Update Initialization Dependencies:** Ensure newly initialized projects (`task-master init`) include all required AI SDK dependencies (`@ai-sdk/*`, `ai`, provider wrappers) in their `package.json` for out-of-the-box AI feature compatibility. Remove unnecessary dependencies (e.g., `uuid`) from the init template.
+  - **Silence `npm install` during `init`:** Prevent `npm install` output from interfering with non-interactive/MCP initialization by suppressing its stdio in silent mode.
+  - **Improve Conditional Model Setup:** Reliably skip interactive `models --setup` during non-interactive `init` runs (e.g., `init -y` or MCP) by checking `isSilentMode()` instead of passing flags.
+  - **Refactor `init.js`:** Remove internal `isInteractive` flag logic.
+  - **Update `init` Instructions:** Tweak the "Getting Started" text displayed after `init`.
+  - **Fix MCP Server Launch:** Update `.cursor/mcp.json` template to use `node ./mcp-server/server.js` instead of `npx task-master-mcp`.
+  - **Update Default Model:** Change the default main model in the `.taskmasterconfig` template.
+
+- 96aeeff: Fixes an issue with add-task which did not use the manually defined properties and still needlessly hit the AI endpoint.
+- 5aea93d: Fixes an issue that prevented remove-subtask with comma separated tasks/subtasks from being deleted (only the first ID was being deleted). Closes #140
+- 66ac9ab: Improves next command to be subtask-aware - The logic for determining the "next task" (findNextTask function, used by task-master next and the next_task MCP tool) has been significantly improved. Previously, it only considered top-level tasks, making its recommendation less useful when a parent task containing subtasks was already marked 'in-progress'. - The updated logic now prioritizes finding the next available subtask within any 'in-progress' parent task, considering subtask dependencies and priority. - If no suitable subtask is found within active parent tasks, it falls back to recommending the next eligible top-level task based on the original criteria (status, dependencies, priority).
+
+  This change makes the next command much more relevant and helpful during the implementation phase of complex tasks.
+
+- ca7b045: Add `--status` flag to `show` command to filter displayed subtasks.
+- 5a2371b: Fix --task to --num-tasks in ui + related tests - issue #324
+- 6cb213e: Adds a 'models' CLI and MCP command to get the current model configuration, available models, and gives the ability to set main/research/fallback models." - In the CLI, `task-master models` shows the current models config. Using the `--setup` flag launches an interactive set up that allows you to easily select the models you want to use for each of the three roles. Use `q` during the interactive setup to cancel the setup. - In the MCP, responses are simplified in RESTful format (instead of the full CLI output). The agent can use the `models` tool with different arguments, including `listAvailableModels` to get available models. Run without arguments, it will return the current configuration. Arguments are available to set the model for each of the three roles. This allows you to manage Taskmaster AI providers and models directly from either the CLI or MCP or both. - Updated the CLI help menu when you run `task-master` to include missing commands and .taskmasterconfig information. - Adds `--research` flag to `add-task` so you can hit up Perplexity right from the add-task flow, rather than having to add a task and then update it.
+
 ## 0.12.1
 
 ### Patch Changes
