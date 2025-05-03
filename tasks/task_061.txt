@@ -1962,7 +1962,7 @@ Implementation notes:
 - This stricter approach enforces configuration-as-code principles, ensures reproducibility, and prevents configuration drift, aligning with modern best practices for immutable infrastructure and automated configuration management[2][4].
 </info added on 2025-04-22T02:41:51.174Z>
 
-## 31. Implement Integration Tests for Unified AI Service [pending]
+## 31. Implement Integration Tests for Unified AI Service [done]
 ### Dependencies: 61.18
 ### Description: Implement integration tests for `ai-services-unified.js`. These tests should verify the correct routing to different provider modules based on configuration and ensure the unified service functions (`generateTextService`, `generateObjectService`, etc.) work correctly when called from modules like `task-manager.js`. [Updated: 5/2/2025] [Updated: 5/2/2025] [Updated: 5/2/2025] [Updated: 5/2/2025]
 ### Details:
@@ -2586,7 +2586,7 @@ These enhancements ensure robust validation, unified service usage, and maintain
 ### Details:
 
 
-## 43. Remove all unnecessary console logs [pending]
+## 43. Remove all unnecessary console logs [done]
 ### Dependencies: None
 ### Description: 
 ### Details:

@@ -5,6 +5,47 @@ set -u
 # Prevent errors in pipelines from being masked.
 set -o pipefail
 
+# --- Default Settings ---
+run_verification_test=true
+
+# --- Argument Parsing ---
+# Simple loop to check for the skip flag
+# Note: This needs to happen *before* the main block piped to tee
+# if we want the decision logged early. Or handle args inside.
+# Let's handle it before for clarity.
+processed_args=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --skip-verification)
+      run_verification_test=false
+      echo "[INFO] Argument '--skip-verification' detected. Fallback verification will be skipped."
+      shift # Consume the flag
+      ;;
+    --analyze-log)
+      # Keep the analyze-log flag handling separate for now
+      # It exits early, so doesn't conflict with the main run flags
+      processed_args+=("$1")
+      if [[ $# -gt 1 ]]; then
+        processed_args+=("$2")
+        shift 2
+      else
+        shift 1
+      fi
+      ;;
+    *)
+      # Unknown argument, pass it along or handle error
+      # For now, just pass it along in case --analyze-log needs it later
+      processed_args+=("$1")
+      shift
+      ;;
+  esac
+done
+# Restore processed arguments ONLY if the array is not empty
+if [ ${#processed_args[@]} -gt 0 ]; then
+  set -- "${processed_args[@]}"
+fi
+
+
 # --- Configuration ---
 # Assumes script is run from the project root (claude-task-master)
 TASKMASTER_SOURCE_DIR="." # Current directory is the source
@@ -24,7 +65,7 @@ source "$TASKMASTER_SOURCE_DIR/tests/e2e/e2e_helpers.sh"
 export -f log_info log_success log_error log_step _format_duration _get_elapsed_time_for_log
 
 # --- Argument Parsing for Analysis-Only Mode ---
-# Check if the first argument is --analyze-log
+# This remains the same, as it exits early if matched
 if [ "$#" -ge 1 ] && [ "$1" == "--analyze-log" ]; then
   LOG_TO_ANALYZE=""
   # Check if a log file path was provided as the second argument
@@ -171,6 +212,13 @@ log_step() {
   # called *inside* this block depend on it. If not, it can be removed.
   start_time_for_helpers=$(date +%s) # Keep if needed by helpers called inside this block
 
+  # Log the verification decision
+  if [ "$run_verification_test" = true ]; then
+      log_info "Fallback verification test will be run as part of this E2E test."
+  else
+      log_info "Fallback verification test will be SKIPPED (--skip-verification flag detected)."
+  fi
+
   # --- Dependency Checks ---
   log_step "Checking for dependencies (jq)"
   if ! command -v jq &> /dev/null; then
@@ -305,29 +353,33 @@ log_step() {
   # === End Model Commands Test ===
 
   # === Fallback Model generateObjectService Verification ===
-  log_step "Starting Fallback Model (generateObjectService) Verification (Calls separate script)"
-  verification_script_path="$ORIGINAL_DIR/tests/e2e/run_fallback_verification.sh"
+  if [ "$run_verification_test" = true ]; then
+    log_step "Starting Fallback Model (generateObjectService) Verification (Calls separate script)"
+    verification_script_path="$ORIGINAL_DIR/tests/e2e/run_fallback_verification.sh"
 
-  if [ -x "$verification_script_path" ]; then
-      log_info "--- Executing Fallback Verification Script: $verification_script_path ---"
-      # Execute the script directly, allowing output to flow to tee
-      # Pass the current directory (the test run dir) as the argument
-      "$verification_script_path" "$(pwd)"
-      verification_exit_code=$? # Capture exit code immediately
-      log_info "--- Finished Fallback Verification Script Execution (Exit Code: $verification_exit_code) ---"
+    if [ -x "$verification_script_path" ]; then
+        log_info "--- Executing Fallback Verification Script: $verification_script_path ---"
+        # Execute the script directly, allowing output to flow to tee
+        # Pass the current directory (the test run dir) as the argument
+        "$verification_script_path" "$(pwd)"
+        verification_exit_code=$? # Capture exit code immediately
+        log_info "--- Finished Fallback Verification Script Execution (Exit Code: $verification_exit_code) ---"
 
-      # Log success/failure based on captured exit code
-      if [ $verification_exit_code -eq 0 ]; then
-          log_success "Fallback verification script reported success."
-      else
-          log_error "Fallback verification script reported FAILURE (Exit Code: $verification_exit_code)."
-          # Decide whether to exit the main script or just log the error
-          # exit 1 # Uncomment to make verification failure fatal
-      fi
+        # Log success/failure based on captured exit code
+        if [ $verification_exit_code -eq 0 ]; then
+            log_success "Fallback verification script reported success."
+        else
+            log_error "Fallback verification script reported FAILURE (Exit Code: $verification_exit_code)."
+            # Decide whether to exit the main script or just log the error
+            # exit 1 # Uncomment to make verification failure fatal
+        fi
+    else
+        log_error "Fallback verification script not found or not executable at $verification_script_path. Skipping verification."
+        # Decide whether to exit or continue
+        # exit 1
+    fi
   else
-      log_error "Fallback verification script not found or not executable at $verification_script_path. Skipping verification."
-      # Decide whether to exit or continue
-      # exit 1
+      log_info "Skipping Fallback Verification test as requested by flag."
   fi
   # === END Verification Section ===
 
