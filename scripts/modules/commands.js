@@ -514,15 +514,19 @@ function registerCommands(programInstance) {
 			const outputPath = options.output;
 			const force = options.force || false;
 			const append = options.append || false;
+			let useForce = false;
+			let useAppend = false;
 
 			// Helper function to check if tasks.json exists and confirm overwrite
 			async function confirmOverwriteIfNeeded() {
 				if (fs.existsSync(outputPath) && !force && !append) {
-					const shouldContinue = await confirmTaskOverwrite(outputPath);
-					if (!shouldContinue) {
-						console.log(chalk.yellow('Operation cancelled by user.'));
-						return false;
+					const overwrite = await confirmTaskOverwrite(outputPath); // Calls inquirer prompt
+					if (!overwrite) {
+						log('info', 'Operation cancelled.');
+						return false; // Exit if user selects 'N'
 					}
+					// If user confirms 'y', we should set useForce = true for the parsePRD call
+					useForce = true;
 				}
 				return true;
 			}
@@ -536,7 +540,10 @@ function registerCommands(programInstance) {
 					if (!(await confirmOverwriteIfNeeded())) return;
 
 					console.log(chalk.blue(`Generating ${numTasks} tasks...`));
-					await parsePRD(defaultPrdPath, outputPath, numTasks, { append });
+					await parsePRD(defaultPrdPath, outputPath, numTasks, {
+						useAppend,
+						useForce
+					});
 					return;
 				}
 

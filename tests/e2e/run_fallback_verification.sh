@@ -57,24 +57,19 @@ log_step() {
 # --- Signal Handling ---
 # Global variable to hold child PID
 child_pid=0
-# Keep track of the summary file for cleanup
-verification_summary_file="fallback_verification_summary.log" # Temp file in cwd
+# Use a persistent log file name
+PROGRESS_LOG_FILE="fallback_verification_progress.log"
 
 cleanup() {
     echo "" # Newline after ^C
-    log_error "Interrupt received. Cleaning up..."
+    log_error "Interrupt received. Cleaning up any running child process..."
     if [ "$child_pid" -ne 0 ]; then
         log_info "Killing child process (PID: $child_pid) and its group..."
-        # Kill the process group (timeout and task-master) - TERM first, then KILL
         kill -TERM -- "-$child_pid" 2>/dev/null || kill -KILL -- "-$child_pid" 2>/dev/null
-        child_pid=0 # Reset pid after attempting kill
+        child_pid=0
     fi
-    # Clean up temporary file if it exists
-    if [ -f "$verification_summary_file" ]; then
-        log_info "Removing temporary summary file: $verification_summary_file"
-        rm -f "$verification_summary_file"
-    fi
-    # Ensure script exits after cleanup
+    # DO NOT delete the progress log file on interrupt
+    log_info "Progress saved in: $PROGRESS_LOG_FILE"
     exit 130 # Exit with code indicating interrupt
 }
 
@@ -126,13 +121,10 @@ fi
 echo "[INFO] Now operating inside: $(pwd)"
 
 # --- Now we are inside the target run directory ---
-# Define overall_start_time and test_step_count *after* changing dir
 overall_start_time=$(date +%s)
-test_step_count=0 # Local step counter for this script
-
-# Log that helpers were sourced (now that functions are available)
-# No longer sourcing, just log start
+test_step_count=0
 log_info "Starting fallback verification script execution in $(pwd)"
+log_info "Progress will be logged to: $(pwd)/$PROGRESS_LOG_FILE"
 
 # --- Dependency Checks ---
 log_step "Checking for dependencies (jq) in verification script"
@@ -143,9 +135,9 @@ fi
 log_success "Dependency 'jq' found."
 
 # --- Verification Logic ---
-log_step "Starting Fallback Model (generateObjectService) Verification"
-# Initialise summary file (path defined earlier)
-echo "--- Fallback Verification Summary ---" > "$verification_summary_file"
+log_step "Starting/Resuming Fallback Model (generateObjectService) Verification"
+# Ensure progress log exists, create if not
+touch "$PROGRESS_LOG_FILE"
 
 # Ensure the supported models file exists (using absolute path)
 if [ ! -f "$SUPPORTED_MODELS_FILE" ]; then
@@ -166,36 +158,41 @@ if ! jq -e '.tasks[] | select(.id == 1) | .subtasks[] | select(.id == 1)' tasks/
 fi
 log_info "Subtask 1.1 found in $(pwd)/tasks/tasks.json, proceeding with verification."
 
-# Read providers and models using jq (using absolute path to models file)
+# Read providers and models using jq
 jq -c 'to_entries[] | .key as $provider | .value[] | select(.allowed_roles[]? == "fallback") | {provider: $provider, id: .id}' "$SUPPORTED_MODELS_FILE" | while IFS= read -r model_info; do
     provider=$(echo "$model_info" | jq -r '.provider')
     model_id=$(echo "$model_info" | jq -r '.id')
     flag="" # Default flag
+
+    # Check if already tested
+    # Use grep -Fq for fixed string and quiet mode
+    if grep -Fq "${provider},${model_id}," "$PROGRESS_LOG_FILE"; then
+        log_info "--- Skipping: $provider / $model_id (already tested, result in $PROGRESS_LOG_FILE) ---"
+        continue
+    fi
+
+    log_info "--- Verifying: $provider / $model_id ---"
 
     # Determine provider flag
     if [ "$provider" == "openrouter" ]; then
         flag="--openrouter"
     elif [ "$provider" == "ollama" ]; then
         flag="--ollama"
-    # Add elif for other providers requiring flags
     fi
 
-    log_info "--- Verifying: $provider / $model_id ---"
-
     # 1. Set the main model
-    # Ensure task-master command is available (might need linking if run totally standalone)
     if ! command -v task-master &> /dev/null; then
-        log_error "task-master command not found. Ensure it's linked globally or available in PATH."
-        # Attempt to link if possible? Risky. Better to instruct user.
+        log_error "task-master command not found."
         echo "[INSTRUCTION] Please run 'npm link task-master-ai' in the project root first."
         exit 1
     fi
     log_info "Setting main model to $model_id ${flag:+using flag $flag}..."
     set_model_cmd="task-master models --set-main \"$model_id\" $flag"
-    if ! eval $set_model_cmd > /dev/null 2>&1; then # Hide verbose output of models cmd
-        log_error "Failed to set main model for $provider / $model_id. Skipping."
-        echo "$provider,$model_id,SET_MODEL_FAILED" >> "$verification_summary_file"
-        continue
+    model_set_status="SUCCESS"
+    if ! eval $set_model_cmd > /dev/null 2>&1; then
+        log_error "Failed to set main model for $provider / $model_id. Skipping test."
+        echo "$provider,$model_id,SET_MODEL_FAILED" >> "$PROGRESS_LOG_FILE"
+        continue # Skip the actual test if setting fails
     fi
     log_info "Set main model ok."
 
@@ -203,69 +200,69 @@ jq -c 'to_entries[] | .key as $provider | .value[] | select(.allowed_roles[]? ==
     log_info "Running update-subtask --id=1.1 --prompt='Test generateObjectService' (timeout 120s)"
     update_subtask_output_file="update_subtask_raw_output_${provider}_${model_id//\//_}.log"
 
-    # Run timeout command in the background
     timeout 120s task-master update-subtask --id=1.1 --prompt="Simple test prompt to verify generateObjectService call." > "$update_subtask_output_file" 2>&1 &
-    child_pid=$! # Store the PID of the background process (timeout)
-
-    # Wait specifically for the child process PID
+    child_pid=$!
     wait "$child_pid"
     update_subtask_exit_code=$?
-    child_pid=0 # Reset child_pid after it finishes or is killed/interrupted
+    child_pid=0
 
-    # 3. Check for success
-    # SIGINT = 130 (128 + 2), SIGTERM = 143 (128 + 15)
-    # Check exit code AND grep for the success message in the output file
+    # 3. Check result and log persistently
+    result_status=""
     if [ $update_subtask_exit_code -eq 0 ] && grep -q "Successfully updated subtask #1.1" "$update_subtask_output_file"; then
-        # Success (Exit code 0 AND success message found)
         log_success "update-subtask succeeded for $provider / $model_id (Verified Output)."
-        echo "$provider,$model_id,SUCCESS" >> "$verification_summary_file"
+        result_status="SUCCESS"
     elif [ $update_subtask_exit_code -eq 124 ]; then
-        # Timeout
-         log_error "update-subtask TIMED OUT for $provider / $model_id. Check $update_subtask_output_file."
-         echo "$provider,$model_id,FAILED_TIMEOUT" >> "$verification_summary_file"
+        log_error "update-subtask TIMED OUT for $provider / $model_id. Check $update_subtask_output_file."
+        result_status="FAILED_TIMEOUT"
     elif [ $update_subtask_exit_code -eq 130 ] || [ $update_subtask_exit_code -eq 143 ]; then
-         # Interrupted by trap
          log_error "update-subtask INTERRUPTED for $provider / $model_id."
-         # Trap handler already exited the script. No need to write to summary.
-         # If we reach here unexpectedly, something is wrong with the trap.
-    else # Covers non-zero exit code OR zero exit code but missing success message
-        # Other failure
+         result_status="INTERRUPTED" # Record interruption
+         # Don't exit the loop, allow script to finish or be interrupted again
+    else
         log_error "update-subtask FAILED for $provider / $model_id (Exit Code: $update_subtask_exit_code). Check $update_subtask_output_file."
-        echo "$provider,$model_id,FAILED" >> "$verification_summary_file"
+        result_status="FAILED"
     fi
+
+    # Append result to the persistent log file
+    echo "$provider,$model_id,$result_status" >> "$PROGRESS_LOG_FILE"
 
 done # End of fallback verification loop
 
 # --- Generate Final Verification Report to STDOUT ---
+# Report reads from the persistent PROGRESS_LOG_FILE
 echo ""
 echo "--- Fallback Model Verification Report (via $0) ---"
 echo "Executed inside run directory: $(pwd)"
+echo "Progress log: $(pwd)/$PROGRESS_LOG_FILE"
 echo ""
 echo "Test Command: task-master update-subtask --id=1.1 --prompt=\"...\" (tests generateObjectService)"
 echo "Models were tested by setting them as the 'main' model temporarily."
-echo "Results based on exit code of the test command:"
+echo "Results based on exit code and output verification:"
 echo ""
 echo "Models CONFIRMED to support generateObjectService (Keep 'fallback' role):"
-awk -F',' '$3 == "SUCCESS" { print "- " $1 " / " $2 }' "$verification_summary_file" | sort
+awk -F',' '$3 == "SUCCESS" { print "- " $1 " / " $2 }' "$PROGRESS_LOG_FILE" | sort
 echo ""
-echo "Models FAILED generateObjectService test (Suggest REMOVING 'fallback' role from supported-models.json):"
-awk -F',' '$3 == "FAILED" { print "- " $1 " / " $2 }' "$verification_summary_file" | sort
+echo "Models FAILED generateObjectService test (Suggest REMOVING 'fallback' role):"
+awk -F',' '$3 == "FAILED" { print "- " $1 " / " $2 }' "$PROGRESS_LOG_FILE" | sort
 echo ""
-echo "Models TIMED OUT during generateObjectService test (Likely Failure - Suggest REMOVING 'fallback' role):"
-awk -F',' '$3 == "FAILED_TIMEOUT" { print "- " $1 " / " $2 }' "$verification_summary_file" | sort
+echo "Models TIMED OUT during test (Suggest REMOVING 'fallback' role):"
+awk -F',' '$3 == "FAILED_TIMEOUT" { print "- " $1 " / " $2 }' "$PROGRESS_LOG_FILE" | sort
 echo ""
-echo "Models where setting the model failed (Inconclusive - investigate separately):"
-awk -F',' '$3 == "SET_MODEL_FAILED" { print "- " $1 " / " $2 }' "$verification_summary_file" | sort
+echo "Models where setting the model failed (Inconclusive):"
+awk -F',' '$3 == "SET_MODEL_FAILED" { print "- " $1 " / " $2 }' "$PROGRESS_LOG_FILE" | sort
+echo ""
+echo "Models INTERRUPTED during test (Inconclusive - Rerun):"
+awk -F',' '$3 == "INTERRUPTED" { print "- " $1 " / " $2 }' "$PROGRESS_LOG_FILE" | sort
 echo ""
 echo "-------------------------------------------------------"
 echo ""
 
-# Clean up temporary summary file
-if [ -f "$verification_summary_file" ]; then
-    rm "$verification_summary_file"
-fi
+# Don't clean up the progress log
+# if [ -f "$PROGRESS_LOG_FILE" ]; then
+#     rm "$PROGRESS_LOG_FILE"
+# fi
 
-log_step "Finished Fallback Model (generateObjectService) Verification Script"
+log_info "Finished Fallback Model (generateObjectService) Verification Script"
 
 # Remove trap before exiting normally
 trap - INT TERM
