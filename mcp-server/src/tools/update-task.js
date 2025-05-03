@@ -7,7 +7,7 @@ import { z } from 'zod';
 import {
 	handleApiResult,
 	createErrorResponse,
-	getProjectRootFromSession
+	withNormalizedProjectRoot
 } from './utils.js';
 import { updateTaskByIdDirect } from '../core/task-master-core.js';
 import { findTasksJsonPath } from '../core/utils/path-utils.js';
@@ -23,7 +23,7 @@ export function registerUpdateTaskTool(server) {
 			'Updates a single task by ID with new information or context provided in the prompt.',
 		parameters: z.object({
 			id: z
-				.string()
+				.string() // ID can be number or string like "1.2"
 				.describe(
 					"ID of the task (e.g., '15') to update. Subtasks are supported using the update-subtask tool."
 				),
@@ -39,61 +39,53 @@ export function registerUpdateTaskTool(server) {
 				.string()
 				.describe('The directory of the project. Must be an absolute path.')
 		}),
-		execute: async (args, { log, session }) => {
+		execute: withNormalizedProjectRoot(async (args, { log, session }) => {
+			const toolName = 'update_task';
 			try {
-				log.info(`Updating task with args: ${JSON.stringify(args)}`);
+				log.info(
+					`Executing ${toolName} tool with args: ${JSON.stringify(args)}`
+				);
 
-				// Get project root from args or session
-				const rootFolder =
-					args.projectRoot || getProjectRootFromSession(session, log);
-
-				// Ensure project root was determined
-				if (!rootFolder) {
-					return createErrorResponse(
-						'Could not determine project root. Please provide it explicitly or ensure your session contains valid root information.'
-					);
-				}
-
-				// Resolve the path to tasks.json
 				let tasksJsonPath;
 				try {
 					tasksJsonPath = findTasksJsonPath(
-						{ projectRoot: rootFolder, file: args.file },
+						{ projectRoot: args.projectRoot, file: args.file },
 						log
 					);
+					log.info(`${toolName}: Resolved tasks path: ${tasksJsonPath}`);
 				} catch (error) {
-					log.error(`Error finding tasks.json: ${error.message}`);
+					log.error(`${toolName}: Error finding tasks.json: ${error.message}`);
 					return createErrorResponse(
 						`Failed to find tasks.json: ${error.message}`
 					);
 				}
 
+				// 3. Call Direct Function - Include projectRoot
 				const result = await updateTaskByIdDirect(
 					{
-						// Pass the explicitly resolved path
 						tasksJsonPath: tasksJsonPath,
-						// Pass other relevant args
 						id: args.id,
 						prompt: args.prompt,
-						research: args.research
+						research: args.research,
+						projectRoot: args.projectRoot
 					},
 					log,
 					{ session }
 				);
 
-				if (result.success) {
-					log.info(`Successfully updated task with ID ${args.id}`);
-				} else {
-					log.error(
-						`Failed to update task: ${result.error?.message || 'Unknown error'}`
-					);
-				}
-
+				// 4. Handle Result
+				log.info(
+					`${toolName}: Direct function result: success=${result.success}`
+				);
 				return handleApiResult(result, log, 'Error updating task');
 			} catch (error) {
-				log.error(`Error in update_task tool: ${error.message}`);
-				return createErrorResponse(error.message);
+				log.error(
+					`Critical error in ${toolName} tool execute: ${error.message}`
+				);
+				return createErrorResponse(
+					`Internal tool error (${toolName}): ${error.message}`
+				);
 			}
-		}
+		})
 	});
 }

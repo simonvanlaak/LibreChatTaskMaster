@@ -7,7 +7,7 @@ import { z } from 'zod';
 import {
 	handleApiResult,
 	createErrorResponse,
-	getProjectRootFromSession
+	withNormalizedProjectRoot
 } from './utils.js';
 import { showTaskDirect } from '../core/task-master-core.js';
 import { findTasksJsonPath } from '../core/utils/path-utils.js';
@@ -21,8 +21,10 @@ function processTaskResponse(data) {
 	if (!data) return data;
 
 	// If we have the expected structure with task and allTasks
-	if (data.task) {
-		// Return only the task object, removing the allTasks array
+	if (typeof data === 'object' && data !== null && data.id && data.title) {
+		// If the data itself looks like the task object, return it
+		return data;
+	} else if (data.task) {
 		return data.task;
 	}
 
@@ -40,46 +42,37 @@ export function registerShowTaskTool(server) {
 		description: 'Get detailed information about a specific task',
 		parameters: z.object({
 			id: z.string().describe('Task ID to get'),
-			file: z.string().optional().describe('Absolute path to the tasks file'),
+			status: z
+				.string()
+				.optional()
+				.describe("Filter subtasks by status (e.g., 'pending', 'done')"),
+			file: z
+				.string()
+				.optional()
+				.describe('Path to the tasks file relative to project root'),
 			projectRoot: z
 				.string()
-				.describe('The directory of the project. Must be an absolute path.')
+				.optional()
+				.describe(
+					'Absolute path to the project root directory (Optional, usually from session)'
+				)
 		}),
-		execute: async (args, { log, session }) => {
-			// Log the session right at the start of execute
-			log.info(
-				`Session object received in execute: ${JSON.stringify(session)}`
-			); // Use JSON.stringify for better visibility
+		execute: withNormalizedProjectRoot(async (args, { log }) => {
+			const { id, file, status, projectRoot } = args;
 
 			try {
-				log.info(`Getting task details for ID: ${args.id}`);
-
 				log.info(
-					`Session object received in execute: ${JSON.stringify(session)}`
-				); // Use JSON.stringify for better visibility
+					`Getting task details for ID: ${id}${status ? ` (filtering subtasks by status: ${status})` : ''} in root: ${projectRoot}`
+				);
 
-				// Get project root from args or session
-				const rootFolder =
-					args.projectRoot || getProjectRootFromSession(session, log);
-
-				// Ensure project root was determined
-				if (!rootFolder) {
-					return createErrorResponse(
-						'Could not determine project root. Please provide it explicitly or ensure your session contains valid root information.'
-					);
-				}
-
-				log.info(`Attempting to use project root: ${rootFolder}`); // Log the final resolved root
-
-				log.info(`Root folder: ${rootFolder}`); // Log the final resolved root
-
-				// Resolve the path to tasks.json
+				// Resolve the path to tasks.json using the NORMALIZED projectRoot from args
 				let tasksJsonPath;
 				try {
 					tasksJsonPath = findTasksJsonPath(
-						{ projectRoot: rootFolder, file: args.file },
+						{ projectRoot: projectRoot, file: file },
 						log
 					);
+					log.info(`Resolved tasks path: ${tasksJsonPath}`);
 				} catch (error) {
 					log.error(`Error finding tasks.json: ${error.message}`);
 					return createErrorResponse(
@@ -87,14 +80,13 @@ export function registerShowTaskTool(server) {
 					);
 				}
 
-				log.info(`Attempting to use tasks file path: ${tasksJsonPath}`);
-
+				// Call the direct function, passing the normalized projectRoot
 				const result = await showTaskDirect(
 					{
-						// Pass the explicitly resolved path
 						tasksJsonPath: tasksJsonPath,
-						// Pass other relevant args
-						id: args.id
+						id: id,
+						status: status,
+						projectRoot: projectRoot
 					},
 					log
 				);
@@ -107,7 +99,7 @@ export function registerShowTaskTool(server) {
 					log.error(`Failed to get task: ${result.error.message}`);
 				}
 
-				// Use our custom processor function to remove allTasks from the response
+				// Use our custom processor function
 				return handleApiResult(
 					result,
 					log,
@@ -115,9 +107,9 @@ export function registerShowTaskTool(server) {
 					processTaskResponse
 				);
 			} catch (error) {
-				log.error(`Error in get-task tool: ${error.message}\n${error.stack}`); // Add stack trace
+				log.error(`Error in get-task tool: ${error.message}\n${error.stack}`);
 				return createErrorResponse(`Failed to get task: ${error.message}`);
 			}
-		}
+		})
 	});
 }

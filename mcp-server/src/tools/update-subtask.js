@@ -7,7 +7,7 @@ import { z } from 'zod';
 import {
 	handleApiResult,
 	createErrorResponse,
-	getProjectRootFromSession
+	withNormalizedProjectRoot
 } from './utils.js';
 import { updateSubtaskByIdDirect } from '../core/task-master-core.js';
 import { findTasksJsonPath } from '../core/utils/path-utils.js';
@@ -37,30 +37,19 @@ export function registerUpdateSubtaskTool(server) {
 				.string()
 				.describe('The directory of the project. Must be an absolute path.')
 		}),
-		execute: async (args, { log, session }) => {
+		execute: withNormalizedProjectRoot(async (args, { log, session }) => {
+			const toolName = 'update_subtask';
 			try {
 				log.info(`Updating subtask with args: ${JSON.stringify(args)}`);
 
-				// Get project root from args or session
-				const rootFolder =
-					args.projectRoot || getProjectRootFromSession(session, log);
-
-				// Ensure project root was determined
-				if (!rootFolder) {
-					return createErrorResponse(
-						'Could not determine project root. Please provide it explicitly or ensure your session contains valid root information.'
-					);
-				}
-
-				// Resolve the path to tasks.json
 				let tasksJsonPath;
 				try {
 					tasksJsonPath = findTasksJsonPath(
-						{ projectRoot: rootFolder, file: args.file },
+						{ projectRoot: args.projectRoot, file: args.file },
 						log
 					);
 				} catch (error) {
-					log.error(`Error finding tasks.json: ${error.message}`);
+					log.error(`${toolName}: Error finding tasks.json: ${error.message}`);
 					return createErrorResponse(
 						`Failed to find tasks.json: ${error.message}`
 					);
@@ -68,12 +57,11 @@ export function registerUpdateSubtaskTool(server) {
 
 				const result = await updateSubtaskByIdDirect(
 					{
-						// Pass the explicitly resolved path
 						tasksJsonPath: tasksJsonPath,
-						// Pass other relevant args
 						id: args.id,
 						prompt: args.prompt,
-						research: args.research
+						research: args.research,
+						projectRoot: args.projectRoot
 					},
 					log,
 					{ session }
@@ -89,9 +77,13 @@ export function registerUpdateSubtaskTool(server) {
 
 				return handleApiResult(result, log, 'Error updating subtask');
 			} catch (error) {
-				log.error(`Error in update_subtask tool: ${error.message}`);
-				return createErrorResponse(error.message);
+				log.error(
+					`Critical error in ${toolName} tool execute: ${error.message}`
+				);
+				return createErrorResponse(
+					`Internal tool error (${toolName}): ${error.message}`
+				);
 			}
-		}
+		})
 	});
 }

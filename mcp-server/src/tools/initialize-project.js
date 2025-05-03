@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import {
-	createContentResponse,
 	createErrorResponse,
-	handleApiResult
+	handleApiResult,
+	withNormalizedProjectRoot
 } from './utils.js';
 import { initializeProjectDirect } from '../core/task-master-core.js';
 
@@ -37,18 +37,9 @@ export function registerInitializeProjectTool(server) {
 					'The root directory for the project. ALWAYS SET THIS TO THE PROJECT ROOT DIRECTORY. IF NOT SET, THE TOOL WILL NOT WORK.'
 				)
 		}),
-		execute: async (args, context) => {
+		execute: withNormalizedProjectRoot(async (args, context) => {
 			const { log } = context;
 			const session = context.session;
-
-			log.info(
-				'>>> Full Context Received by Tool:',
-				JSON.stringify(context, null, 2)
-			);
-			log.info(`Context received in tool function: ${context}`);
-			log.info(
-				`Session received in tool function: ${session ? session : 'undefined'}`
-			);
 
 			try {
 				log.info(
@@ -63,6 +54,6 @@ export function registerInitializeProjectTool(server) {
 				log.error(errorMessage, error);
 				return createErrorResponse(errorMessage, { details: error.stack });
 			}
-		}
+		})
 	});
 }
