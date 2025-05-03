@@ -2377,48 +2377,7 @@
       "dependencies": [],
       "priority": "medium",
       "details": "Implement a new 'plan' command that will append a structured implementation plan to existing tasks or subtasks. The implementation should:\n\n1. Accept an '--id' parameter that can reference either a task or subtask ID\n2. Determine whether the ID refers to a task or subtask and retrieve the appropriate content from tasks.json and/or individual task files\n3. Generate a step-by-step implementation plan using AI (Claude by default)\n4. Support a '--research' flag to use Perplexity instead of Claude when needed\n5. Format the generated plan within XML tags like `<implementation_plan as of timestamp>...</implementation_plan>`\n6. Append this plan to the implementation details section of the task/subtask\n7. Display a confirmation card indicating the implementation plan was successfully created\n\nThe implementation plan should be detailed and actionable, containing specific steps such as searching for files, creating new files, modifying existing files, etc. The goal is to frontload planning work into the task/subtask so execution can begin immediately.\n\nReference the existing 'update-subtask' command implementation as a starting point, as it uses a similar approach for appending content to tasks. Ensure proper error handling for cases where the specified ID doesn't exist or when API calls fail.",
-      "testStrategy": "Testing should verify:\n\n1. Command correctly identifies and retrieves content for both task and subtask IDs\n2. Implementation plans are properly generated and formatted with XML tags and timestamps\n3. Plans are correctly appended to the implementation details section without overwriting existing content\n4. The '--research' flag successfully switches the backend from Claude to Perplexity\n5. Appropriate error messages are displayed for invalid IDs or API failures\n6. Confirmation card is displayed after successful plan creation\n\nTest cases should include:\n- Running 'plan --id 123' on an existing task\n- Running 'plan --id 123.1' on an existing subtask\n- Running 'plan --id 123 --research' to test the Perplexity integration\n- Running 'plan --id 999' with a non-existent ID to verify error handling\n- Running the command on tasks with existing implementation plans to ensure proper appending\n\nManually review the quality of generated plans to ensure they provide actionable, step-by-step guidance that accurately reflects the task requirements.",
-      "subtasks": [
-        {
-          "id": 1,
-          "title": "Retrieve Task Content",
-          "description": "Fetch the content of the specified task from the task management system. This includes the task title, description, and any associated details.",
-          "dependencies": [],
-          "details": "Implement a function to retrieve task details based on a task ID. Handle cases where the task does not exist.",
-          "status": "in-progress"
-        },
-        {
-          "id": 2,
-          "title": "Generate Implementation Plan with AI",
-          "description": "Use an AI model (Claude or Perplexity) to generate an implementation plan based on the retrieved task content. The plan should outline the steps required to complete the task.",
-          "dependencies": [
-            1
-          ],
-          "details": "Implement logic to switch between Claude and Perplexity APIs. Handle API authentication and rate limiting. Prompt the AI model with the task content and request a detailed implementation plan.",
-          "status": "pending"
-        },
-        {
-          "id": 3,
-          "title": "Format Plan in XML",
-          "description": "Format the generated implementation plan within XML tags. Each step in the plan should be represented as an XML element with appropriate attributes.",
-          "dependencies": [
-            2,
-            "40.2"
-          ],
-          "details": "Define the XML schema for the implementation plan. Implement a function to convert the AI-generated plan into the defined XML format. Ensure proper XML syntax and validation.",
-          "status": "pending"
-        },
-        {
-          "id": 4,
-          "title": "Error Handling and Output",
-          "description": "Implement error handling for all steps, including API failures and XML formatting errors. Output the formatted XML plan to the console or a file.",
-          "dependencies": [
-            3
-          ],
-          "details": "Add try-except blocks to handle potential exceptions. Log errors for debugging. Provide informative error messages to the user. Output the XML plan in a user-friendly format.",
-          "status": "pending"
-        }
-      ]
+      "testStrategy": "Testing should verify:\n\n1. Command correctly identifies and retrieves content for both task and subtask IDs\n2. Implementation plans are properly generated and formatted with XML tags and timestamps\n3. Plans are correctly appended to the implementation details section without overwriting existing content\n4. The '--research' flag successfully switches the backend from Claude to Perplexity\n5. Appropriate error messages are displayed for invalid IDs or API failures\n6. Confirmation card is displayed after successful plan creation\n\nTest cases should include:\n- Running 'plan --id 123' on an existing task\n- Running 'plan --id 123.1' on an existing subtask\n- Running 'plan --id 123 --research' to test the Perplexity integration\n- Running 'plan --id 999' with a non-existent ID to verify error handling\n- Running the command on tasks with existing implementation plans to ensure proper appending\n\nManually review the quality of generated plans to ensure they provide actionable, step-by-step guidance that accurately reflects the task requirements."
     },
     {
       "id": 41,
