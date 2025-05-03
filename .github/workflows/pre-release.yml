@@ -36,7 +36,9 @@ jobs:
         timeout-minutes: 2
 
       - name: Enter RC mode
-        run: npx changeset pre enter rc
+        run: |
+          npx changeset pre exit || true
+          npx changeset pre enter rc
 
       - name: Version RC packages
         run: |
