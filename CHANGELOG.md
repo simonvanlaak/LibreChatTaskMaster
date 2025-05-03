@@ -1,5 +1,11 @@
 # task-master-ai
 
+## 0.13.1
+
+### Patch Changes
+
+- [#399](https://github.com/eyaltoledano/claude-task-master/pull/399) [`734a4fd`](https://github.com/eyaltoledano/claude-task-master/commit/734a4fdcfc89c2e089255618cf940561ad13a3c8) Thanks [@Crunchyman-ralph](https://github.com/Crunchyman-ralph)! - Fix ERR_MODULE_NOT_FOUND when trying to run MCP Server
+
 ## 0.13.0
 
 ### Minor Changes
