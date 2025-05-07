@@ -8,6 +8,29 @@ const mockGetResearchModelId = jest.fn();
 const mockGetFallbackProvider = jest.fn();
 const mockGetFallbackModelId = jest.fn();
 const mockGetParametersForRole = jest.fn();
+const mockGetUserId = jest.fn();
+
+// --- Mock MODEL_MAP Data ---
+// Provide a simplified structure sufficient for cost calculation tests
+const mockModelMap = {
+	anthropic: [
+		{
+			id: 'test-main-model',
+			cost_per_1m_tokens: { input: 3, output: 15, currency: 'USD' }
+		},
+		{
+			id: 'test-fallback-model',
+			cost_per_1m_tokens: { input: 3, output: 15, currency: 'USD' }
+		}
+	],
+	perplexity: [
+		{
+			id: 'test-research-model',
+			cost_per_1m_tokens: { input: 1, output: 1, currency: 'USD' }
+		}
+	]
+	// Add other providers/models if needed for specific tests
+};
 
 jest.unstable_mockModule('../../scripts/modules/config-manager.js', () => ({
 	getMainProvider: mockGetMainProvider,
@@ -16,7 +39,9 @@ jest.unstable_mockModule('../../scripts/modules/config-manager.js', () => ({
 	getResearchModelId: mockGetResearchModelId,
 	getFallbackProvider: mockGetFallbackProvider,
 	getFallbackModelId: mockGetFallbackModelId,
-	getParametersForRole: mockGetParametersForRole
+	getParametersForRole: mockGetParametersForRole,
+	getUserId: mockGetUserId,
+	MODEL_MAP: mockModelMap
 }));
 
 // Mock AI Provider Modules
@@ -44,10 +69,13 @@ jest.unstable_mockModule('../../src/ai-providers/perplexity.js', () => ({
 const mockLog = jest.fn();
 const mockResolveEnvVariable = jest.fn();
 const mockFindProjectRoot = jest.fn();
+const mockIsSilentMode = jest.fn();
+
 jest.unstable_mockModule('../../scripts/modules/utils.js', () => ({
 	log: mockLog,
 	resolveEnvVariable: mockResolveEnvVariable,
-	findProjectRoot: mockFindProjectRoot
+	findProjectRoot: mockFindProjectRoot,
+	isSilentMode: mockIsSilentMode
 }));
 
 // Import the module to test (AFTER mocks)
@@ -97,7 +125,8 @@ describe('Unified AI Services', () => {
 			};
 			const result = await generateTextService(params);
 
-			expect(result).toBe('Main provider response');
+			expect(result.mainResult).toBe('Main provider response');
+			expect(result).toHaveProperty('telemetryData');
 			expect(mockGetMainProvider).toHaveBeenCalledWith(fakeProjectRoot);
 			expect(mockGetMainModelId).toHaveBeenCalledWith(fakeProjectRoot);
 			expect(mockGetParametersForRole).toHaveBeenCalledWith(
@@ -137,7 +166,8 @@ describe('Unified AI Services', () => {
 			};
 			const result = await generateTextService(params);
 
-			expect(result).toBe('Fallback provider response');
+			expect(result.mainResult).toBe('Fallback provider response');
+			expect(result).toHaveProperty('telemetryData');
 			expect(mockGetMainProvider).toHaveBeenCalledWith(explicitRoot);
 			expect(mockGetFallbackProvider).toHaveBeenCalledWith(explicitRoot);
 			expect(mockGetParametersForRole).toHaveBeenCalledWith(
@@ -180,7 +210,8 @@ describe('Unified AI Services', () => {
 			const params = { role: 'main', prompt: 'Research fallback test' };
 			const result = await generateTextService(params);
 
-			expect(result).toBe('Research provider response');
+			expect(result.mainResult).toBe('Research provider response');
+			expect(result).toHaveProperty('telemetryData');
 			expect(mockGetMainProvider).toHaveBeenCalledWith(fakeProjectRoot);
 			expect(mockGetFallbackProvider).toHaveBeenCalledWith(fakeProjectRoot);
 			expect(mockGetResearchProvider).toHaveBeenCalledWith(fakeProjectRoot);
@@ -252,7 +283,8 @@ describe('Unified AI Services', () => {
 			const params = { role: 'main', prompt: 'Retry success test' };
 			const result = await generateTextService(params);
 
-			expect(result).toBe('Success after retry');
+			expect(result.mainResult).toBe('Success after retry');
+			expect(result).toHaveProperty('telemetryData');
 			expect(mockGenerateAnthropicText).toHaveBeenCalledTimes(2); // Initial + 1 retry
 			expect(mockLog).toHaveBeenCalledWith(
 				'info',

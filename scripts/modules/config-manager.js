@@ -691,8 +691,8 @@ export {
 	// Core config access
 	getConfig,
 	writeConfig,
-	ConfigurationError, // Export custom error type
-	isConfigFilePresent, // Add the new function export
+	ConfigurationError,
+	isConfigFilePresent,
 
 	// Validation
 	validateProvider,
