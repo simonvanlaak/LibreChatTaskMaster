@@ -516,8 +516,8 @@ function registerCommands(programInstance) {
 			const outputPath = options.output;
 			const force = options.force || false;
 			const append = options.append || false;
-			let useForce = false;
-			let useAppend = false;
+			let useForce = force;
+			let useAppend = append;
 
 			// Helper function to check if tasks.json exists and confirm overwrite
 			async function confirmOverwriteIfNeeded() {
@@ -547,8 +547,8 @@ function registerCommands(programInstance) {
 						console.log(chalk.blue(`Generating ${numTasks} tasks...`));
 						spinner = ora('Parsing PRD and generating tasks...').start();
 						await parsePRD(defaultPrdPath, outputPath, numTasks, {
-							useAppend,
-							useForce
+							append: useAppend, // Changed key from useAppend to append
+							force: useForce // Changed key from useForce to force
 						});
 						spinner.succeed('Tasks generated successfully!');
 						return;
@@ -609,8 +609,8 @@ function registerCommands(programInstance) {
 
 				spinner = ora('Parsing PRD and generating tasks...').start();
 				await parsePRD(inputFile, outputPath, numTasks, {
-					append: useAppend,
-					force: useForce
+					useAppend: useAppend,
+					useForce: useForce
 				});
 				spinner.succeed('Tasks generated successfully!');
 			} catch (error) {
