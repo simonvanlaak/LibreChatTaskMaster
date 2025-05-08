@@ -9,6 +9,7 @@ const mockGetFallbackProvider = jest.fn();
 const mockGetFallbackModelId = jest.fn();
 const mockGetParametersForRole = jest.fn();
 const mockGetUserId = jest.fn();
+const mockGetDebugFlag = jest.fn();
 
 // --- Mock MODEL_MAP Data ---
 // Provide a simplified structure sufficient for cost calculation tests
@@ -41,6 +42,7 @@ jest.unstable_mockModule('../../scripts/modules/config-manager.js', () => ({
 	getFallbackModelId: mockGetFallbackModelId,
 	getParametersForRole: mockGetParametersForRole,
 	getUserId: mockGetUserId,
+	getDebugFlag: mockGetDebugFlag,
 	MODEL_MAP: mockModelMap
 }));
 
@@ -70,12 +72,14 @@ const mockLog = jest.fn();
 const mockResolveEnvVariable = jest.fn();
 const mockFindProjectRoot = jest.fn();
 const mockIsSilentMode = jest.fn();
+const mockLogAiUsage = jest.fn();
 
 jest.unstable_mockModule('../../scripts/modules/utils.js', () => ({
 	log: mockLog,
 	resolveEnvVariable: mockResolveEnvVariable,
 	findProjectRoot: mockFindProjectRoot,
-	isSilentMode: mockIsSilentMode
+	isSilentMode: mockIsSilentMode,
+	logAiUsage: mockLogAiUsage
 }));
 
 // Import the module to test (AFTER mocks)
@@ -111,11 +115,16 @@ describe('Unified AI Services', () => {
 
 		// Set a default behavior for the new mock
 		mockFindProjectRoot.mockReturnValue(fakeProjectRoot);
+		mockGetDebugFlag.mockReturnValue(false);
+		mockGetUserId.mockReturnValue('test-user-id'); // Add default mock for getUserId
 	});
 
 	describe('generateTextService', () => {
 		test('should use main provider/model and succeed', async () => {
-			mockGenerateAnthropicText.mockResolvedValue('Main provider response');
+			mockGenerateAnthropicText.mockResolvedValue({
+				text: 'Main provider response',
+				usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 }
+			});
 
 			const params = {
 				role: 'main',
@@ -156,7 +165,10 @@ describe('Unified AI Services', () => {
 			const mainError = new Error('Main provider failed');
 			mockGenerateAnthropicText
 				.mockRejectedValueOnce(mainError)
-				.mockResolvedValueOnce('Fallback provider response');
+				.mockResolvedValueOnce({
+					text: 'Fallback provider response',
+					usage: { inputTokens: 15, outputTokens: 25, totalTokens: 40 }
+				});
 
 			const explicitRoot = '/explicit/test/root';
 			const params = {
@@ -203,9 +215,10 @@ describe('Unified AI Services', () => {
 			mockGenerateAnthropicText
 				.mockRejectedValueOnce(mainError)
 				.mockRejectedValueOnce(fallbackError);
-			mockGeneratePerplexityText.mockResolvedValue(
-				'Research provider response'
-			);
+			mockGeneratePerplexityText.mockResolvedValue({
+				text: 'Research provider response',
+				usage: { inputTokens: 20, outputTokens: 30, totalTokens: 50 }
+			});
 
 			const params = { role: 'main', prompt: 'Research fallback test' };
 			const result = await generateTextService(params);
@@ -278,7 +291,11 @@ describe('Unified AI Services', () => {
 			const retryableError = new Error('Rate limit');
 			mockGenerateAnthropicText
 				.mockRejectedValueOnce(retryableError) // Fails once
-				.mockResolvedValue('Success after retry'); // Succeeds on retry
+				.mockResolvedValueOnce({
+					// Succeeds on retry
+					text: 'Success after retry',
+					usage: { inputTokens: 5, outputTokens: 10, totalTokens: 15 }
+				});
 
 			const params = { role: 'main', prompt: 'Retry success test' };
 			const result = await generateTextService(params);
@@ -294,7 +311,10 @@ describe('Unified AI Services', () => {
 
 		test('should use default project root or handle null if findProjectRoot returns null', async () => {
 			mockFindProjectRoot.mockReturnValue(null); // Simulate not finding root
-			mockGenerateAnthropicText.mockResolvedValue('Response with no root');
+			mockGenerateAnthropicText.mockResolvedValue({
+				text: 'Response with no root',
+				usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 }
+			});
 
 			const params = { role: 'main', prompt: 'No root test' }; // No explicit root passed
 			await generateTextService(params);
