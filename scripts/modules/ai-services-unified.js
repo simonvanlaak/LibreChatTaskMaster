@@ -16,7 +16,8 @@ import {
 	getFallbackModelId,
 	getParametersForRole,
 	getUserId,
-	MODEL_MAP
+	MODEL_MAP,
+	getDebugFlag
 } from './config-manager.js';
 import { log, resolveEnvVariable, isSilentMode } from './utils.js';
 
@@ -298,12 +299,14 @@ async function _unifiedServiceRunner(serviceType, params) {
 		outputType,
 		...restApiParams
 	} = params;
-	log('info', `${serviceType}Service called`, {
-		role: initialRole,
-		commandName,
-		outputType,
-		projectRoot
-	});
+	if (getDebugFlag()) {
+		log('info', `${serviceType}Service called`, {
+			role: initialRole,
+			commandName,
+			outputType,
+			projectRoot
+		});
+	}
 
 	// Determine the effective project root (passed in or detected if needed by config getters)
 	const { findProjectRoot: detectProjectRoot } = await import('./utils.js'); // Dynamically import if needed
@@ -333,7 +336,7 @@ async function _unifiedServiceRunner(serviceType, params) {
 
 	for (const currentRole of sequence) {
 		let providerName, modelId, apiKey, roleParams, providerFnSet, providerApiFn;
-		let aiCallResult;
+		let providerResponse;
 		let telemetryData = null;
 
 		try {
@@ -456,7 +459,7 @@ async function _unifiedServiceRunner(serviceType, params) {
 			};
 
 			// 6. Attempt the call with retries
-			aiCallResult = await _attemptProviderCallWithRetries(
+			providerResponse = await _attemptProviderCallWithRetries(
 				providerApiFn,
 				callParams,
 				providerName,
@@ -464,36 +467,51 @@ async function _unifiedServiceRunner(serviceType, params) {
 				currentRole
 			);
 
-			log('info', `${serviceType}Service succeeded using role: ${currentRole}`);
-
 			// --- Log Telemetry & Capture Data ---
-			// TODO: Add telemetry logic gate in case user doesn't accept telemetry
-			if (userId && aiCallResult && aiCallResult.usage) {
+			// Use providerResponse which contains the usage data directly for text/object
+			if (userId && providerResponse && providerResponse.usage) {
 				try {
 					telemetryData = await logAiUsage({
 						userId,
 						commandName,
 						providerName,
 						modelId,
-						inputTokens: aiCallResult.usage.inputTokens,
-						outputTokens: aiCallResult.usage.outputTokens,
+						inputTokens: providerResponse.usage.inputTokens,
+						outputTokens: providerResponse.usage.outputTokens,
 						outputType
 					});
 				} catch (telemetryError) {
 					// logAiUsage already logs its own errors and returns null on failure
 					// No need to log again here, telemetryData will remain null
 				}
-			} else if (userId && aiCallResult && !aiCallResult.usage) {
+			} else if (userId && providerResponse && !providerResponse.usage) {
 				log(
 					'warn',
-					`Cannot log telemetry for ${commandName} (${providerName}/${modelId}): AI result missing 'usage' data.`
+					`Cannot log telemetry for ${commandName} (${providerName}/${modelId}): AI result missing 'usage' data. (May be expected for streams)`
 				);
 			}
 			// --- End Log Telemetry ---
 
-			// Return a composite object including the main AI result and telemetry data
+			// --- Extract the correct main result based on serviceType ---
+			let finalMainResult;
+			if (serviceType === 'generateText') {
+				finalMainResult = providerResponse.text;
+			} else if (serviceType === 'generateObject') {
+				finalMainResult = providerResponse.object;
+			} else if (serviceType === 'streamText') {
+				finalMainResult = providerResponse; // Return the whole stream object
+			} else {
+				log(
+					'error',
+					`Unknown serviceType in _unifiedServiceRunner: ${serviceType}`
+				);
+				finalMainResult = providerResponse; // Default to returning the whole object as fallback
+			}
+			// --- End Main Result Extraction ---
+
+			// Return a composite object including the extracted main result and telemetry data
 			return {
-				mainResult: aiCallResult,
+				mainResult: finalMainResult,
 				telemetryData: telemetryData
 			};
 		} catch (error) {
@@ -653,7 +671,9 @@ async function logAiUsage({
 			currency // Add currency to the telemetry data
 		};
 
-		log('info', 'AI Usage Telemetry:', telemetryData);
+		if (getDebugFlag()) {
+			log('info', 'AI Usage Telemetry:', telemetryData);
+		}
 
 		// TODO (Subtask 77.2): Send telemetryData securely to the external endpoint.
 
