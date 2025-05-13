@@ -9,7 +9,7 @@ import { generateText, streamText, generateObject } from 'ai'; // Import from ma
 import { log } from '../../scripts/modules/utils.js'; // Import logging utility
 
 // Consider making model configurable via config-manager.js later
-const DEFAULT_MODEL = 'gemini-2.0-pro'; // Or a suitable default
+const DEFAULT_MODEL = 'gemini-2.5-pro-exp-03-25'; // Or a suitable default
 const DEFAULT_TEMPERATURE = 0.2; // Or a suitable default
 
 /**
@@ -52,7 +52,15 @@ async function generateGoogleText({
 		});
 
 		// Assuming result structure provides text directly or within a property
-		return result.text; // Adjust based on actual SDK response
+		// return result.text; // Adjust based on actual SDK response
+		// Return both text and usage
+		return {
+			text: result.text,
+			usage: {
+				inputTokens: result.usage.promptTokens,
+				outputTokens: result.usage.completionTokens
+			}
+		};
 	} catch (error) {
 		log(
 			'error',
@@ -143,7 +151,7 @@ async function generateGoogleObject({
 		// const model = google.getGenerativeModel({ model: modelId }); // Incorrect model retrieval
 		const model = googleProvider(modelId); // Correct model retrieval
 
-		const { object } = await generateObject({
+		const result = await generateObject({
 			model, // Pass the model instance
 			schema,
 			messages,
@@ -154,7 +162,15 @@ async function generateGoogleObject({
 			// Check SDK docs if specific tool calling/JSON mode needs explicit setup.
 		});
 
-		return object; // Return the parsed object
+		// return object; // Return the parsed object
+		// Return both object and usage
+		return {
+			object: result.object,
+			usage: {
+				inputTokens: result.usage.promptTokens,
+				outputTokens: result.usage.completionTokens
+			}
+		};
 	} catch (error) {
 		log(
 			'error',
