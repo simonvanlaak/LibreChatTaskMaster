@@ -545,7 +545,7 @@ function registerCommands(programInstance) {
 						if (!(await confirmOverwriteIfNeeded())) return;
 
 						console.log(chalk.blue(`Generating ${numTasks} tasks...`));
-						spinner = ora('Parsing PRD and generating tasks...').start();
+						spinner = ora('Parsing PRD and generating tasks...\n').start();
 						await parsePRD(defaultPrdPath, outputPath, numTasks, {
 							append: useAppend, // Changed key from useAppend to append
 							force: useForce // Changed key from useForce to force
@@ -607,7 +607,7 @@ function registerCommands(programInstance) {
 					console.log(chalk.blue('Appending to existing tasks...'));
 				}
 
-				spinner = ora('Parsing PRD and generating tasks...').start();
+				spinner = ora('Parsing PRD and generating tasks...\n').start();
 				await parsePRD(inputFile, outputPath, numTasks, {
 					useAppend: useAppend,
 					useForce: useForce
