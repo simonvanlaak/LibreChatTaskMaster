@@ -31,7 +31,7 @@ function getClient(apiKey) {
  * @param {Array<object>} params.messages - The messages array (e.g., [{ role: 'user', content: '...' }]).
  * @param {number} [params.maxTokens] - Maximum tokens for the response.
  * @param {number} [params.temperature] - Temperature for generation.
- * @returns {Promise<string>} The generated text content.
+ * @returns {Promise<object>} The generated text content and usage.
  * @throws {Error} If the API call fails.
  */
 export async function generateXaiText({
@@ -54,7 +54,14 @@ export async function generateXaiText({
 			'debug',
 			`xAI generateText result received. Tokens: ${result.usage.completionTokens}/${result.usage.promptTokens}`
 		);
-		return result.text;
+		// Return text and usage
+		return {
+			text: result.text,
+			usage: {
+				inputTokens: result.usage.promptTokens,
+				outputTokens: result.usage.completionTokens
+			}
+		};
 	} catch (error) {
 		log('error', `xAI generateText failed: ${error.message}`);
 		throw error;
@@ -110,7 +117,7 @@ export async function streamXaiText({
  * @param {number} [params.maxTokens] - Maximum tokens for the response.
  * @param {number} [params.temperature] - Temperature for generation.
  * @param {number} [params.maxRetries] - Max retries for validation/generation.
- * @returns {Promise<object>} The generated object matching the schema.
+ * @returns {Promise<object>} The generated object matching the schema and its usage.
  * @throws {Error} If generation or validation fails.
  */
 export async function generateXaiObject({
@@ -137,7 +144,8 @@ export async function generateXaiObject({
 			messages: messages,
 			tool: {
 				name: objectName,
-				description: `Generate a ${objectName} based on the prompt.`
+				description: `Generate a ${objectName} based on the prompt.`,
+				parameters: schema
 			},
 			maxTokens: maxTokens,
 			temperature: temperature,
@@ -147,7 +155,14 @@ export async function generateXaiObject({
 			'debug',
 			`xAI generateObject result received. Tokens: ${result.usage.completionTokens}/${result.usage.promptTokens}`
 		);
-		return result.object;
+		// Return object and usage
+		return {
+			object: result.object,
+			usage: {
+				inputTokens: result.usage.promptTokens,
+				outputTokens: result.usage.completionTokens
+			}
+		};
 	} catch (error) {
 		log(
 			'error',
