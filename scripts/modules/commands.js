@@ -73,7 +73,7 @@ import {
 	getApiKeyStatusReport
 } from './task-manager/models.js';
 import { findProjectRoot } from './utils.js';
-
+import { getTaskMasterVersion } from '../../src/utils/getVersion.js';
 /**
  * Runs the interactive setup process for model configuration.
  * @param {string|null} projectRoot - The resolved project root directory.
@@ -1274,10 +1274,6 @@ function registerCommands(programInstance) {
 			'Implementation details (for manual task creation)'
 		)
 		.option(
-			'--test-strategy <testStrategy>',
-			'Test strategy (for manual task creation)'
-		)
-		.option(
 			'--dependencies <dependencies>',
 			'Comma-separated list of task IDs this task depends on'
 		)
@@ -1658,6 +1654,7 @@ function registerCommands(programInstance) {
 				}
 			} catch (error) {
 				console.error(chalk.red(`Error: ${error.message}`));
+				showAddSubtaskHelp();
 				process.exit(1);
 			}
 		})
@@ -2381,28 +2378,7 @@ function setupCLI() {
  */
 async function checkForUpdate() {
 	// Get current version from package.json ONLY
-	let currentVersion = 'unknown'; // Initialize with a default
-	try {
-		// Try to get the version from the installed package (if applicable) or current dir
-		let packageJsonPath = path.join(
-			process.cwd(),
-			'node_modules',
-			'task-master-ai',
-			'package.json'
-		);
-		// Fallback to current directory package.json if not found in node_modules
-		if (!fs.existsSync(packageJsonPath)) {
-			packageJsonPath = path.join(process.cwd(), 'package.json');
-		}
-
-		if (fs.existsSync(packageJsonPath)) {
-			const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-			currentVersion = packageJson.version;
-		}
-	} catch (error) {
-		// Silently fail and use default
-		log('debug', `Error reading current package version: ${error.message}`);
-	}
+	const currentVersion = getTaskMasterVersion();
 
 	return new Promise((resolve) => {
 		// Get the latest version from npm registry
