@@ -676,7 +676,25 @@ function isConfigFilePresent(explicitRoot = null) {
  */
 function getUserId(explicitRoot = null) {
 	const config = getConfig(explicitRoot);
-	return config?.global?.userId || null;
+	if (!config.global) {
+		config.global = {}; // Ensure global object exists
+	}
+	if (!config.global.userId) {
+		config.global.userId = '1234567890';
+		// Attempt to write the updated config.
+		// It's important that writeConfig correctly resolves the path
+		// using explicitRoot, similar to how getConfig does.
+		const success = writeConfig(config, explicitRoot);
+		if (!success) {
+			// Log an error or handle the failure to write,
+			// though for now, we'll proceed with the in-memory default.
+			log(
+				'warning',
+				'Failed to write updated configuration with new userId. Please let the developers know.'
+			);
+		}
+	}
+	return config.global.userId;
 }
 
 /**
