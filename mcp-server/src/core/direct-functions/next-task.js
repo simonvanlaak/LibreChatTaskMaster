@@ -5,7 +5,6 @@
 
 import { findNextTask } from '../../../../scripts/modules/task-manager.js';
 import { readJSON } from '../../../../scripts/modules/utils.js';
-import { getCachedOrExecute } from '../../tools/utils.js';
 import {
 	enableSilentMode,
 	disableSilentMode
@@ -34,9 +33,6 @@ export async function nextTaskDirect(args, log) {
 			fromCache: false
 		};
 	}
-
-	// Generate cache key using the provided task path
-	const cacheKey = `nextTask:${tasksJsonPath}`;
 
 	// Define the action function to be executed on cache miss
 	const coreNextTaskAction = async () => {
@@ -118,18 +114,11 @@ export async function nextTaskDirect(args, log) {
 
 	// Use the caching utility
 	try {
-		const result = await getCachedOrExecute({
-			cacheKey,
-			actionFn: coreNextTaskAction,
-			log
-		});
-		log.info(`nextTaskDirect completed. From cache: ${result.fromCache}`);
-		return result; // Returns { success, data/error, fromCache }
+		const result = await coreNextTaskAction();
+		log.info(`nextTaskDirect completed.`);
+		return result;
 	} catch (error) {
-		// Catch unexpected errors from getCachedOrExecute itself
-		log.error(
-			`Unexpected error during getCachedOrExecute for nextTask: ${error.message}`
-		);
+		log.error(`Unexpected error during nextTask: ${error.message}`);
 		return {
 			success: false,
 			error: {
