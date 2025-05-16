@@ -17,7 +17,8 @@ import {
 	getParametersForRole,
 	getUserId,
 	MODEL_MAP,
-	getDebugFlag
+	getDebugFlag,
+	getBaseUrlForRole
 } from './config-manager.js';
 import { log, resolveEnvVariable, isSilentMode } from './utils.js';
 
@@ -339,9 +340,15 @@ async function _unifiedServiceRunner(serviceType, params) {
 		'AI service call failed for all configured roles.';
 
 	for (const currentRole of sequence) {
-		let providerName, modelId, apiKey, roleParams, providerFnSet, providerApiFn;
-		let providerResponse;
-		let telemetryData = null;
+		let providerName,
+			modelId,
+			apiKey,
+			roleParams,
+			providerFnSet,
+			providerApiFn,
+			baseUrl,
+			providerResponse,
+			telemetryData = null;
 
 		try {
 			log('info', `New AI service call with role: ${currentRole}`);
@@ -382,6 +389,7 @@ async function _unifiedServiceRunner(serviceType, params) {
 
 			// Pass effectiveProjectRoot to getParametersForRole
 			roleParams = getParametersForRole(currentRole, effectiveProjectRoot);
+			baseUrl = getBaseUrlForRole(currentRole, effectiveProjectRoot);
 
 			// 2. Get Provider Function Set
 			providerFnSet = PROVIDER_FUNCTIONS[providerName?.toLowerCase()];
@@ -458,6 +466,7 @@ async function _unifiedServiceRunner(serviceType, params) {
 				maxTokens: roleParams.maxTokens,
 				temperature: roleParams.temperature,
 				messages,
+				baseUrl,
 				...(serviceType === 'generateObject' && { schema, objectName }),
 				...restApiParams
 			};

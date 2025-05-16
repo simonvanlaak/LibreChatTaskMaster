@@ -32,6 +32,7 @@ const mockModelMap = {
 	]
 	// Add other providers/models if needed for specific tests
 };
+const mockGetBaseUrlForRole = jest.fn();
 
 jest.unstable_mockModule('../../scripts/modules/config-manager.js', () => ({
 	getMainProvider: mockGetMainProvider,
@@ -43,7 +44,8 @@ jest.unstable_mockModule('../../scripts/modules/config-manager.js', () => ({
 	getParametersForRole: mockGetParametersForRole,
 	getUserId: mockGetUserId,
 	getDebugFlag: mockGetDebugFlag,
-	MODEL_MAP: mockModelMap
+	MODEL_MAP: mockModelMap,
+	getBaseUrlForRole: mockGetBaseUrlForRole
 }));
 
 // Mock AI Provider Modules
