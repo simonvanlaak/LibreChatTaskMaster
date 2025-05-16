@@ -18,7 +18,7 @@ import {
  */
 export async function listTasksDirect(args, log) {
 	// Destructure the explicit tasksJsonPath from args
-	const { tasksJsonPath, status, withSubtasks } = args;
+	const { tasksJsonPath, reportPath, status, withSubtasks } = args;
 
 	if (!tasksJsonPath) {
 		log.error('listTasksDirect called without tasksJsonPath');
@@ -49,6 +49,7 @@ export async function listTasksDirect(args, log) {
 			const resultData = listTasks(
 				tasksJsonPath,
 				statusFilter,
+				reportPath,
 				withSubtasksFilter,
 				'json'
 			);
@@ -63,6 +64,7 @@ export async function listTasksDirect(args, log) {
 					}
 				};
 			}
+
 			log.info(
 				`Core listTasks function retrieved ${resultData.tasks.length} tasks`
 			);

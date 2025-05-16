@@ -4,7 +4,10 @@
  */
 
 import { findNextTask } from '../../../../scripts/modules/task-manager.js';
-import { readJSON } from '../../../../scripts/modules/utils.js';
+import {
+	readJSON,
+	readComplexityReport
+} from '../../../../scripts/modules/utils.js';
 import {
 	enableSilentMode,
 	disableSilentMode
@@ -20,7 +23,7 @@ import {
  */
 export async function nextTaskDirect(args, log) {
 	// Destructure expected args
-	const { tasksJsonPath } = args;
+	const { tasksJsonPath, reportPath } = args;
 
 	if (!tasksJsonPath) {
 		log.error('nextTaskDirect called without tasksJsonPath');
@@ -55,8 +58,11 @@ export async function nextTaskDirect(args, log) {
 				};
 			}
 
+			// Read the complexity report
+			const complexityReport = readComplexityReport(reportPath);
+
 			// Find the next task
-			const nextTask = findNextTask(data.tasks);
+			const nextTask = findNextTask(data.tasks, complexityReport);
 
 			if (!nextTask) {
 				log.info(
