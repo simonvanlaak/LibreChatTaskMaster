@@ -623,7 +623,6 @@ export {
 	isSilentMode,
 	addComplexityToTask,
 	resolveEnvVariable,
-	getTaskManager,
 	findProjectRoot,
 	_aggregateTelemetry
 };
