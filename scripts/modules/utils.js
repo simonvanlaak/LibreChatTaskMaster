@@ -552,7 +552,7 @@ function detectCamelCaseFlags(args) {
  * @param {string} overallCommandName - The name for the aggregated command.
  * @returns {Object|null} Aggregated telemetry object or null if input is empty.
  */
-function _aggregateTelemetry(telemetryArray, overallCommandName) {
+function aggregateTelemetry(telemetryArray, overallCommandName) {
 	if (!telemetryArray || telemetryArray.length === 0) {
 		return null;
 	}
@@ -624,5 +624,5 @@ export {
 	addComplexityToTask,
 	resolveEnvVariable,
 	findProjectRoot,
-	_aggregateTelemetry
+	aggregateTelemetry
 };

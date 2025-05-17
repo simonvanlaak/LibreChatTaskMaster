@@ -6,7 +6,7 @@ import {
 } from '../ui.js';
 import expandTask from './expand-task.js';
 import { getDebugFlag } from '../config-manager.js';
-import { _aggregateTelemetry } from '../utils.js';
+import { aggregateTelemetry } from '../utils.js';
 import chalk from 'chalk';
 import boxen from 'boxen';
 
@@ -153,7 +153,7 @@ async function expandAllTasks(
 		);
 
 		// Aggregate the collected telemetry data
-		const aggregatedTelemetryData = _aggregateTelemetry(
+		const aggregatedTelemetryData = aggregateTelemetry(
 			allTelemetryData,
 			'expand-all-tasks'
 		);
