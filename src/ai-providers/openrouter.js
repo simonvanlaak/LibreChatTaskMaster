@@ -78,10 +78,16 @@ async function generateOpenRouterText({
 			}
 		};
 	} catch (error) {
-		log(
-			'error',
-			`OpenRouter generateText failed for model ${modelId}: ${error.message}`
-		);
+		let detailedMessage = `OpenRouter generateText failed for model ${modelId}: ${error.message}`;
+		if (error.cause) {
+			detailedMessage += `\n\nCause:\n\n ${typeof error.cause === 'string' ? error.cause : JSON.stringify(error.cause)}`;
+		}
+		// Vercel AI SDK sometimes wraps the actual API error response in error.data
+		if (error.data) {
+			detailedMessage += `\n\nData:\n\n ${JSON.stringify(error.data)}`;
+		}
+		// Log the original error object for full context if needed for deeper debugging
+		log('error', detailedMessage, { originalErrorObject: error });
 		throw error;
 	}
 }
@@ -127,10 +133,14 @@ async function streamOpenRouterText({
 		});
 		return stream;
 	} catch (error) {
-		log(
-			'error',
-			`OpenRouter streamText failed for model ${modelId}: ${error.message}`
-		);
+		let detailedMessage = `OpenRouter streamText failed for model ${modelId}: ${error.message}`;
+		if (error.cause) {
+			detailedMessage += `\n\nCause:\n\n ${typeof error.cause === 'string' ? error.cause : JSON.stringify(error.cause)}`;
+		}
+		if (error.data) {
+			detailedMessage += `\n\nData:\n\n ${JSON.stringify(error.data)}`;
+		}
+		log('error', detailedMessage, { originalErrorObject: error });
 		throw error;
 	}
 }
@@ -217,10 +227,14 @@ async function generateOpenRouterObject({
 			}
 		};
 	} catch (error) {
-		log(
-			'error',
-			`OpenRouter generateObject failed for model ${modelId}: ${error.message}`
-		);
+		let detailedMessage = `OpenRouter generateObject failed for model ${modelId}: ${error.message}`;
+		if (error.cause) {
+			detailedMessage += `\n\nCause:\n\n ${typeof error.cause === 'string' ? error.cause : JSON.stringify(error.cause)}`;
+		}
+		if (error.data) {
+			detailedMessage += `\n\nData:\n\n ${JSON.stringify(error.data)}`;
+		}
+		log('error', detailedMessage, { originalErrorObject: error });
 		throw error;
 	}
 }

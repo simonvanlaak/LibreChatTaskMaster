@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai'; // Using openai provider from Vercel AI SDK
-import { generateObject } from 'ai'; // Import necessary functions from 'ai'
+import { generateObject, generateText } from 'ai'; // Import necessary functions from 'ai'
 import { log } from '../../scripts/modules/utils.js';
 
 function getClient(apiKey, baseUrl) {
