@@ -48,8 +48,8 @@ const prdResponseSchema = z.object({
  * @param {string} tasksPath - Path to the tasks.json file
  * @param {number} numTasks - Number of tasks to generate
  * @param {Object} options - Additional options
- * @param {boolean} [options.useForce=false] - Whether to overwrite existing tasks.json.
- * @param {boolean} [options.useAppend=false] - Append to existing tasks file.
+ * @param {boolean} [options.force=false] - Whether to overwrite existing tasks.json.
+ * @param {boolean} [options.append=false] - Append to existing tasks file.
  * @param {Object} [options.reportProgress] - Function to report progress (optional, likely unused).
  * @param {Object} [options.mcpLog] - MCP logger object (optional).
  * @param {Object} [options.session] - Session object from MCP server (optional).
@@ -62,8 +62,8 @@ async function parsePRD(prdPath, tasksPath, numTasks, options = {}) {
 		mcpLog,
 		session,
 		projectRoot,
-		useForce = false,
-		useAppend = false
+		force = false,
+		append = false
 	} = options;
 	const isMCP = !!mcpLog;
 	const outputFormat = isMCP ? 'json' : 'text';
@@ -90,9 +90,7 @@ async function parsePRD(prdPath, tasksPath, numTasks, options = {}) {
 		}
 	};
 
-	report(
-		`Parsing PRD file: ${prdPath}, Force: ${useForce}, Append: ${useAppend}`
-	);
+	report(`Parsing PRD file: ${prdPath}, Force: ${force}, Append: ${append}`);
 
 	let existingTasks = [];
 	let nextId = 1;
@@ -101,7 +99,7 @@ async function parsePRD(prdPath, tasksPath, numTasks, options = {}) {
 	try {
 		// Handle file existence and overwrite/append logic
 		if (fs.existsSync(tasksPath)) {
-			if (useAppend) {
+			if (append) {
 				report(
 					`Append mode enabled. Reading existing tasks from ${tasksPath}`,
 					'info'
@@ -123,7 +121,7 @@ async function parsePRD(prdPath, tasksPath, numTasks, options = {}) {
 					);
 					existingTasks = []; // Reset if read fails
 				}
-			} else if (!useForce) {
+			} else if (!force) {
 				// Not appending and not forcing overwrite
 				const overwriteError = new Error(
 					`Output file ${tasksPath} already exists. Use --force to overwrite or --append.`
@@ -288,7 +286,7 @@ Guidelines:
 				);
 		});
 
-		const finalTasks = useAppend
+		const finalTasks = append
 			? [...existingTasks, ...processedNewTasks]
 			: processedNewTasks;
 		const outputData = { tasks: finalTasks };
@@ -296,7 +294,7 @@ Guidelines:
 		// Write the final tasks to the file
 		writeJSON(tasksPath, outputData);
 		report(
-			`Successfully ${useAppend ? 'appended' : 'generated'} ${processedNewTasks.length} tasks in ${tasksPath}`,
+			`Successfully ${append ? 'appended' : 'generated'} ${processedNewTasks.length} tasks in ${tasksPath}`,
 			'success'
 		);
 

@@ -6,28 +6,38 @@
 # It expects the project root path to be passed as the second argument.
 
 # --- New Function: extract_and_sum_cost ---
-# Takes a string containing command output and the current total cost.
-# Extracts costs (lines with "Cost: $X.YYYY USD" or "Total Cost: $X.YYYY USD")
-# from the output, sums them, and adds to the current total.
-# Returns the new total cost.
+# Takes a string containing command output.
+# Extracts costs (lines with "Est. Cost: $X.YYYYYY" or similar from telemetry output)
+# from the output, sums them, and adds them to the GLOBAL total_e2e_cost variable.
 extract_and_sum_cost() {
   local command_output="$1"
-  local current_total_cost="$2"
+  # Ensure total_e2e_cost is treated as a number, default to 0.0 if not set or invalid
+  if ! [[ "$total_e2e_cost" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+    total_e2e_cost="0.0"
+  fi
+
   local extracted_cost_sum="0.0"
 
-  # Grep for lines containing "Cost: $" or "Total Cost: $", then extract the numeric value.
-  # Handles cases like "Cost: $0.001234 USD" or "Total Cost: $0.001234 USD"
+  # Grep for lines containing "Est. Cost: $", then extract the numeric value.
+  # Example line: │     Est. Cost: $0.093549                       │
   # Accumulate all costs found in the command_output
   while IFS= read -r line; do
-    # Extract the numeric part after '$' and before ' USD'
-    cost_value=$(echo "$line" | grep -o -E '(\$ ?[0-9]+\.[0-9]+)' | sed 's/\$ //g' | sed 's/\$//g')
+    # Extract the numeric part after 'Est. Cost: $' and before any trailing spaces/chars
+    cost_value=$(echo "$line" | grep -o -E 'Est\. Cost: \$([0-9]+\.[0-9]+)' | sed -E 's/Est\. Cost: \$//g')
     if [[ -n "$cost_value" && "$cost_value" =~ ^[0-9]+\.[0-9]+$ ]]; then
+      # echo "[DEBUG] Found cost value: $cost_value in line: '$line'" # For debugging
       extracted_cost_sum=$(echo "$extracted_cost_sum + $cost_value" | bc)
+    # else # For debugging
+      # echo "[DEBUG] No valid cost value found or extracted in line: '$line' (extracted: '$cost_value')" # For debugging
     fi
-  done < <(echo "$command_output" | grep -E 'Cost: \$|Total Cost:         \$')
+  done < <(echo "$command_output" | grep -E 'Est\. Cost: \$')
 
-  new_total_cost=$(echo "$current_total_cost + $extracted_cost_sum" | bc)
-  echo "$new_total_cost"
+  # echo "[DEBUG] Extracted sum from this command output: $extracted_cost_sum" # For debugging
+  if (( $(echo "$extracted_cost_sum > 0" | bc -l) )); then
+    total_e2e_cost=$(echo "$total_e2e_cost + $extracted_cost_sum" | bc)
+    # echo "[DEBUG] Updated global total_e2e_cost: $total_e2e_cost" # For debugging
+  fi
+  # No echo here, the function modifies a global variable.
 }
 export -f extract_and_sum_cost # Export for use in other scripts if sourced
 
