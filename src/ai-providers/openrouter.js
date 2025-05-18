@@ -41,20 +41,53 @@ async function generateOpenRouterText({
 		const openrouter = getClient(apiKey, baseUrl);
 		const model = openrouter.chat(modelId); // Assuming chat model
 
-		const { text } = await generateText({
+		// Capture the full result from generateText
+		const result = await generateText({
 			model,
 			messages,
 			maxTokens,
 			temperature,
 			...rest // Pass any additional parameters
 		});
-		return text;
+
+		// Check if text and usage are present
+		if (!result || typeof result.text !== 'string') {
+			log(
+				'warn',
+				`OpenRouter generateText for model ${modelId} did not return expected text.`,
+				{ result }
+			);
+			throw new Error('Failed to extract text from OpenRouter response.');
+		}
+		if (!result.usage) {
+			log(
+				'warn',
+				`OpenRouter generateText for model ${modelId} did not return usage data.`,
+				{ result }
+			);
+			// Decide if this is critical. For now, let it pass but telemetry will be incomplete.
+		}
+
+		log('debug', `OpenRouter generateText completed for model ${modelId}`);
+		// Return text and usage
+		return {
+			text: result.text,
+			usage: {
+				inputTokens: result.usage.promptTokens,
+				outputTokens: result.usage.completionTokens
+			}
+		};
 	} catch (error) {
-		log(
-			'error',
-			`OpenRouter generateText failed for model ${modelId}: ${error.message}`
-		);
-		// Re-throw the error for the unified layer to handle retries/fallbacks
+		let detailedMessage = `OpenRouter generateText failed for model ${modelId}: ${error.message}`;
+		if (error.cause) {
+			detailedMessage += `\n\nCause:\n\n ${typeof error.cause === 'string' ? error.cause : JSON.stringify(error.cause)}`;
+		}
+		// Vercel AI SDK sometimes wraps the actual API error response in error.data
+		if (error.data) {
+			detailedMessage += `\n\nData:\n\n ${JSON.stringify(error.data)}`;
+		}
+		// Log the original error object for full context if needed for deeper debugging
+		log('error', detailedMessage, { originalErrorObject: error });
 		throw error;
 	}
 }
@@ -100,10 +133,14 @@ async function streamOpenRouterText({
 		});
 		return stream;
 	} catch (error) {
-		log(
-			'error',
-			`OpenRouter streamText failed for model ${modelId}: ${error.message}`
-		);
+		let detailedMessage = `OpenRouter streamText failed for model ${modelId}: ${error.message}`;
+		if (error.cause) {
+			detailedMessage += `\n\nCause:\n\n ${typeof error.cause === 'string' ? error.cause : JSON.stringify(error.cause)}`;
+		}
+		if (error.data) {
+			detailedMessage += `\n\nData:\n\n ${JSON.stringify(error.data)}`;
+		}
+		log('error', detailedMessage, { originalErrorObject: error });
 		throw error;
 	}
 }
@@ -146,12 +183,12 @@ async function generateOpenRouterObject({
 		const openrouter = getClient(apiKey, baseUrl);
 		const model = openrouter.chat(modelId);
 
-		const { object } = await generateObject({
+		// Capture the full result from generateObject
+		const result = await generateObject({
 			model,
 			schema,
-			mode: 'tool', // Standard mode for most object generation
+			mode: 'tool',
 			tool: {
-				// Define the tool based on the schema
 				name: objectName,
 				description: `Generate an object conforming to the ${objectName} schema.`,
 				parameters: schema
@@ -159,15 +196,45 @@ async function generateOpenRouterObject({
 			messages,
 			maxTokens,
 			temperature,
-			maxRetries, // Pass maxRetries if supported by generateObject
+			maxRetries,
 			...rest
 		});
-		return object;
+
+		// Check if object and usage are present
+		if (!result || typeof result.object === 'undefined') {
+			log(
+				'warn',
+				`OpenRouter generateObject for model ${modelId} did not return expected object.`,
+				{ result }
+			);
+			throw new Error('Failed to extract object from OpenRouter response.');
+		}
+		if (!result.usage) {
+			log(
+				'warn',
+				`OpenRouter generateObject for model ${modelId} did not return usage data.`,
+				{ result }
+			);
+		}
+
+		log('debug', `OpenRouter generateObject completed for model ${modelId}`);
+		// Return object and usage
+		return {
+			object: result.object,
+			usage: {
+				inputTokens: result.usage.promptTokens,
+				outputTokens: result.usage.completionTokens
+			}
+		};
 	} catch (error) {
-		log(
-			'error',
-			`OpenRouter generateObject failed for model ${modelId}: ${error.message}`
-		);
+		let detailedMessage = `OpenRouter generateObject failed for model ${modelId}: ${error.message}`;
+		if (error.cause) {
+			detailedMessage += `\n\nCause:\n\n ${typeof error.cause === 'string' ? error.cause : JSON.stringify(error.cause)}`;
+		}
+		if (error.data) {
+			detailedMessage += `\n\nData:\n\n ${JSON.stringify(error.data)}`;
+		}
+		log('error', detailedMessage, { originalErrorObject: error });
 		throw error;
 	}
 }
