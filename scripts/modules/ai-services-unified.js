@@ -28,6 +28,7 @@ import * as google from '../../src/ai-providers/google.js';
 import * as openai from '../../src/ai-providers/openai.js';
 import * as xai from '../../src/ai-providers/xai.js';
 import * as openrouter from '../../src/ai-providers/openrouter.js';
+import * as ollama from '../../src/ai-providers/ollama.js';
 // TODO: Import other provider modules when implemented (ollama, etc.)
 
 // Helper function to get cost for a specific model
@@ -96,6 +97,11 @@ const PROVIDER_FUNCTIONS = {
 		generateText: openrouter.generateOpenRouterText,
 		streamText: openrouter.streamOpenRouterText,
 		generateObject: openrouter.generateOpenRouterObject
+	},
+	ollama: {
+		generateText: ollama.generateOllamaText,
+		streamText: ollama.streamOllamaText,
+		generateObject: ollama.generateOllamaObject
 	}
 	// TODO: Add entries for ollama, etc. when implemented
 };
@@ -183,13 +189,9 @@ function _resolveApiKey(providerName, session, projectRoot = null) {
 		mistral: 'MISTRAL_API_KEY',
 		azure: 'AZURE_OPENAI_API_KEY',
 		openrouter: 'OPENROUTER_API_KEY',
-		xai: 'XAI_API_KEY'
+		xai: 'XAI_API_KEY',
+		ollama: 'OLLAMA_API_KEY'
 	};
-
-	// Double check this -- I have had to use an api key for ollama in the past
-	// if (providerName === 'ollama') {
-	// 	return null; // Ollama typically doesn't require an API key for basic setup
-	// }
 
 	const envVarName = keyMap[providerName];
 	if (!envVarName) {
@@ -199,6 +201,13 @@ function _resolveApiKey(providerName, session, projectRoot = null) {
 	}
 
 	const apiKey = resolveEnvVariable(envVarName, session, projectRoot);
+
+	// Special handling for Ollama - API key is optional
+	if (providerName === 'ollama') {
+		return apiKey || null;
+	}
+
+	// For all other providers, API key is required
 	if (!apiKey) {
 		throw new Error(
 			`Required API key ${envVarName} for provider '${providerName}' is not set in environment, session, or .env file.`

@@ -48,7 +48,8 @@ MCP (Model Control Protocol) provides the easiest way to get started with Task M
 				"MISTRAL_API_KEY": "YOUR_MISTRAL_KEY_HERE",
 				"OPENROUTER_API_KEY": "YOUR_OPENROUTER_KEY_HERE",
 				"XAI_API_KEY": "YOUR_XAI_KEY_HERE",
-				"AZURE_OPENAI_API_KEY": "YOUR_AZURE_KEY_HERE"
+				"AZURE_OPENAI_API_KEY": "YOUR_AZURE_KEY_HERE",
+				"OLLAMA_API_KEY": "YOUR_OLLAMA_API_KEY_HERE"
 			}
 		}
 	}
