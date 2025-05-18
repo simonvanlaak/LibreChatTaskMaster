@@ -199,7 +199,9 @@ function parseSubtasksFromText(
 		throw new Error('AI response text is empty after trimming.');
 	}
 
-	let jsonToParse = text.trim();
+	const originalTrimmedResponse = text.trim(); // Store the original trimmed response
+	let jsonToParse = originalTrimmedResponse; // Initialize jsonToParse with it
+
 	logger.debug(
 		`Original AI Response for parsing (full length: ${jsonToParse.length}): ${jsonToParse.substring(0, 1000)}...`
 	);
@@ -260,7 +262,7 @@ function parseSubtasksFromText(
 			`Simple parse failed: ${e.message}. Proceeding to advanced extraction logic.`
 		);
 		primaryParseAttemptFailed = true;
-		// jsonToParse remains originalResponseForDebug for the advanced logic
+		// jsonToParse is already originalTrimmedResponse if simple parse failed before modifying it for markdown
 	}
 
 	// --- Attempt 2: Advanced Extraction (if simple parse failed or produced wrong structure) ---
@@ -268,7 +270,7 @@ function parseSubtasksFromText(
 		// Ensure we try advanced if simple parse gave wrong structure
 		logger.debug('Attempting advanced extraction logic...');
 		// Reset jsonToParse to the original full trimmed response for advanced logic
-		jsonToParse = originalResponseForDebug;
+		jsonToParse = originalTrimmedResponse;
 
 		// (Insert the more complex extraction logic here - the one we worked on with:
 		//  - targetPattern = '{"subtasks":';
