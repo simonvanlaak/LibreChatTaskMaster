@@ -1,5 +1,23 @@
 # task-master-ai
 
+## 0.14.0-rc.1
+
+### Minor Changes
+
+- [#536](https://github.com/eyaltoledano/claude-task-master/pull/536) [`f4a83ec`](https://github.com/eyaltoledano/claude-task-master/commit/f4a83ec047b057196833e3a9b861d4bceaec805d) Thanks [@Crunchyman-ralph](https://github.com/Crunchyman-ralph)! - Add Ollama as a supported AI provider.
+
+  - You can now add it by running `task-master models --setup` and selecting it.
+  - Ollama is a local model provider, so no API key is required.
+  - Ollama models are available at `http://localhost:11434/api` by default.
+  - You can change the default URL by setting the `OLLAMA_BASE_URL` environment variable or by adding a `baseUrl` property to the `ollama` model role in `.taskmasterconfig`.
+    - If you want to use a custom API key, you can set it in the `OLLAMA_API_KEY` environment variable.
+
+### Patch Changes
+
+- [#442](https://github.com/eyaltoledano/claude-task-master/pull/442) [`2b3ae8b`](https://github.com/eyaltoledano/claude-task-master/commit/2b3ae8bf89dc471c4ce92f3a12ded57f61faa449) Thanks [@eyaltoledano](https://github.com/eyaltoledano)! - Adds costs information to AI commands using input/output tokens and model costs.
+
+- [#442](https://github.com/eyaltoledano/claude-task-master/pull/442) [`0288311`](https://github.com/eyaltoledano/claude-task-master/commit/0288311965ae2a343ebee4a0c710dde94d2ae7e7) Thanks [@eyaltoledano](https://github.com/eyaltoledano)! - Small fixes - `next` command no longer incorrectly suggests that subtasks be broken down into subtasks in the CLI - fixes the `append` flag so it properly works in the CLI
+
 ## 0.14.0-rc.0
 
 ### Minor Changes
