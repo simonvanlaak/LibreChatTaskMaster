@@ -3,7 +3,7 @@
  * AI provider implementation for Ollama models using the ollama-ai-provider package.
  */
 
-import { createOllama, ollama } from 'ollama-ai-provider';
+import { createOllama } from 'ollama-ai-provider';
 import { log } from '../../scripts/modules/utils.js'; // Import logging utility
 import { generateObject, generateText, streamText } from 'ai';
 
@@ -48,7 +48,13 @@ async function generateOllamaText({
 			temperature
 		});
 		log('debug', `Ollama generated text: ${result.text}`);
-		return result.text;
+		return {
+			text: result.text,
+			usage: {
+				inputTokens: result.usage.promptTokens,
+				outputTokens: result.usage.completionTokens
+			}
+		};
 	} catch (error) {
 		log(
 			'error',
@@ -138,7 +144,13 @@ async function generateOllamaObject({
 			temperature: temperature,
 			maxRetries: maxRetries
 		});
-		return result.object;
+		return {
+			object: result.object,
+			usage: {
+				inputTokens: result.usage.promptTokens,
+				outputTokens: result.usage.completionTokens
+			}
+		};
 	} catch (error) {
 		log(
 			'error',
