@@ -1,5 +1,11 @@
 # task-master-ai
 
+## 0.37.1-rc.0
+
+### Patch Changes
+
+- [#1478](https://github.com/eyaltoledano/claude-task-master/pull/1478) [`6ff330f`](https://github.com/eyaltoledano/claude-task-master/commit/6ff330f8c2bc6e534e0a883c770e8394d7ad5fa8) Thanks [@Crunchyman-ralph](https://github.com/Crunchyman-ralph)! - Increase page size of brief selection (interactive cli setup)
+
 ## 0.37.0
 
 ### Minor Changes
