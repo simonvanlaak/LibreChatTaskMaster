@@ -23,6 +23,7 @@ import {
 	TASKMASTER_TASKS_FILE
 } from '../constants/paths.js';
 import { getLoggerOrDefault } from './logger-utils.js';
+import { isConfigWarningSuppressed } from '../../scripts/modules/config-manager.js';
 
 /**
  * Normalize project root to ensure it doesn't end with .taskmaster
@@ -453,15 +454,22 @@ export function findConfigPath(explicitPath = null, args = null, log = null) {
 	}
 
 	// Only warn once per command execution to prevent spam during init
-	const warningKey = `config_warning_${projectRoot}`;
+	// Skip warning if:
+	// Global suppress flag is set (during API mode detection)
+	const shouldSkipWarning =
+		isConfigWarningSuppressed() || args?.storageType === 'api';
 
-	if (!global._tmConfigWarningsThisRun) {
-		global._tmConfigWarningsThisRun = new Set();
-	}
+	if (!shouldSkipWarning) {
+		const warningKey = `config_warning_${projectRoot}`;
 
-	if (!global._tmConfigWarningsThisRun.has(warningKey)) {
-		global._tmConfigWarningsThisRun.add(warningKey);
-		logger.warn?.(`No configuration file found in project: ${projectRoot}`);
+		if (!global._tmConfigWarningsThisRun) {
+			global._tmConfigWarningsThisRun = new Set();
+		}
+
+		if (!global._tmConfigWarningsThisRun.has(warningKey)) {
+			global._tmConfigWarningsThisRun.add(warningKey);
+			logger.warn?.(`No configuration file found in project: ${projectRoot}`);
+		}
 	}
 
 	return null;
