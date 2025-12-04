@@ -3,6 +3,11 @@
  * Provides consistent error formatting and debug mode detection
  */
 
+import {
+	AuthenticationError,
+	isSupabaseAuthError,
+	AUTH_ERROR_MESSAGES
+} from '@tm/core';
 import chalk from 'chalk';
 
 /**
@@ -35,6 +40,28 @@ export function displayError(
 	if (error?.getSanitizedDetails) {
 		const sanitized = error.getSanitizedDetails();
 		console.error(chalk.red(`\n${sanitized.message}`));
+
+		// Show stack trace in debug mode or if forced
+		if ((isDebugMode() || options.forceStack) && error.stack) {
+			console.error(chalk.gray('\nStack trace:'));
+			console.error(chalk.gray(error.stack));
+		}
+	} else if (error instanceof AuthenticationError) {
+		// Handle AuthenticationError with clean message (no "Error:" prefix)
+		console.error(chalk.red(`\n${error.message}`));
+
+		// Show stack trace in debug mode or if forced
+		if ((isDebugMode() || options.forceStack) && error.stack) {
+			console.error(chalk.gray('\nStack trace:'));
+			console.error(chalk.gray(error.stack));
+		}
+	} else if (isSupabaseAuthError(error)) {
+		// Handle raw Supabase auth errors with user-friendly messages
+		const code = error.code;
+		const userMessage = code
+			? AUTH_ERROR_MESSAGES[code] || error.message
+			: error.message;
+		console.error(chalk.red(`\n${userMessage}`));
 
 		// Show stack trace in debug mode or if forced
 		if ((isDebugMode() || options.forceStack) && error.stack) {
