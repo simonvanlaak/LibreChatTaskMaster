@@ -17,7 +17,8 @@
 	"license": "MIT",
 	"scripts": {
 		"build": "tsc",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "tsc --noEmit",
+		"fix-null-versions": "npx tsx scripts/fix-null-versions.ts"
 	},
 	"devDependencies": {
 		"typescript": "^5.9.2"
