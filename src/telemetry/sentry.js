@@ -4,8 +4,10 @@ import { createHash } from 'crypto';
  * Provides error tracking and AI operation monitoring
  */
 import * as Sentry from '@sentry/node';
-import { getAnonymousTelemetryEnabled } from '../../scripts/modules/config-manager.js';
-import { resolveEnvVariable } from '../../scripts/modules/utils.js';
+import {
+	getAnonymousTelemetryEnabled,
+	setSuppressConfigWarnings
+} from '../../scripts/modules/config-manager.js';
 
 let isInitialized = false;
 
@@ -41,6 +43,8 @@ export function initializeSentry(options = {}) {
 	// Check if user has opted out of anonymous telemetry
 	// This applies to local storage users only
 	// Hamster users don't use local config (API storage), so this check doesn't affect them
+	// Suppress config warnings during this check to avoid noisy output at startup
+	setSuppressConfigWarnings(true);
 	try {
 		const telemetryEnabled = getAnonymousTelemetryEnabled(options.projectRoot);
 
@@ -54,6 +58,8 @@ export function initializeSentry(options = {}) {
 	} catch (error) {
 		// If there's an error checking telemetry preferences (e.g., config not available yet),
 		// default to enabled. This ensures telemetry works during initialization.
+	} finally {
+		setSuppressConfigWarnings(false);
 	}
 
 	// Use internal Sentry DSN for Task Master telemetry
