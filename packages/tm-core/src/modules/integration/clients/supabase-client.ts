@@ -11,6 +11,11 @@ import {
 import { getLogger } from '../../../common/logger/index.js';
 import { SupabaseSessionStorage } from '../../auth/services/supabase-session-storage.js';
 import { AuthenticationError } from '../../auth/types.js';
+import {
+	isSupabaseAuthError,
+	isRecoverableStaleSessionError,
+	toAuthenticationError
+} from '../../auth/utils/index.js';
 
 export class SupabaseAuthClient {
 	private static instance: SupabaseAuthClient | null = null;
@@ -98,7 +103,10 @@ export class SupabaseAuthClient {
 			} = await client.auth.getSession();
 
 			if (error) {
-				this.logger.warn('Failed to restore session:', error);
+				// MFA-expected errors are normal during auth flows - don't log warnings
+				if (!isRecoverableStaleSessionError(error)) {
+					this.logger.warn('Failed to restore session:', error);
+				}
 				return null;
 			}
 
@@ -108,7 +116,14 @@ export class SupabaseAuthClient {
 
 			return session;
 		} catch (error) {
-			this.logger.error('Error initializing session:', error);
+			// MFA-expected errors (refresh_token_not_found, etc.) are normal during auth flows
+			if (isRecoverableStaleSessionError(error)) {
+				this.logger.debug('Session not available (expected during MFA flow)');
+			} else if (isSupabaseAuthError(error)) {
+				this.logger.warn('Session expired or invalid');
+			} else {
+				this.logger.error('Error initializing session:', error);
+			}
 			return null;
 		}
 	}
@@ -213,13 +228,23 @@ export class SupabaseAuthClient {
 			} = await client.auth.getSession();
 
 			if (error) {
-				this.logger.warn('Failed to get session:', error);
+				// MFA-expected errors are normal during auth flows - don't log warnings
+				if (!isRecoverableStaleSessionError(error)) {
+					this.logger.warn('Failed to get session:', error);
+				}
 				return null;
 			}
 
 			return session;
 		} catch (error) {
-			this.logger.error('Error getting session:', error);
+			// MFA-expected errors (refresh_token_not_found, etc.) are normal during auth flows
+			if (isRecoverableStaleSessionError(error)) {
+				this.logger.debug('Session not available (expected during MFA flow)');
+			} else if (isSupabaseAuthError(error)) {
+				this.logger.warn('Session expired or invalid');
+			} else {
+				this.logger.error('Error getting session:', error);
+			}
 			return null;
 		}
 	}
@@ -241,10 +266,8 @@ export class SupabaseAuthClient {
 
 			if (error) {
 				this.logger.error('Failed to refresh session:', error);
-				throw new AuthenticationError(
-					`Failed to refresh session: ${error.message}`,
-					'REFRESH_FAILED'
-				);
+				// Use user-friendly error message for known Supabase auth errors
+				throw toAuthenticationError(error, 'Failed to refresh session');
 			}
 
 			if (session) {
@@ -255,6 +278,11 @@ export class SupabaseAuthClient {
 		} catch (error) {
 			if (error instanceof AuthenticationError) {
 				throw error;
+			}
+
+			// Handle raw Supabase auth errors that might be thrown
+			if (isSupabaseAuthError(error)) {
+				throw toAuthenticationError(error, 'Session refresh failed');
 			}
 
 			throw new AuthenticationError(
@@ -342,11 +370,35 @@ export class SupabaseAuthClient {
 	}
 
 	/**
+	 * Handle recoverable stale session errors by clearing storage and retrying.
+	 * Returns the result of the retry if applicable, or null if no retry was attempted.
+	 */
+	private async handleRecoverableError(
+		error: unknown,
+		isRetry: boolean,
+		retryFn: () => Promise<Session>
+	): Promise<Session | null> {
+		if (!isRetry && isRecoverableStaleSessionError(error)) {
+			this.logger.debug(
+				'MFA-expected error during token verification, clearing stale session and retrying'
+			);
+			await this.sessionStorage.clear();
+			return retryFn();
+		}
+		return null;
+	}
+
+	/**
 	 * Verify a one-time token and create a session
 	 * Used for CLI authentication with pre-generated tokens
+	 *
+	 * Note: If MFA is enabled and there's a stale session, Supabase might throw
+	 * refresh_token_not_found errors. We handle this by clearing the stale session
+	 * and retrying once.
 	 */
-	async verifyOneTimeCode(token: string): Promise<Session> {
+	async verifyOneTimeCode(token: string, isRetry = false): Promise<Session> {
 		const client = this.getClient();
+		const retryFn = () => this.verifyOneTimeCode(token, true);
 
 		try {
 			this.logger.info('Verifying authentication token...');
@@ -359,11 +411,18 @@ export class SupabaseAuthClient {
 			});
 
 			if (error) {
-				this.logger.error('Failed to verify token:', error);
-				throw new AuthenticationError(
-					`Failed to verify token: ${error.message}`,
-					'INVALID_CODE'
+				// If this is an MFA-expected error (like refresh_token_not_found),
+				// it might be due to a stale session interfering. Clear and retry once.
+				const retryResult = await this.handleRecoverableError(
+					error,
+					isRetry,
+					retryFn
 				);
+				if (retryResult) return retryResult;
+
+				this.logger.error('Failed to verify token:', error);
+				// Use user-friendly error message for known Supabase auth errors
+				throw toAuthenticationError(error, 'Failed to verify token');
 			}
 
 			if (!data?.session) {
@@ -378,6 +437,17 @@ export class SupabaseAuthClient {
 		} catch (error) {
 			if (error instanceof AuthenticationError) {
 				throw error;
+			}
+
+			// Handle raw Supabase auth errors that might be thrown
+			if (isSupabaseAuthError(error)) {
+				const retryResult = await this.handleRecoverableError(
+					error,
+					isRetry,
+					retryFn
+				);
+				if (retryResult) return retryResult;
+				throw toAuthenticationError(error, 'Token verification failed');
 			}
 
 			throw new AuthenticationError(
