@@ -9,6 +9,10 @@
 		"task-master-mcp": "dist/mcp-server.js",
 		"task-master-ai": "dist/mcp-server.js"
 	},
+	"publishConfig": {
+		"provenance": true,
+		"access": "public"
+	},
 	"workspaces": ["apps/*", "packages/*", "."],
 	"scripts": {
 		"build": "npm run build:build-config && cross-env NODE_ENV=production tsdown",
@@ -29,7 +33,8 @@
 		"postpack": "chmod +x dist/task-master.js dist/mcp-server.js",
 		"changeset": "changeset",
 		"changeset:validate": "node .github/scripts/validate-changesets.mjs",
-		"release": "changeset publish",
+		"version": "changeset version",
+		"release": "node ./.github/scripts/release.mjs",
 		"publish-packages": "turbo run build lint test && changeset version && changeset publish",
 		"inspector": "npx @modelcontextprotocol/inspector node dist/mcp-server.js",
 		"mcp-server": "node dist/mcp-server.js",
