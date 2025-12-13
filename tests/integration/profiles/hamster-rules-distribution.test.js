@@ -9,7 +9,8 @@ import * as profilesModule from '../../../src/profiles/index.js';
  * Integration tests for hamster rules distribution across all profiles.
  *
  * These tests verify that hamster.mdc is correctly distributed
- * to all profiles that include default rules when running `rules add`.
+ * to all profiles that include default rules when running `rules add --mode=team`.
+ * Note: hamster.mdc is team-mode only (for Hamster API integration).
  */
 describe('Hamster Rules Distribution', () => {
 	const CLI_PATH = path.join(process.cwd(), 'dist', 'task-master.js');
@@ -69,18 +70,18 @@ describe('Hamster Rules Distribution', () => {
 		});
 	});
 
-	describe('Rules add command distributes hamster file', () => {
-		// Test each profile that should receive hamster rules
+	describe('Rules add command distributes hamster file in team mode', () => {
+		// Test each profile that should receive hamster rules when --mode=team
 		PROFILES_WITH_DEFAULT_RULES.forEach((profile) => {
-			test(`${profile} profile receives hamster rules via 'rules add'`, () => {
+			test(`${profile} profile receives hamster rules via 'rules add --mode=team'`, () => {
 				// Create a unique temp directory for this test
 				const tempDir = fs.mkdtempSync(
 					path.join(os.tmpdir(), `tm-hamster-test-${profile}-`)
 				);
 
 				try {
-					// Run the rules add command
-					execSync(`node ${CLI_PATH} rules add ${profile}`, {
+					// Run the rules add command with team mode (hamster.mdc is team-only)
+					execSync(`node ${CLI_PATH} rules add ${profile} --mode=team`, {
 						cwd: tempDir,
 						stdio: 'pipe',
 						env: { ...process.env, TASKMASTER_LOG_LEVEL: 'error' }
@@ -102,6 +103,67 @@ describe('Hamster Rules Distribution', () => {
 					expect(hamsterContent).toContain('tm set-status');
 				} finally {
 					// Cleanup temp directory
+					fs.rmSync(tempDir, { recursive: true, force: true });
+				}
+			});
+		});
+	});
+
+	describe('Solo mode excludes hamster file', () => {
+		// Test that hamster.mdc is NOT distributed in solo mode
+		PROFILES_WITH_DEFAULT_RULES.forEach((profile) => {
+			test(`${profile} profile does NOT receive hamster rules via 'rules add --mode=solo'`, () => {
+				const tempDir = fs.mkdtempSync(
+					path.join(os.tmpdir(), `tm-hamster-solo-test-${profile}-`)
+				);
+
+				try {
+					// Run in solo mode - hamster should NOT be distributed
+					execSync(`node ${CLI_PATH} rules add ${profile} --mode=solo`, {
+						cwd: tempDir,
+						stdio: 'pipe',
+						env: { ...process.env, TASKMASTER_LOG_LEVEL: 'error' }
+					});
+
+					const expectedPath = getExpectedHamsterPath(profile, tempDir);
+
+					// Strictly enforce that all profiles with default rules must have hamster mapping
+					expect(expectedPath).not.toBeNull();
+
+					// Verify hamster file does NOT exist in solo mode
+					expect(fs.existsSync(expectedPath)).toBe(false);
+				} finally {
+					fs.rmSync(tempDir, { recursive: true, force: true });
+				}
+			});
+		});
+	});
+
+	describe('Default mode behavior (no --mode flag)', () => {
+		// When no mode is specified, default is 'solo' (no auth/config present)
+		// This means hamster.mdc should NOT be distributed by default
+		PROFILES_WITH_DEFAULT_RULES.forEach((profile) => {
+			test(`${profile} profile defaults to solo mode (no hamster rules without --mode flag)`, () => {
+				const tempDir = fs.mkdtempSync(
+					path.join(os.tmpdir(), `tm-hamster-default-test-${profile}-`)
+				);
+
+				try {
+					// Run without mode flag - should default to solo
+					execSync(`node ${CLI_PATH} rules add ${profile}`, {
+						cwd: tempDir,
+						stdio: 'pipe',
+						env: { ...process.env, TASKMASTER_LOG_LEVEL: 'error' }
+					});
+
+					const expectedPath = getExpectedHamsterPath(profile, tempDir);
+
+					// Strictly enforce that all profiles with default rules must have hamster mapping
+					expect(expectedPath).not.toBeNull();
+
+					// Default is solo mode, so hamster file should NOT exist
+					expect(fs.existsSync(expectedPath)).toBe(false);
+				} finally {
 					fs.rmSync(tempDir, { recursive: true, force: true });
 				}
 			});
