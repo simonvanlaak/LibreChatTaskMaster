@@ -1,5 +1,27 @@
 # task-master-ai
 
+## 0.38.0-rc.0
+
+### Minor Changes
+
+- [#1508](https://github.com/eyaltoledano/claude-task-master/pull/1508) [`69ac463`](https://github.com/eyaltoledano/claude-task-master/commit/69ac46351eac8e1c3f58b203b2a618bf6114c000) Thanks [@ben-vargas](https://github.com/ben-vargas)! - Added support for new OpenAI models with reasoning effort configuration:
+  - `gpt-5.1` (codex-cli & openai): supports none, low, medium, high reasoning
+  - `gpt-5.1-codex-max` (codex-cli & openai): supports none, low, medium, high, xhigh reasoning
+  - `gpt-5.2` (codex-cli & openai): supports none, low, medium, high, xhigh reasoning
+  - `gpt-5.2-pro` (openai only): supports medium, high, xhigh reasoning
+
+  Updated ai-sdk-provider-codex-cli dependency to ^0.7.0.
+
+## 0.37.2
+
+### Patch Changes
+
+- [#1492](https://github.com/eyaltoledano/claude-task-master/pull/1492) [`071dfc6`](https://github.com/eyaltoledano/claude-task-master/commit/071dfc6be9abe30909157ea72e026036721cea1d) Thanks [@Crunchyman-ralph](https://github.com/Crunchyman-ralph)! - Fix login issues for users whose browsers or firewalls were blocking CLI authentication
+
+- [#1491](https://github.com/eyaltoledano/claude-task-master/pull/1491) [`0e908be`](https://github.com/eyaltoledano/claude-task-master/commit/0e908be43af1075bae1fd7f6b7a6fad8a131dd56) Thanks [@Crunchyman-ralph](https://github.com/Crunchyman-ralph)! - Add `tm/` prefix to autopilot branch names
+  - Team mode branches now follow the `tm/<org-slug>/task-<id>` naming convention for better organization.
+  - Solves issue some users were having regarding not being able to start workflow on master Taskmaster tag
+
 ## 0.37.2-rc.0
 
 ### Patch Changes
