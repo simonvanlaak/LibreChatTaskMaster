@@ -1,5 +1,32 @@
 # task-master-ai
 
+## 0.38.0-rc.1
+
+### Minor Changes
+
+- [#1461](https://github.com/eyaltoledano/claude-task-master/pull/1461) [`9ee63e0`](https://github.com/eyaltoledano/claude-task-master/commit/9ee63e01db4308cf248be3855949c7cd86272b9b) Thanks [@Crunchyman-ralph](https://github.com/Crunchyman-ralph)! - Add operating mode filtering for slash commands and rules
+
+  Solo mode and team mode now have distinct sets of commands and rules:
+  - **Solo mode**: Local file-based storage commands (parse-prd, add-task, expand, etc.) plus common commands
+  - **Team mode**: Team-specific commands (goham) plus common commands (show-task, list-tasks, help, etc.)
+
+  Both modes share common commands for viewing and navigating tasks. The difference is:
+  - Solo users get commands for local file management (PRD parsing, task expansion, dependencies)
+  - Team users get Hamster cloud integration commands instead
+
+  When switching modes (e.g., from solo to team), all existing TaskMaster commands and rules are automatically cleaned up before adding the new mode's files. This prevents orphaned commands/rules from previous modes.
+
+  The operating mode is auto-detected from config or auth status, and can be overridden with `--mode=solo|team` flag on the `rules` command.
+
+- [#1461](https://github.com/eyaltoledano/claude-task-master/pull/1461) [`9ee63e0`](https://github.com/eyaltoledano/claude-task-master/commit/9ee63e01db4308cf248be3855949c7cd86272b9b) Thanks [@Crunchyman-ralph](https://github.com/Crunchyman-ralph)! - Add Taskmaster slash commands for:
+  - Roo
+  - Cursor
+  - Codex
+  - Gemini
+  - Opencode
+
+  Add them with `task-master rules add <provider>`
+
 ## 0.38.0-rc.0
 
 ### Minor Changes

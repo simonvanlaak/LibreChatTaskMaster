@@ -11,9 +11,12 @@
     "@tm/build-config": "",
     "@tm/claude-code-plugin": "0.0.7",
     "@tm/bridge": "",
-    "@tm/core": ""
+    "@tm/core": "",
+    "@tm/profiles": ""
   },
   "changesets": [
+    "mode-filtering-slash-commands",
+    "warm-things-shake",
     "xhigh-reasoning-support"
   ]
 }
