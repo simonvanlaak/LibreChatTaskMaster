@@ -78,6 +78,7 @@ import {
 	getConfig,
 	getDebugFlag,
 	getDefaultNumTasks,
+	getOperatingMode,
 	isApiKeySet,
 	isConfigFilePresent,
 	setSuppressConfigWarnings
@@ -1402,10 +1403,7 @@ function registerCommands(programInstance) {
 			'Path to the tasks file',
 			TASKMASTER_TASKS_FILE
 		)
-		.option(
-			'-i, --id <id>',
-			'Subtask ID to update in format "parentId.subtaskId" (required)'
-		)
+		.option('-i, --id <id>', 'Subtask ID to update (required)')
 		.option(
 			'-p, --prompt <text>',
 			'Prompt explaining what information to add (required)'
@@ -1438,21 +1436,10 @@ function registerCommands(programInstance) {
 					process.exit(1);
 				}
 
-				// Validate subtask ID format (should contain a dot)
+				// Get subtask ID - validation happens in the core function
+				// In API storage, subtask IDs like "HAM-2611" are valid
+				// In file storage, subtask IDs must be in format "parentId.subtaskId"
 				const subtaskId = options.id;
-				if (!subtaskId.includes('.')) {
-					console.error(
-						chalk.red(
-							`Error: Invalid subtask ID format: ${subtaskId}. Subtask ID must be in format "parentId.subtaskId"`
-						)
-					);
-					console.log(
-						chalk.yellow(
-							'Usage example: task-master update-subtask --id=5.2 --prompt="Add more details about the API endpoint"'
-						)
-					);
-					process.exit(1);
-				}
 
 				if (!options.prompt) {
 					console.error(
@@ -4402,11 +4389,16 @@ Examples:
 			`--${RULES_SETUP_ACTION}`,
 			'Run interactive setup to select rule profiles to add'
 		)
+		.option(
+			'-m, --mode <mode>',
+			'Operating mode for filtering rules/commands (solo or team). Auto-detected from config if not specified.'
+		)
 		.addHelpText(
 			'after',
 			`
 		Examples:
 		$ task-master rules ${RULES_ACTIONS.ADD} windsurf roo          # Add Windsurf and Roo rule sets
+		$ task-master rules ${RULES_ACTIONS.ADD} cursor --mode=team    # Add Cursor rules for team mode only
 		$ task-master rules ${RULES_ACTIONS.REMOVE} windsurf          # Remove Windsurf rule set
 		$ task-master rules --${RULES_SETUP_ACTION}                  # Interactive setup to select rule profiles`
 		)
@@ -4461,10 +4453,11 @@ Examples:
 						continue;
 					}
 					const profileConfig = getRulesProfile(profile);
-
+					const mode = await getOperatingMode(options.mode);
 					const addResult = convertAllRulesToProfileRules(
 						projectRoot,
-						profileConfig
+						profileConfig,
+						{ mode }
 					);
 
 					console.log(chalk.green(generateProfileSummary(profile, addResult)));
@@ -4539,9 +4532,11 @@ Examples:
 
 				if (action === RULES_ACTIONS.ADD) {
 					console.log(chalk.blue(`Adding rules for profile: ${profile}...`));
+					const mode = await getOperatingMode(options.mode);
 					const addResult = convertAllRulesToProfileRules(
 						projectRoot,
-						profileConfig
+						profileConfig,
+						{ mode }
 					);
 					console.log(
 						chalk.blue(`Completed adding rules for profile: ${profile}`)

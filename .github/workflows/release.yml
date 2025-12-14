@@ -39,6 +39,9 @@ jobs:
           cache: npm
           registry-url: "https://registry.npmjs.org"
 
+      - name: Update npm for trusted publishing
+        run: npm install -g npm@latest
+
       - name: Cache node_modules
         uses: actions/cache@v4
         with:
@@ -49,7 +52,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: npm ci
         timeout-minutes: 2
 
@@ -65,10 +68,11 @@ jobs:
           TM_PUBLIC_SUPABASE_URL: ${{ secrets.TM_PUBLIC_SUPABASE_URL }}
           TM_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.TM_PUBLIC_SUPABASE_ANON_KEY }}
 
-      - name: Create Release Pull Request or Publish to npm
+      - name: Create Release Pull Request or Publish
         uses: changesets/action@v1
         with:
-          publish: node ./.github/scripts/release.mjs
+          version: npm run version
+          publish: npm run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
@@ -77,7 +81,6 @@ jobs:
   rc:
     if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: extension-release
     steps:
       - uses: actions/checkout@v4
         with:
@@ -88,6 +91,9 @@ jobs:
           node-version: 20
           cache: npm
           registry-url: "https://registry.npmjs.org"
+
+      - name: Update npm for trusted publishing
+        run: npm install -g npm@latest
 
       - name: Cache node_modules
         uses: actions/cache@v4
@@ -147,17 +153,14 @@ jobs:
           TM_PUBLIC_SUPABASE_URL: ${{ secrets.TM_PUBLIC_SUPABASE_URL }}
           TM_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.TM_PUBLIC_SUPABASE_ANON_KEY }}
 
-      - name: Create Release Candidate Pull Request or Publish Release Candidate to npm
-        uses: changesets/action@v1
-        with:
-          publish: npx changeset publish
+      - name: Publish RC to npm
+        run: npx changeset publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
 
       - name: Commit & Push changes
-        uses: actions-js/push@v1.5
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ github.ref }}
-          message: "chore: rc version bump"
+          commit_message: "chore: rc version bump [skip ci]"
+          branch: ${{ github.ref_name }}
