@@ -202,7 +202,7 @@ describe('shell-utils', () => {
 			expect(result.alreadyExists).toBeUndefined();
 			expect(fs.appendFileSync).toHaveBeenCalledWith(
 				shellConfigPath,
-				'\n# My comment\nexport MY_VAR=my_value\n'
+				"\n# My comment\nexport MY_VAR='my_value'\n"
 			);
 
 			// Cleanup
@@ -249,7 +249,7 @@ describe('shell-utils', () => {
 			expect(result.alreadyExists).toBeUndefined();
 			expect(fs.appendFileSync).toHaveBeenCalledWith(
 				shellConfigPath,
-				'\nexport MY_VAR=my_value\n'
+				"\nexport MY_VAR='my_value'\n"
 			);
 
 			// Cleanup
@@ -275,7 +275,7 @@ describe('shell-utils', () => {
 			expect(result.alreadyExists).toBeUndefined();
 			expect(fs.appendFileSync).toHaveBeenCalledWith(
 				shellConfigPath,
-				'\nexport MY_VAR=my_value\n'
+				"\nexport MY_VAR='my_value'\n"
 			);
 
 			// Cleanup
@@ -455,6 +455,125 @@ describe('shell-utils', () => {
 			process.env.PSModulePath = originalPSModulePath;
 			Object.defineProperty(process, 'platform', { value: originalPlatform });
 		});
+
+		it('should use fish shell syntax for config.fish files', () => {
+			// Arrange
+			const originalShell = process.env.SHELL;
+			process.env.SHELL = '/usr/bin/fish';
+			const shellConfigPath = path.join(
+				mockHomeDir,
+				'.config',
+				'fish',
+				'config.fish'
+			);
+			vi.mocked(fs.existsSync).mockReturnValue(true);
+			vi.mocked(fs.readFileSync).mockReturnValue('# existing content\n');
+			vi.mocked(fs.appendFileSync).mockImplementation(() => {});
+
+			// Act
+			const result = addShellExport('MY_VAR', 'my_value', 'My comment');
+
+			// Assert
+			expect(result.success).toBe(true);
+			expect(fs.appendFileSync).toHaveBeenCalledWith(
+				shellConfigPath,
+				"\n# My comment\nset -gx MY_VAR 'my_value'\n"
+			);
+
+			// Cleanup
+			process.env.SHELL = originalShell;
+		});
+
+		it('should detect existing fish shell export', () => {
+			// Arrange
+			const originalShell = process.env.SHELL;
+			process.env.SHELL = '/usr/bin/fish';
+			vi.mocked(fs.existsSync).mockReturnValue(true);
+			vi.mocked(fs.readFileSync).mockReturnValue('set -gx MY_VAR old_value\n');
+
+			// Act
+			const result = addShellExport('MY_VAR', 'my_value');
+
+			// Assert
+			expect(result.success).toBe(true);
+			expect(result.alreadyExists).toBe(true);
+			expect(fs.appendFileSync).not.toHaveBeenCalled();
+
+			// Cleanup
+			process.env.SHELL = originalShell;
+		});
+
+		it('should detect existing fish shell export with different flag order', () => {
+			// Arrange
+			const originalShell = process.env.SHELL;
+			process.env.SHELL = '/usr/bin/fish';
+			vi.mocked(fs.existsSync).mockReturnValue(true);
+			vi.mocked(fs.readFileSync).mockReturnValue('set -xg MY_VAR old_value\n');
+
+			// Act
+			const result = addShellExport('MY_VAR', 'my_value');
+
+			// Assert
+			expect(result.success).toBe(true);
+			expect(result.alreadyExists).toBe(true);
+			expect(fs.appendFileSync).not.toHaveBeenCalled();
+
+			// Cleanup
+			process.env.SHELL = originalShell;
+		});
+
+		it('should NOT skip fish when variable name only appears in a comment', () => {
+			// Arrange
+			const originalShell = process.env.SHELL;
+			process.env.SHELL = '/usr/bin/fish';
+			const shellConfigPath = path.join(
+				mockHomeDir,
+				'.config',
+				'fish',
+				'config.fish'
+			);
+			vi.mocked(fs.existsSync).mockReturnValue(true);
+			vi.mocked(fs.readFileSync).mockReturnValue(
+				'# MY_VAR is mentioned here but not set\n# set -gx MY_VAR in a comment\n'
+			);
+			vi.mocked(fs.appendFileSync).mockImplementation(() => {});
+
+			// Act
+			const result = addShellExport('MY_VAR', 'my_value');
+
+			// Assert
+			expect(result.success).toBe(true);
+			expect(result.alreadyExists).toBeUndefined();
+			expect(fs.appendFileSync).toHaveBeenCalledWith(
+				shellConfigPath,
+				"\nset -gx MY_VAR 'my_value'\n"
+			);
+
+			// Cleanup
+			process.env.SHELL = originalShell;
+		});
+
+		it('should create fish config directory if it does not exist', () => {
+			// Arrange
+			const originalShell = process.env.SHELL;
+			process.env.SHELL = '/usr/bin/fish';
+
+			// Fish config directory doesn't exist initially
+			vi.mocked(fs.existsSync).mockReturnValue(false);
+			vi.mocked(fs.mkdirSync).mockImplementation(() => undefined);
+			vi.mocked(fs.readFileSync).mockReturnValue('');
+			vi.mocked(fs.appendFileSync).mockImplementation(() => {});
+
+			// Act
+			const result = addShellExport('MY_VAR', 'my_value');
+
+			// Assert - fish config file not found since we don't auto-create it (unlike PowerShell)
+			expect(result.success).toBe(false);
+			expect(result.message).toContain('not found');
+
+			// Cleanup
+			process.env.SHELL = originalShell;
+		});
 	});
 
 	describe('enableDeferredMcpLoading', () => {
@@ -475,7 +594,7 @@ describe('shell-utils', () => {
 			expect(result.shellConfigFile).toBe(shellConfigPath);
 			expect(fs.appendFileSync).toHaveBeenCalledWith(
 				shellConfigPath,
-				'\n# Claude Code deferred MCP loading (added by Taskmaster)\nexport ENABLE_EXPERIMENTAL_MCP_CLI=true\n'
+				"\n# Claude Code deferred MCP loading (added by Taskmaster)\nexport ENABLE_EXPERIMENTAL_MCP_CLI='true'\n"
 			);
 
 			// Cleanup
