@@ -1,4 +1,4 @@
-# Available Models as of December 12, 2025
+# Available Models as of December 16, 2025
 
 ## Main Models
 
@@ -107,6 +107,13 @@
 | azure       | gpt-4o                                         | 0.332     | 2.5        | 10          |
 | azure       | gpt-4o-mini                                    | 0.3       | 0.15       | 0.6         |
 | azure       | gpt-4-1                                        | —         | 2          | 10          |
+| azure       | gpt-5                                          | 0.749     | 5          | 20          |
+| azure       | o1                                             | 0.489     | 15         | 60          |
+| azure       | o3                                             | 0.5       | 2          | 8           |
+| azure       | o3-mini                                        | 0.493     | 1.1        | 4.4         |
+| azure       | o4-mini                                        | 0.45      | 1.1        | 4.4         |
+| azure       | gpt-5.1                                        | 0.76      | 1.25       | 10          |
+| azure       | gpt-5.2                                        | 0.8       | 1.75       | 14          |
 | bedrock     | us.anthropic.claude-3-haiku-20240307-v1:0      | 0.4       | 0.25       | 1.25        |
 | bedrock     | us.anthropic.claude-3-opus-20240229-v1:0       | 0.725     | 15         | 75          |
 | bedrock     | us.anthropic.claude-3-5-sonnet-20240620-v1:0   | 0.49      | 3          | 15          |
@@ -260,6 +267,11 @@
 | azure       | gpt-4o                                         | 0.332     | 2.5        | 10          |
 | azure       | gpt-4o-mini                                    | 0.3       | 0.15       | 0.6         |
 | azure       | gpt-4-1                                        | —         | 2          | 10          |
+| azure       | gpt-5                                          | 0.749     | 5          | 20          |
+| azure       | o3                                             | 0.5       | 2          | 8           |
+| azure       | o4-mini                                        | 0.45      | 1.1        | 4.4         |
+| azure       | gpt-5.1                                        | 0.76      | 1.25       | 10          |
+| azure       | gpt-5.2                                        | 0.8       | 1.75       | 14          |
 | bedrock     | us.anthropic.claude-3-haiku-20240307-v1:0      | 0.4       | 0.25       | 1.25        |
 | bedrock     | us.anthropic.claude-3-opus-20240229-v1:0       | 0.725     | 15         | 75          |
 | bedrock     | us.anthropic.claude-3-5-sonnet-20240620-v1:0   | 0.49      | 3          | 15          |
