@@ -92,6 +92,13 @@ function isPowerShellProfile(filePath: string): boolean {
 }
 
 /**
+ * Checks if a shell config file is a fish config
+ */
+function isFishConfig(filePath: string): boolean {
+	return filePath.includes('config.fish');
+}
+
+/**
  * Adds an export statement to the user's shell configuration file
  * Handles both Unix-style shells (bash, zsh, fish) and PowerShell
  * @param envVar - The environment variable name
@@ -161,9 +168,23 @@ export function addShellExport(
 
 		// Check if the export already exists using precise regex patterns
 		// This avoids false positives from comments or partial matches
-		const alreadyExists = isPowerShellProfile(shellConfigFile)
-			? new RegExp(`^\\s*\\$env:${envVar}\\s*=`, 'm').test(content)
-			: new RegExp(`^\\s*export\\s+${envVar}\\s*=`, 'm').test(content);
+		let alreadyExists: boolean;
+		if (isPowerShellProfile(shellConfigFile)) {
+			alreadyExists = new RegExp(`^\\s*\\$env:${envVar}\\s*=`, 'm').test(
+				content
+			);
+		} else if (isFishConfig(shellConfigFile)) {
+			// Fish uses 'set -gx VAR value' or 'set -xg VAR value' syntax
+			// Only match exported variables (must have 'x' flag)
+			alreadyExists = new RegExp(
+				`^\\s*set\\s+-[gux]*x[gux]*\\s+${envVar}\\s+`,
+				'm'
+			).test(content);
+		} else {
+			alreadyExists = new RegExp(`^\\s*export\\s+${envVar}\\s*=`, 'm').test(
+				content
+			);
+		}
 
 		if (alreadyExists) {
 			return {
@@ -183,8 +204,14 @@ export function addShellExport(
 			const escapedValue = value.replace(/["`$]/g, '`$&');
 			exportLine = `$env:${envVar} = "${escapedValue}"`;
 			commentPrefix = '#';
+		} else if (isFishConfig(shellConfigFile)) {
+			// Fish shell syntax - use 'set -gx VAR value' (global export)
+			// Escape single quotes in fish by closing, escaping, reopening: 'foo'\''bar'
+			const escapedValue = value.replace(/'/g, "'\\''");
+			exportLine = `set -gx ${envVar} '${escapedValue}'`;
+			commentPrefix = '#';
 		} else {
-			// Unix shell syntax (bash, zsh, fish) - use single quotes and escape embedded single quotes
+			// Unix shell syntax (bash, zsh) - use single quotes and escape embedded single quotes
 			const escapedValue = value.replace(/'/g, "'\\''");
 			exportLine = `export ${envVar}='${escapedValue}'`;
 			commentPrefix = '#';
