@@ -13,7 +13,11 @@ export const VALIDATED_PROVIDERS = [
 	'perplexity',
 	'xai',
 	'groq',
-	'mistral'
+	'mistral',
+	'azure',
+	'openrouter',
+	'bedrock',
+	'ollama'
 ] as const;
 
 export type ValidatedProvider = (typeof VALIDATED_PROVIDERS)[number];
@@ -42,8 +46,5 @@ export const CUSTOM_PROVIDERS_ARRAY = Object.values(CUSTOM_PROVIDERS);
 
 // All known providers (for reference)
 export const ALL_PROVIDERS = [
-	...VALIDATED_PROVIDERS,
-	...CUSTOM_PROVIDERS_ARRAY
-] as const;
-
-export type Provider = ValidatedProvider | CustomProvider;
+	...new Set([...VALIDATED_PROVIDERS, ...CUSTOM_PROVIDERS_ARRAY])
+];
