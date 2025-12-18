@@ -1,4 +1,4 @@
-# Available Models as of December 16, 2025
+# Available Models as of December 18, 2025
 
 ## Main Models
 
@@ -21,6 +21,7 @@
 | codex-cli   | gpt-5.1-codex-max                              | 0.78      | 0          | 0           |
 | codex-cli   | gpt-5.2                                        | 0.8       | 0          | 0           |
 | mcp         | mcp-sampling                                   | —         | 0          | 0           |
+| gemini-cli  | gemini-3-flash-preview                         | —         | 0          | 0           |
 | gemini-cli  | gemini-3-pro-preview                           | 0.762     | 0          | 0           |
 | gemini-cli  | gemini-2.5-pro                                 | 0.72      | 0          | 0           |
 | gemini-cli  | gemini-2.5-flash                               | 0.71      | 0          | 0           |
@@ -44,6 +45,7 @@
 | openai      | gpt-5.1-codex-max                              | 0.78      | 1.25       | 10          |
 | openai      | gpt-5.2                                        | 0.8       | 1.75       | 14          |
 | openai      | gpt-5.2-pro                                    | 0.82      | 21         | 168         |
+| google      | gemini-3-flash-preview                         | —         | 0.5        | 3           |
 | google      | gemini-3-pro-preview                           | 0.762     | 2          | 12          |
 | google      | gemini-2.5-pro-preview-05-06                   | 0.638     | —          | —           |
 | google      | gemini-2.5-pro-preview-03-25                   | 0.638     | —          | —           |
@@ -136,6 +138,7 @@
 | codex-cli   | gpt-5.1-codex-max                            | 0.78      | 0          | 0           |
 | codex-cli   | gpt-5.2                                      | 0.8       | 0          | 0           |
 | mcp         | mcp-sampling                                 | —         | 0          | 0           |
+| gemini-cli  | gemini-3-flash-preview                       | —         | 0          | 0           |
 | gemini-cli  | gemini-3-pro-preview                         | 0.762     | 0          | 0           |
 | gemini-cli  | gemini-2.5-pro                               | 0.72      | 0          | 0           |
 | gemini-cli  | gemini-2.5-flash                             | 0.71      | 0          | 0           |
@@ -194,6 +197,7 @@
 | codex-cli   | gpt-5.1-codex-max                              | 0.78      | 0          | 0           |
 | codex-cli   | gpt-5.2                                        | 0.8       | 0          | 0           |
 | mcp         | mcp-sampling                                   | —         | 0          | 0           |
+| gemini-cli  | gemini-3-flash-preview                         | —         | 0          | 0           |
 | gemini-cli  | gemini-3-pro-preview                           | 0.762     | 0          | 0           |
 | gemini-cli  | gemini-2.5-pro                                 | 0.72      | 0          | 0           |
 | gemini-cli  | gemini-2.5-flash                               | 0.71      | 0          | 0           |
@@ -209,6 +213,7 @@
 | openai      | gpt-5.1-codex-max                              | 0.78      | 1.25       | 10          |
 | openai      | gpt-5.2                                        | 0.8       | 1.75       | 14          |
 | openai      | gpt-5.2-pro                                    | 0.82      | 21         | 168         |
+| google      | gemini-3-flash-preview                         | —         | 0.5        | 3           |
 | google      | gemini-3-pro-preview                           | 0.762     | 2          | 12          |
 | google      | gemini-2.5-pro-preview-05-06                   | 0.638     | —          | —           |
 | google      | gemini-2.5-pro-preview-03-25                   | 0.638     | —          | —           |
