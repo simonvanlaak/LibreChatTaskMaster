@@ -32,16 +32,18 @@ jobs:
           node-version: 20
 
       - name: Cache node_modules
+        id: cache-node-modules
         uses: actions/cache@v4
         with:
           path: |
             node_modules
             */*/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
 
       - name: Install Monorepo Dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: npm ci
         timeout-minutes: 5
 
@@ -56,16 +58,18 @@ jobs:
           node-version: 20
 
       - name: Restore node_modules
+        id: cache-node-modules
         uses: actions/cache@v4
         with:
           path: |
             node_modules
             */*/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
 
       - name: Install if cache miss
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: npm ci
         timeout-minutes: 3
 
@@ -86,16 +90,18 @@ jobs:
           node-version: 20
 
       - name: Restore node_modules
+        id: cache-node-modules
         uses: actions/cache@v4
         with:
           path: |
             node_modules
             */*/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
 
       - name: Install if cache miss
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: npm ci
         timeout-minutes: 3
 
