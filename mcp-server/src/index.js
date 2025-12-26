@@ -30,7 +30,27 @@ class TaskMasterMCPServer {
 	constructor() {
 		this.options = {
 			name: 'Task Master MCP Server',
-			version: packageJson.version
+			version: packageJson.version,
+			// Authenticate function to extract user ID from headers for HTTP transport
+			// Only used for SSE/HTTP transport, not for stdio
+			authenticate: async (request) => {
+				// Check if request exists and has headers (HTTP transport)
+				if (!request || !request.headers) {
+					// This is likely stdio transport, no authentication needed
+					return undefined;
+				}
+				
+				// Extract user ID from X-LibreChat-User-ID header (case-insensitive)
+				const userId = request.headers['x-librechat-user-id'] || 
+				               request.headers['X-LibreChat-User-ID'];
+				
+				if (userId && !userId.startsWith('{{')) {
+					return { userId };
+				}
+				
+				// If no user ID in header, return undefined (no auth required, but no user isolation)
+				return undefined;
+			}
 		};
 
 		// Create FastMCP instance
@@ -50,6 +70,7 @@ class TaskMasterMCPServer {
 
 		this.server = fastmcpServer;
 		this.initialized = false;
+		this.sseServer = null; // Store reference to SSE server for HTTP transport
 
 		this.init = this.init.bind(this);
 		this.start = this.start.bind(this);
@@ -106,7 +127,10 @@ class TaskMasterMCPServer {
 			await this.init();
 		}
 
+		// Set up session connect handler (for both transport types)
 		this.server.on('connect', (event) => {
+			const session = event.session;
+			
 			event.session.server.sendLoggingMessage({
 				data: {
 					context: event.session.context,
@@ -114,14 +138,82 @@ class TaskMasterMCPServer {
 				},
 				level: 'info'
 			});
-			this.registerRemoteProvider(event.session);
+
+			// Extract user ID from session auth (set by authenticate function) for HTTP transport
+			if (session.auth?.userId) {
+				// Set LIBRECHAT_USER_ID in session env for path resolver
+				if (!session.env) {
+					session.env = {};
+				}
+				session.env.LIBRECHAT_USER_ID = session.auth.userId;
+				this.logger.info(`Session authenticated for user: ${session.auth.userId}`);
+			}
+
+			this.registerRemoteProvider(session);
 		});
 
-		// Start the FastMCP server with increased timeout
-		await this.server.start({
-			transportType: 'stdio',
-			timeout: 120000 // 2 minutes timeout (in milliseconds)
-		});
+		// Determine transport type based on environment
+		// If HOST and PORT are set, use HTTP (SSE) transport for Docker/containerized deployment
+		// Otherwise, use stdio for local/spawned processes
+		const host = process.env.HOST;
+		const port = process.env.PORT;
+		// Only use HTTP/SSE transport if explicitly enabled via MCP_USE_HTTP env var
+		// When spawned as stdio by LibreChat, we should use stdio transport
+		const useHttpTransport = process.env.MCP_USE_HTTP === 'true' && host && port;
+
+		if (useHttpTransport) {
+			// HTTP/SSE transport for containerized deployment
+			const endpoint = process.env.MCP_ENDPOINT || '/mcp';
+			const portNum = parseInt(port, 10);
+
+			// Ensure endpoint starts with /
+			const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
+			this.logger.info(
+				`Starting MCP server on HTTP (SSE) transport at http://${host}:${portNum}${normalizedEndpoint}`
+			);
+
+			try {
+				this.logger.info(`Calling server.start() with transportType: sse, endpoint: ${normalizedEndpoint}, port: ${portNum}`);
+				
+				await this.server.start({
+					transportType: 'sse',
+					sse: {
+						endpoint: normalizedEndpoint,
+						port: portNum
+					}
+				});
+
+				this.logger.info('server.start() completed, checking for SSE server instance...');
+
+				// For HTTP transport, keep the process alive
+				// Store reference to prevent garbage collection and keep event loop alive
+				// FastMCP stores the SSE server internally in a private field
+				// Try to access it via reflection or check if server is actually listening
+				this.sseServer = this.server._sseServer || this.server.sseServer;
+				
+				if (!this.sseServer) {
+					this.logger.warn('SSE server reference not found in expected locations');
+					this.logger.warn('Server may still be running - FastMCP stores it in a private field');
+				} else {
+					this.logger.info('SSE server reference found and stored');
+				}
+				
+				this.logger.info(`MCP server startup completed for HTTP transport at http://${host}:${portNum}${normalizedEndpoint}`);
+			} catch (error) {
+				this.logger.error(`Failed to start SSE server: ${error.message}`);
+				this.logger.error(error.stack);
+				throw error;
+			}
+		} else {
+			// stdio transport for spawned processes
+			this.logger.info('Starting MCP server on stdio transport');
+
+			await this.server.start({
+				transportType: 'stdio',
+				timeout: 120000 // 2 minutes timeout (in milliseconds)
+			});
+		}
 
 		return this;
 	}
@@ -178,6 +270,10 @@ class TaskMasterMCPServer {
 	async stop() {
 		if (this.server) {
 			await this.server.stop();
+		}
+		if (this.sseServer) {
+			// Additional cleanup if needed
+			this.sseServer = null;
 		}
 	}
 }
