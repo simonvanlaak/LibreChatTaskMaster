@@ -51,9 +51,10 @@ export function registerInitializeProjectTool(server) {
 				),
 			rules: z
 				.array(z.enum(RULE_PROFILES))
+				.nullable()
 				.optional()
 				.describe(
-					`List of rule profiles to include at initialization. If omitted, defaults to Cursor profile only. Available options: ${RULE_PROFILES.join(', ')}`
+					`List of rule profiles to include at initialization. If omitted or null, defaults to Cursor profile only. Available options: ${RULE_PROFILES.join(', ')}`
 				)
 		}),
 		execute: withNormalizedProjectRoot(async (args, context) => {

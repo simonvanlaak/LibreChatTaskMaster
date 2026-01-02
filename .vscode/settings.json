@@ -27,5 +27,25 @@
 	"editor.codeActionsOnSave": {
 		"source.organizeImports.biome": "explicit",
 		"source.fixAll.biome": "explicit"
+	},
+	"files.watcherExclude": {
+		"**/**": true
+	},
+	"files.exclude": {
+		"**/node_modules": true,
+		"**/.git": true,
+		"**/dist": true,
+		"**/build": true,
+		"**/data": true,
+		"**/docs": true,
+		"**/*.log": true
+	},
+	"search.exclude": {
+		"**/node_modules": true,
+		"**/.git": true,
+		"**/dist": true,
+		"**/build": true,
+		"**/data": true,
+		"**/docs": true
 	}
 }

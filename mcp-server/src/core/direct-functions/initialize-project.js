@@ -1,3 +1,4 @@
+import fs from 'fs';
 import os from 'os'; // Import os module for home directory check
 import { initializeProject } from '../../../../scripts/init.js'; // Import core function and its logger if needed separately
 import {
@@ -50,6 +51,12 @@ export async function initializeProjectDirect(args, log, context = {}) {
 	// --- Proceed with validated targetDirectory ---
 	log.info(`Validated target directory for initialization: ${targetDirectory}`);
 
+	// Create directory if it doesn't exist
+	if (!fs.existsSync(targetDirectory)) {
+		log.info(`Creating directory: ${targetDirectory}`);
+		fs.mkdirSync(targetDirectory, { recursive: true });
+	}
+
 	const originalCwd = process.cwd();
 	let resultData;
 	let success = false;
@@ -73,10 +80,12 @@ export async function initializeProjectDirect(args, log, context = {}) {
 		};
 
 		// Handle rules option with MCP-specific defaults
-		if (Array.isArray(args.rules) && args.rules.length > 0) {
-			options.rules = args.rules;
+		// Convert null to undefined, then check if it's a valid array
+		const normalizedRules = args.rules ?? undefined;
+		if (Array.isArray(normalizedRules) && normalizedRules.length > 0) {
+			options.rules = normalizedRules;
 			options.rulesExplicitlyProvided = true;
-			log.info(`Including rules: ${args.rules.join(', ')}`);
+			log.info(`Including rules: ${normalizedRules.join(', ')}`);
 		} else {
 			// For MCP initialization, default to Cursor profile only
 			options.rules = ['cursor'];

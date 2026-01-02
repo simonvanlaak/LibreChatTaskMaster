@@ -59,7 +59,7 @@ export function registerAddTaskTool(server) {
 			projectRoot: z
 				.string()
 				.describe('The directory of the project. Must be an absolute path.'),
-			tag: z.string().optional().describe('Tag context to operate on'),
+			tag: z.string().nullable().optional().describe('Tag context to operate on'),
 			research: z
 				.boolean()
 				.optional()
@@ -69,9 +69,12 @@ export function registerAddTaskTool(server) {
 			try {
 				log.info(`Starting add-task with args: ${JSON.stringify(args)}`);
 
+				// Convert null to undefined for optional parameters
+				const normalizedTag = args.tag ?? undefined;
+
 				const resolvedTag = resolveTag({
 					projectRoot: args.projectRoot,
-					tag: args.tag
+					tag: normalizedTag
 				});
 
 				// Use args.projectRoot directly (guaranteed by withNormalizedProjectRoot)

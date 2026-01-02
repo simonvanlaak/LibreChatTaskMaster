@@ -18,6 +18,7 @@ const GetTasksSchema = z.object({
 		.describe('The directory of the project. Must be an absolute path.'),
 	status: z
 		.string()
+		.nullable()
 		.optional()
 		.describe(
 			"Filter tasks by status (e.g., 'pending', 'done') or multiple statuses separated by commas (e.g., 'blocked,deferred')"
@@ -26,7 +27,7 @@ const GetTasksSchema = z.object({
 		.boolean()
 		.optional()
 		.describe('Include subtasks nested within their parent tasks in the response'),
-	tag: z.string().optional().describe('Tag context to operate on')
+	tag: z.string().nullable().optional().describe('Tag context to operate on')
 });
 
 type GetTasksArgs = z.infer<typeof GetTasksSchema>;
@@ -46,15 +47,19 @@ export function registerGetTasksTool(server: FastMCP) {
 				const { projectRoot, status, withSubtasks, tag } = args;
 
 				try {
+					// Convert null to undefined for optional parameters
+					const normalizedStatus = status ?? undefined;
+					const normalizedTag = tag ?? undefined;
+
 					log.info(
-						`Getting tasks from ${projectRoot}${status ? ` with status filter: ${status}` : ''}${tag ? ` for tag: ${tag}` : ''}`
+						`Getting tasks from ${projectRoot}${normalizedStatus ? ` with status filter: ${normalizedStatus}` : ''}${normalizedTag ? ` for tag: ${normalizedTag}` : ''}`
 					);
 
 					// Build filter
 					const filter =
-						status && status !== 'all'
+						normalizedStatus && normalizedStatus !== 'all'
 							? {
-									status: status
+									status: normalizedStatus
 										.split(',')
 										.map((s: string) => s.trim() as TaskStatus)
 								}
@@ -62,7 +67,7 @@ export function registerGetTasksTool(server: FastMCP) {
 
 					// Call tm-core tasks.list()
 					const result = await tmCore.tasks.list({
-						tag,
+						tag: normalizedTag,
 						filter,
 						includeSubtasks: withSubtasks
 					});

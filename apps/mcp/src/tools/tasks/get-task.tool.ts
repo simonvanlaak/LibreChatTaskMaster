@@ -18,6 +18,7 @@ const GetTaskSchema = z.object({
 	),
 	status: z
 		.string()
+		.nullable()
 		.optional()
 		.describe("Filter subtasks by status (e.g., 'pending', 'done')"),
 	projectRoot: z
@@ -25,7 +26,7 @@ const GetTaskSchema = z.object({
 		.describe(
 			'Absolute path to the project root directory (Optional, usually from session)'
 		),
-	tag: z.string().optional().describe('Tag context to operate on')
+	tag: z.string().nullable().optional().describe('Tag context to operate on')
 });
 
 type GetTaskArgs = z.infer<typeof GetTaskSchema>;
@@ -44,14 +45,18 @@ export function registerGetTaskTool(server: FastMCP) {
 				const { id, status, projectRoot, tag } = args;
 
 				try {
+					// Convert null to undefined for optional parameters
+					const normalizedStatus = status ?? undefined;
+					const normalizedTag = tag ?? undefined;
+
 					log.info(
-						`Getting task details for ID: ${id}${status ? ` (filtering subtasks by status: ${status})` : ''} in root: ${projectRoot}`
+						`Getting task details for ID: ${id}${normalizedStatus ? ` (filtering subtasks by status: ${normalizedStatus})` : ''} in root: ${projectRoot}`
 					);
 
 					// Parse and validate task IDs (validation already done by schema, this handles splitting)
 					const taskIds = parseTaskIds(id);
 					const results = await Promise.all(
-						taskIds.map((taskId) => tmCore.tasks.get(taskId, tag))
+						taskIds.map((taskId) => tmCore.tasks.get(taskId, normalizedTag))
 					);
 
 					const tasks: (Task | Subtask)[] = [];
@@ -59,8 +64,8 @@ export function registerGetTaskTool(server: FastMCP) {
 						if (!result.task) continue;
 
 						// If status filter is provided, filter subtasks (create copy to avoid mutation)
-						if (status && result.task.subtasks) {
-							const statusFilters = status
+						if (normalizedStatus && result.task.subtasks) {
+							const statusFilters = normalizedStatus
 								.split(',')
 								.map((s) => s.trim().toLowerCase());
 							const filteredSubtasks = result.task.subtasks.filter((st) =>
@@ -100,7 +105,7 @@ export function registerGetTaskTool(server: FastMCP) {
 						},
 						log,
 						projectRoot,
-						tag
+						tag: normalizedTag
 					});
 				} catch (error: any) {
 					log.error(`Error in get-task: ${error.message}`);
