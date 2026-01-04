@@ -5,9 +5,10 @@ WORKDIR /app
 # This layer will be cached unless package.json or package-lock.json changes
 COPY package.json package-lock.json ./
 
-# Copy workspace packages (needed for npm workspaces)
-# Copy packages directory before install so npm can resolve workspace dependencies
+# Copy workspace packages and apps (needed for npm workspaces)
+# Copy packages and apps directories before install so npm can resolve workspace dependencies
 COPY packages ./packages
+COPY apps ./apps
 
 # Install dependencies with npm install
 # Using npm install instead of npm ci because package-lock.json may be out of sync
@@ -37,6 +38,8 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/assets ./assets
 COPY --from=builder /app/package.json /app/package-lock.json ./
 COPY --from=builder /app/node_modules ./node_modules
+# Copy apps directory for @tm/mcp module resolution (even if bundled, Node.js may need it for resolution)
+COPY --from=builder /app/apps ./apps
 
 ENV HOST=0.0.0.0
 ENV PORT=3004
